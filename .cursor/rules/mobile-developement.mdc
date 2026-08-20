@@ -1,0 +1,140 @@
+---
+alwaysApply: true
+---
+
+## Ecommerce Application
+
+The mobile application must reproduce the required functionality
+of the existing ecommerce web application.
+
+The existing web application is the functional reference.
+
+Major domains include:
+
+- Shopping
+- Categories
+- Products
+- Cart
+- Checkout
+- Payments
+- Customer
+- Seller
+- Affiliate
+- Admin
+
+The mobile application should preserve the business behavior of
+the existing system while adapting the user experience to mobile.
+
+Do not blindly reproduce web layouts.
+
+Use mobile-appropriate navigation, layouts and interactions.
+
+## Roles
+
+The application supports:
+
+- Customer
+- Seller
+- Affiliate
+- Admin
+
+Role-based access must be enforced by the backend.
+
+The mobile application may use the authenticated user's role to
+determine navigation and UI, but the client must never be treated
+as the source of authorization.
+
+## Shopping
+
+Shopping functionality includes:
+
+- Home
+- Categories
+- Subcategories
+- Child categories
+- Product listing
+- Product details
+- Search
+- Cart
+- Checkout
+- Payments
+
+## Customer
+
+Customer functionality includes:
+
+- Authentication
+- Dashboard
+- Profile
+- Orders
+- Addresses
+- Wishlist
+- Settings
+- Other functionality discovered in the existing application
+
+## Seller
+
+Seller functionality includes:
+
+- Authentication
+- Dashboard
+- Product management
+- Inventory
+- Orders
+- Earnings
+- Profile
+- Other functionality discovered in the existing application
+
+## Affiliate
+
+Affiliate functionality includes:
+
+- Authentication
+- Dashboard
+- Affiliate links
+- Referrals
+- Commissions
+- Earnings
+- Withdrawals
+- Other functionality discovered in the existing application
+
+## Admin
+
+Admin functionality includes:
+
+- Authentication
+- Dashboard
+- User management
+- Customer management
+- Seller management
+- Affiliate management
+- Product management
+- Category management
+- Order management
+- Payment management
+- Reports
+- Settings
+- Other functionality discovered in the existing application
+
+## Functional Parity
+
+Before considering a feature complete, compare the mobile
+implementation against the corresponding web functionality.
+
+Verify:
+
+- API behavior
+- Business rules
+- Permissions
+- Validation
+- User actions
+- Success states
+- Loading states
+- Empty states
+- Error states
+- Edge cases
+
+Mobile UI does not need to visually match the web UI.
+
+Mobile functionality and business behavior should match unless
+a mobile-specific UX decision has been explicitly approved.
