@@ -108,6 +108,31 @@
 
 - ⚪ Mobile admin decision required
 
+### Admin modules (mobile)
+
+| Module | Status |
+|---|---|
+| Dashboard | 🟢 |
+| Seller Management | 🟢 |
+| Order Management | 🟢 |
+| Product Management | 🟢 **Frozen** |
+| User Management | 🟢 **Frozen** |
+| Commission / Payout | 🟢 **Frozen** (Phases 0–4) |
+| Settings | 🟢 **Frozen** (V1) |
+| Attributes | 🟢 **Phase 3 complete** — freeze pending QA |
+| Reviews | 🟢 **Phase 3 complete** — freeze pending QA |
+| Coupons | 🟢 **Phase 3 complete** — freeze pending QA |
+
+**Settings V1 frozen:** Hub + commission rates (3) + featured shops. See `src/features/admin/settings/FROZEN.md`.
+
+**Attributes Phase 3:** Global attribute list + add/rename/delete UI with mobile validation. Freeze after QA — see `.cursor/docs/ADMIN_ATTRIBUTES_PHASE1.md`.
+
+**Coupons Phase 3:** Admin-owned list (pagination, pull-to-refresh, load-more), create/edit form with mobile validation, detail with edit/delete, `createdBy` preservation on edit. Freeze after QA — see `.cursor/docs/ADMIN_COUPONS_PHASE1.md`.
+
+**Reviews Phase 3:** List + detail + status moderation UI with populated-field preservation. Freeze after QA — see `.cursor/docs/ADMIN_REVIEWS_PHASE1.md`.
+
+**Commission / Payout freeze notes:** See `src/features/admin/commission/FROZEN.md`. Rates live under Settings; payout ops stay frozen. GetPaid recipient flow is a separate track.
+
 ## Cross-Cutting
 
 - ⬜ Notifications

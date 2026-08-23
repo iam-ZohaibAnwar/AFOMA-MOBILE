@@ -42,6 +42,21 @@ export function extractCreatedOrderId(response: CreateCheckoutOrderResponse): st
   return response.Data?.result?.id ?? response.orderId ?? response._id;
 }
 
+export function extractPayPalApprovalUrl(
+  response: CreateCheckoutOrderResponse,
+  orderId: string,
+): string {
+  const links = response.Data?.result?.links;
+  if (Array.isArray(links)) {
+    const approveLink = links.find((link) => link?.rel === 'approve' && link.href)?.href;
+    if (approveLink) {
+      return approveLink;
+    }
+  }
+
+  return `https://www.paypal.com/checkoutnow?token=${encodeURIComponent(orderId)}`;
+}
+
 /** POST /paypal/captureorder — completes checkout payment (web parity). */
 export async function captureCheckoutOrder(
   body: CaptureCheckoutOrderRequest,
@@ -56,10 +71,18 @@ export async function captureCheckoutOrder(
 
 export function extractCaptureOrderDetails(
   response: CaptureCheckoutOrderResponse,
-  paypalOrderId: string,
+  paymentOrderId: string,
+  paymentMethod: 'paypal' | 'stripe' | 'korapay' = 'paypal',
 ): Array<{ label: string; value: string }> {
+  const paymentLabel =
+    paymentMethod === 'stripe'
+      ? 'Payment Intent ID'
+      : paymentMethod === 'korapay'
+        ? 'Korapay Reference'
+        : 'PayPal Order ID';
+
   const details: Array<{ label: string; value: string }> = [
-    { label: 'PayPal Order ID', value: paypalOrderId },
+    { label: paymentLabel, value: paymentOrderId },
   ];
 
   if (response.orderId) {

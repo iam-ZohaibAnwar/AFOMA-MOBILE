@@ -5,26 +5,33 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AuthButton, AuthErrorText, OtpInput } from '../components/AuthForm';
+import { AppButton } from '../../../components/ui/AppButton';
+import { AppText } from '../../../components/ui/AppText';
+import { HeaderBackButton } from '../../../components/ui/HeaderBackButton';
+import { completeAuthNavigation } from '../utils/authNavigation';
+import type { AuthStackParamList, RootStackParamList } from '../../../app/navigation/types';
+import { colors, spacing } from '../../../design-system';
+import { getErrorMessage } from '../../../services/api/errors';
+import { AuthErrorText, OtpInput } from '../components/AuthForm';
+import { OtpVerificationHeroIcon } from '../components/OtpVerificationHeroIcon';
 import { useAuth } from '../hooks/useAuth';
 import { useOtpResendCooldown } from '../hooks/useOtpResendCooldown';
 import { isCompleteOtp } from '../utils/otp';
-import type { AuthStackParamList, RootStackParamList } from '../../../app/navigation/types';
-import { getErrorMessage } from '../../../services/api/errors';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'OtpVerification'>;
 
 export function OtpVerificationScreen({ navigation, route }: Props) {
-  const { email, otpToken: initialOtpToken } = route.params;
+  const { email, otpToken: initialOtpToken, returnTo } = route.params;
   const { requestOtp, verifyOtp } = useAuth();
   const rootNavigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const insets = useSafeAreaInsets();
 
   const [otpToken, setOtpToken] = useState(initialOtpToken);
   const [otp, setOtp] = useState('');
@@ -51,7 +58,7 @@ export function OtpVerificationScreen({ navigation, route }: Props) {
 
       try {
         await verifyOtp({ otp: code, otpToken });
-        rootNavigation.navigate('Shopping', { screen: 'Home' });
+        completeAuthNavigation(rootNavigation, returnTo);
       } catch (err) {
         setOtpError(true);
         setError(getErrorMessage(err, 'Invalid OTP'));
@@ -59,7 +66,7 @@ export function OtpVerificationScreen({ navigation, route }: Props) {
         setLoading(false);
       }
     },
-    [loading, otpToken, rootNavigation, verifyOtp],
+    [loading, otpToken, returnTo, rootNavigation, verifyOtp],
   );
 
   const handleResend = async () => {
@@ -88,52 +95,76 @@ export function OtpVerificationScreen({ navigation, route }: Props) {
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <View style={styles.card}>
-          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Text style={styles.backText}>Back</Text>
-          </Pressable>
+      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
+        <HeaderBackButton onPress={() => navigation.goBack()} />
+        <AppText variant="h3" style={styles.headerTitle}>
+          Verification
+        </AppText>
+        <View style={styles.headerSpacer} />
+      </View>
+      <View style={styles.headerDivider} />
 
-          <Text style={styles.title}>Enter verification code</Text>
-          <Text style={styles.subtitle}>
-            We sent a 6-digit code to{'\n'}
-            <Text style={styles.email}>{email}</Text>
-          </Text>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.heroIconWrap}>
+          <OtpVerificationHeroIcon />
+        </View>
 
-          <OtpInput
-            value={otp}
-            onChange={(value) => {
-              setOtp(value);
-              if (otpError) {
-                setOtpError(false);
-                setError(null);
-              }
-            }}
-            onComplete={(value) => void handleVerify(value)}
-            error={otpError}
-            disabled={loading}
-          />
+        <AppText variant="h2" style={styles.title}>
+          Verification Code
+        </AppText>
+        <AppText variant="body" color="textSecondary" style={styles.subtitle}>
+          We have sent the code verification to{' '}
+          <AppText variant="bodyMedium" style={styles.email}>
+            {email}
+          </AppText>
+        </AppText>
 
-          <AuthErrorText message={error} />
+        <OtpInput
+          value={otp}
+          onChange={(value) => {
+            setOtp(value);
+            if (otpError) {
+              setOtpError(false);
+              setError(null);
+            }
+          }}
+          onComplete={(value) => void handleVerify(value)}
+          error={otpError}
+          disabled={loading}
+        />
 
-          <View style={styles.resendWrap}>
-            {canResend ? (
-              <Pressable onPress={() => void handleResend()} disabled={resending}>
-                <Text style={styles.resendLink}>{resending ? 'Sending...' : 'Resend OTP'}</Text>
-              </Pressable>
-            ) : (
-              <Text style={styles.resendTimer}>Resend OTP in {secondsRemaining}s</Text>
-            )}
-          </View>
+        <AuthErrorText message={error} />
 
-          <View style={styles.buttonWrap}>
-            <AuthButton
-              label="Verify"
-              onPress={() => void handleVerify(otp)}
-              loading={loading}
-              disabled={!isCompleteOtp(otp)}
-            />
-          </View>
+        <AppButton
+          label="Submit"
+          fullWidth
+          size="lg"
+          shape="pill"
+          loading={loading}
+          disabled={!isCompleteOtp(otp)}
+          onPress={() => void handleVerify(otp)}
+          style={styles.submitButton}
+        />
+
+        <View style={styles.resendWrap}>
+          <AppText variant="body" color="textSecondary">
+            Didn&apos;t receive the code?{' '}
+          </AppText>
+          {canResend ? (
+            <Pressable accessibilityRole="button" onPress={() => void handleResend()} disabled={resending}>
+              <AppText variant="bodyMedium" color="textLink" style={styles.resendLink}>
+                {resending ? 'Sending...' : 'Resend'}
+              </AppText>
+            </Pressable>
+          ) : (
+            <AppText variant="body" color="textMuted">
+              Resend in {secondsRemaining}s
+            </AppText>
+          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -143,60 +174,64 @@ export function OtpVerificationScreen({ navigation, route }: Props) {
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: colors.background,
   },
-  container: {
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
+    backgroundColor: colors.background,
+  },
+  headerTitle: {
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  headerSpacer: {
+    width: 40,
+  },
+  headerDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+  },
+  content: {
     flexGrow: 1,
-    justifyContent: 'center',
-    padding: 24,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.xxl,
+    alignItems: 'center',
   },
-  card: {
-    backgroundColor: '#FFEDD5',
-    borderRadius: 16,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    marginBottom: 12,
-  },
-  backText: {
-    color: '#1D4ED8',
-    fontSize: 15,
-    fontWeight: '600',
+  heroIconWrap: {
+    marginBottom: spacing.xl,
   },
   title: {
-    fontSize: 24,
+    color: colors.textPrimary,
     fontWeight: '700',
-    color: '#172554',
-    marginBottom: 8,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
   },
   subtitle: {
-    fontSize: 15,
-    color: '#475569',
-    marginBottom: 24,
+    textAlign: 'center',
     lineHeight: 22,
+    marginBottom: spacing.xl,
+    paddingHorizontal: spacing.md,
   },
   email: {
+    color: colors.textPrimary,
     fontWeight: '600',
-    color: '#172554',
+  },
+  submitButton: {
+    marginTop: spacing.xl,
   },
   resendWrap: {
-    marginTop: 16,
+    marginTop: spacing.lg,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
     alignItems: 'center',
   },
   resendLink: {
-    color: '#1D4ED8',
-    fontSize: 14,
     fontWeight: '600',
-    textDecorationLine: 'underline',
-  },
-  resendTimer: {
-    color: '#64748B',
-    fontSize: 14,
-  },
-  buttonWrap: {
-    marginTop: 20,
   },
 });

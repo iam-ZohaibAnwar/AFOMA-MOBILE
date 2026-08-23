@@ -138,3 +138,19 @@ Mobile UI does not need to visually match the web UI.
 
 Mobile functionality and business behavior should match unless
 a mobile-specific UX decision has been explicitly approved.
+
+## Zero-Blocking Navigation
+
+See `.cursor/rules/zero-blocking-navigation.mdc` for the global UX rule:
+render screens immediately, hydrate data in the background, and avoid
+skeletons or full-screen spinners as the default navigation experience.
+
+## Category Discovery
+
+See `.cursor/rules/category-discovery-ux.mdc` — flatten category hierarchy
+in the UI; use the Category tab as an exploration screen, not a folder tree.
+
+## Account Hub
+
+See `.cursor/rules/account-hub-ux.mdc` — Account is the unified hub for Personal,
+Seller, and Preferences. Do not add a separate Seller Account UX layer.

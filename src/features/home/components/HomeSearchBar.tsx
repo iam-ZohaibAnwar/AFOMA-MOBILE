@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { homeColors, homeRadii, homeShadows, homeSpacing } from '../theme/homeTheme';
 
@@ -7,16 +8,16 @@ interface HomeSearchBarProps {
 }
 
 export function HomeSearchBar({ onPress }: HomeSearchBarProps) {
+  const insets = useSafeAreaInsets();
+
   return (
-    <View style={styles.wrapper}>
+    <View style={[styles.wrapper, { paddingTop: insets.top + 10 }]}>
       <Pressable
         style={({ pressed }) => [styles.container, pressed && styles.containerPressed]}
         onPress={onPress}
       >
-        <View style={styles.iconWrap}>
-          <Text style={styles.icon}>⌕</Text>
-        </View>
-        <Text style={styles.placeholder}>Search products, artisans, and categories</Text>
+        <Text style={styles.icon}>⌕</Text>
+        <Text style={styles.placeholder}>Search products</Text>
       </Pressable>
     </View>
   );
@@ -25,15 +26,16 @@ export function HomeSearchBar({ onPress }: HomeSearchBarProps) {
 const styles = StyleSheet.create({
   wrapper: {
     paddingHorizontal: homeSpacing.screen,
-    marginTop: homeSpacing.block,
+    paddingBottom: 4,
+    backgroundColor: homeColors.background,
   },
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 14,
+    gap: 10,
+    paddingVertical: 13,
     paddingHorizontal: 14,
-    borderRadius: homeRadii.md,
+    borderRadius: homeRadii.pill,
     backgroundColor: homeColors.surface,
     borderWidth: 1,
     borderColor: homeColors.borderLight,
@@ -43,19 +45,10 @@ const styles = StyleSheet.create({
     opacity: 0.94,
     borderColor: homeColors.border,
   },
-  iconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: homeRadii.sm,
-    backgroundColor: homeColors.surfaceWarm,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   icon: {
     fontSize: 18,
     fontWeight: '700',
-    color: homeColors.primary,
-    marginTop: -1,
+    color: homeColors.textSubtle,
   },
   placeholder: {
     flex: 1,

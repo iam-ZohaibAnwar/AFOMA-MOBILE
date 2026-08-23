@@ -1,161 +1,169 @@
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { useState } from 'react';
+import { useMemo } from 'react';
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { CategoryGrid } from '../components/CategoryGrid';
-import { useSubCategories } from '../hooks/useSubCategories';
-import { getCategoryRouteId } from '../utils/categoryNavigation';
-import {
-  navigateFromSubCategory,
-  resolveSubCategoryDestination,
-} from '../utils/subCategoryNavigation';
+import { ErrorState } from '../../../components/ecommerce';
+import { AppText } from '../../../components/ui/AppText';
+import { colors, screenPaddingHorizontal, spacing } from '../../../design-system';
 import type { ShoppingStackParamList } from '../../../app/navigation/types';
-import type { Category } from '../../../services/types/category';
+import { useSubCategoryBrowserSections } from '../hooks/useSubCategoryBrowserSections';
+import {
+  navigateFromSubCategorySection,
+  navigateFromSubCategorySectionChild,
+  navigateToCategoryProductListing,
+} from '../utils/subCategoryNavigation';
+import { SubCategoryBrowserEmpty, SubCategoryBrowserGroup } from '../components/SubCategoryBrowserGroup';
+import { getCategoryRouteId } from '../utils/categoryNavigation';
 
 type Props = NativeStackScreenProps<ShoppingStackParamList, 'SubCategories'>;
 
+const TILES_PER_ROW = 3;
+
 export function SubCategoriesScreen({ route, navigation }: Props) {
   const { categoryId, categoryName } = route.params;
-  const { subCategories, isLoading, error, retry } = useSubCategories(categoryId);
-  const [navigatingSubCategoryId, setNavigatingSubCategoryId] = useState<string | null>(null);
+  const { width } = useWindowDimensions();
+  const { sections, isRefreshing, error, retry } = useSubCategoryBrowserSections(categoryId);
 
-  const handleSubCategoryPress = async (subCategory: Category) => {
-    const subCategoryId = getCategoryRouteId(subCategory);
-    if (!subCategoryId || navigatingSubCategoryId) {
-      return;
-    }
+  const tileWidth = useMemo(() => {
+    const horizontalPadding = screenPaddingHorizontal * 2;
+    const gaps = spacing.sm * (TILES_PER_ROW - 1);
+    return Math.floor((width - horizontalPadding - gaps) / TILES_PER_ROW);
+  }, [width]);
 
-    setNavigatingSubCategoryId(subCategoryId);
-
-    try {
-      const destination = await resolveSubCategoryDestination(subCategoryId);
-      navigateFromSubCategory(
-        navigation,
-        {
-          categoryId,
-          categoryName,
-          subCategory,
-        },
-        destination,
-      );
-    } catch {
-      navigateFromSubCategory(
-        navigation,
-        {
-          categoryId,
-          categoryName,
-          subCategory,
-        },
-        'productListing',
-      );
-    } finally {
-      setNavigatingSubCategoryId(null);
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <View style={styles.centeredState}>
-        <ActivityIndicator size="large" color="#EA580C" />
-        <Text style={styles.stateText}>Loading sub-categories...</Text>
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={styles.centeredState}>
-        <Text style={styles.errorText}>{error}</Text>
-        <Pressable style={styles.retryButton} onPress={() => void retry()}>
-          <Text style={styles.retryButtonText}>Try again</Text>
-        </Pressable>
-        <Pressable style={styles.backLink} onPress={() => navigation.goBack()}>
-          <Text style={styles.backLinkText}>Go back</Text>
-        </Pressable>
-      </View>
-    );
-  }
+  const showBlockingError = Boolean(error) && sections.length === 0 && !isRefreshing;
 
   return (
-    <View style={styles.container}>
-      {categoryName ? <Text style={styles.headerTitle}>{categoryName}</Text> : null}
-      <CategoryGrid
-        categories={subCategories}
-        onCategoryPress={(subCategory) => void handleSubCategoryPress(subCategory)}
-        emptyMessage="No sub-categories available for this category."
-      />
-      {navigatingSubCategoryId ? (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#EA580C" />
-          <Text style={styles.stateText}>Opening sub-category...</Text>
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
+      {categoryName ? (
+        <AppText variant="bodySmall" color="textMuted" style={styles.contextLabel}>
+          {categoryName}
+        </AppText>
+      ) : null}
+
+      {error && !showBlockingError ? (
+        <Pressable style={styles.refreshBanner} onPress={() => void retry()}>
+          <AppText variant="bodySmall" color="error">
+            {error}
+          </AppText>
+          <AppText variant="bodySmall" style={styles.refreshBannerAction}>
+            Retry
+          </AppText>
+        </Pressable>
+      ) : null}
+
+      {showBlockingError ? (
+        <ErrorState message={error ?? 'Failed to load categories'} onAction={() => void retry()} />
+      ) : null}
+
+      {!showBlockingError && sections.length === 0 && !isRefreshing ? (
+        <View style={styles.emptyWrap}>
+          <SubCategoryBrowserEmpty message="There are no sub-categories available for this category right now." />
+          <Pressable
+            style={styles.viewAllButton}
+            onPress={() =>
+              navigateToCategoryProductListing(navigation, {
+                categoryId,
+                categoryName,
+              })
+            }
+          >
+            <AppText variant="bodyMedium" style={styles.viewAllText}>
+              View all {categoryName ?? 'products'} →
+            </AppText>
+          </Pressable>
         </View>
       ) : null}
-    </View>
+
+      {sections.map((section) => {
+        const sectionId = getCategoryRouteId(section.subCategory);
+        if (!sectionId) {
+          return null;
+        }
+
+        return (
+          <SubCategoryBrowserGroup
+            key={sectionId}
+            section={section}
+            tileWidth={tileWidth}
+            onChildPress={(childCategory, sectionData) =>
+              navigateFromSubCategorySectionChild(navigation, {
+                categoryId,
+                categoryName,
+                subCategory: sectionData.subCategory,
+                childCategory,
+              })
+            }
+            onViewAllPress={(sectionData) =>
+              navigateFromSubCategorySection(navigation, {
+                categoryId,
+                categoryName,
+                subCategory: sectionData.subCategory,
+              })
+            }
+          />
+        );
+      })}
+
+      {sections.length > 0 ? (
+        <Pressable
+          style={styles.viewAllButton}
+          onPress={() =>
+            navigateToCategoryProductListing(navigation, {
+              categoryId,
+              categoryName,
+            })
+          }
+        >
+          <AppText variant="bodyMedium" style={styles.viewAllText}>
+            View all {categoryName ?? 'products'} →
+          </AppText>
+        </Pressable>
+      ) : null}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: colors.background,
   },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#475569',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 4,
+  content: {
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xxl,
+    paddingHorizontal: screenPaddingHorizontal,
   },
-  centeredState: {
-    flex: 1,
+  contextLabel: {
+    marginBottom: spacing.md,
+  },
+  refreshBanner: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-    backgroundColor: '#FFF7ED',
-    gap: 12,
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 12,
+    backgroundColor: colors.surfaceMuted,
   },
-  stateText: {
-    fontSize: 14,
-    color: '#64748B',
-  },
-  errorText: {
-    fontSize: 14,
-    color: '#B91C1C',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  retryButton: {
-    backgroundColor: '#EA580C',
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-  },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
+  refreshBannerAction: {
+    color: colors.textLink,
     fontWeight: '600',
   },
-  backLink: {
-    marginTop: 4,
-    paddingVertical: 8,
+  emptyWrap: {
+    gap: spacing.md,
   },
-  backLinkText: {
-    color: '#1D4ED8',
-    fontSize: 14,
-    fontWeight: '600',
+  viewAllButton: {
+    alignSelf: 'center',
+    paddingVertical: spacing.md,
   },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 247, 237, 0.88)',
-    gap: 12,
+  viewAllText: {
+    color: colors.primary,
+    fontWeight: '700',
   },
 });

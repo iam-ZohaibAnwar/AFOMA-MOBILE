@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 
 import { OTP_LENGTH } from '../../../constants/auth';
+import { colors, radius, spacing } from '../../../design-system';
 import { sanitizeOtpInput } from '../utils/otp';
 
 interface OtpInputProps {
@@ -22,6 +23,7 @@ interface OtpInputProps {
 
 export function OtpInput({ value, onChange, onComplete, error = false, disabled = false }: OtpInputProps) {
   const inputRefs = useRef<Array<TextInput | null>>([]);
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(0);
   const digits = Array.from({ length: OTP_LENGTH }, (_, index) => value[index] ?? '');
 
   const focusInput = (index: number) => {
@@ -76,24 +78,36 @@ export function OtpInput({ value, onChange, onComplete, error = false, disabled 
 
   return (
     <View style={styles.container}>
-      {digits.map((digit, index) => (
-        <TextInput
-          key={index}
-          ref={(ref) => {
-            inputRefs.current[index] = ref;
-          }}
-          style={[styles.input, error ? styles.inputError : null]}
-          value={digit}
-          onChangeText={(text) => handleChange(text, index)}
-          onKeyPress={(event) => handleKeyPress(event, index)}
-          keyboardType="number-pad"
-          maxLength={index === 0 ? OTP_LENGTH : 1}
-          editable={!disabled}
-          selectTextOnFocus
-          textContentType="oneTimeCode"
-          autoComplete="one-time-code"
-        />
-      ))}
+      {digits.map((digit, index) => {
+        const isFocused = focusedIndex === index;
+
+        return (
+          <TextInput
+            key={index}
+            ref={(ref) => {
+              inputRefs.current[index] = ref;
+            }}
+            style={[
+              styles.input,
+              isFocused && !error ? styles.inputFocused : null,
+              error ? styles.inputError : null,
+            ]}
+            value={digit}
+            onChangeText={(text) => handleChange(text, index)}
+            onKeyPress={(event) => handleKeyPress(event, index)}
+            onFocus={() => setFocusedIndex(index)}
+            onBlur={() =>
+              setFocusedIndex((current) => (current === index ? null : current))
+            }
+            keyboardType="number-pad"
+            maxLength={index === 0 ? OTP_LENGTH : 1}
+            editable={!disabled}
+            selectTextOnFocus
+            textContentType="oneTimeCode"
+            autoComplete="one-time-code"
+          />
+        );
+      })}
     </View>
   );
 }
@@ -145,21 +159,27 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
   input: {
-    width: 44,
-    height: 52,
+    width: 46,
+    height: 56,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 8,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.large,
     textAlign: 'center',
-    fontSize: 22,
-    color: '#172554',
-    backgroundColor: '#FFF7ED',
+    fontSize: 24,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    backgroundColor: colors.surface,
+  },
+  inputFocused: {
+    borderColor: colors.primary,
+    borderWidth: 2,
   },
   inputError: {
-    borderColor: '#EF4444',
+    borderColor: colors.error,
+    borderWidth: 2,
   },
   button: {
     borderRadius: 8,

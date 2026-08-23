@@ -43,6 +43,7 @@ export function calculateOrderItemUnitPrice(
   line: CartLineItem,
   order: OrderDetail,
   converted = true,
+  sellerMode = false,
 ): number {
   const productType = line.productData?.productType;
   let basePrice: number;
@@ -58,9 +59,10 @@ export function calculateOrderItemUnitPrice(
     return 0;
   }
 
-  const shippingAddon = Array.isArray(line.shippingOptions) && line.shippingOptions.length
-    ? getShippingDeductedAmount(line.shippingOptions)
-    : 0;
+  const shippingAddon =
+    !sellerMode && Array.isArray(line.shippingOptions) && line.shippingOptions.length
+      ? getShippingDeductedAmount(line.shippingOptions)
+      : 0;
 
   const priceWithShipping = basePrice + shippingAddon;
   return applyConversion(priceWithShipping, order, converted);
@@ -71,6 +73,7 @@ export function calculateOrderItemLineTotal(
   line: CartLineItem,
   order: OrderDetail,
   converted = true,
+  sellerMode = false,
 ): number {
   const productType = line.productData?.productType;
   const discountCode = Number(line.productData?.discountCode);
@@ -90,9 +93,10 @@ export function calculateOrderItemLineTotal(
     return 0;
   }
 
-  const shippingAddon = Array.isArray(line.shippingOptions) && line.shippingOptions.length
-    ? getShippingDeductedAmount(line.shippingOptions)
-    : 0;
+  const shippingAddon =
+    !sellerMode && Array.isArray(line.shippingOptions) && line.shippingOptions.length
+      ? getShippingDeductedAmount(line.shippingOptions)
+      : 0;
 
   const coupon =
     line.productData?.couponCode && line.productData?.couponDiscount

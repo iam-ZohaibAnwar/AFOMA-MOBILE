@@ -1,0 +1,114 @@
+---
+description: AFOMA zero-blocking navigation — render screens immediately, hydrate data in background
+alwaysApply: true
+---
+
+# AFOMA — Zero-Blocking Navigation & Continuous UI
+
+This is a global application rule for the AFOMA mobile app.
+
+The application must feel immediate and continuous.
+
+Do NOT treat loading as a separate screen/state that the user must wait through whenever it can be avoided.
+
+The user should experience:
+
+```
+USER ACTION
+→ IMMEDIATE RESPONSE
+→ IMMEDIATE NAVIGATION
+→ SCREEN RENDERS
+→ DATA HYDRATES/UPDATES
+```
+
+NOT:
+
+```
+USER ACTION
+→ LOADING
+→ SKELETON
+→ WAIT
+→ SCREEN
+```
+
+## Architecture
+
+Prefer **UI → Cache → API**, not **UI → API → Loading → UI**.
+
+1. Render the destination screen immediately.
+2. Show static UI and cached/previously known data immediately.
+3. Fetch fresh data in the background.
+4. Update only the portions that changed.
+5. Never replace the entire screen with a loading state when avoidable.
+
+## 1. Navigation must never wait for data
+
+When the destination screen is known, navigate immediately.
+
+Bad: tap → await API → set loading → navigate
+
+Good: tap → navigate → fetch/subscribe/update data
+
+## 2. Do not use skeletons as the default experience
+
+Skeleton screens are NOT the default loading strategy for AFOMA.
+
+Do not automatically add skeleton loaders to every screen.
+
+A skeleton should only be used when:
+- the screen cannot meaningfully render without the data, AND
+- there is no existing/cached content to display.
+
+Even then, prefer rendering the actual screen structure and progressively filling content.
+
+## 3. Use cached data
+
+If data already exists in React state, context, query cache, navigation state, local storage, or `src/services/cache/screenCache.ts`, reuse it immediately. Then refresh in the background if necessary.
+
+Never throw away valid existing data just because a refresh request started.
+
+## 4. Prefetch when obvious
+
+When the next destination is predictable, prefetch likely data (categories, product details, shop data). Do not aggressively prefetch everything.
+
+## 5. Animation should replace perceived waiting
+
+Use lightweight animation (opacity, translate, scale). Typical durations: 120–180ms micro, 180–280ms content, 280–400ms major. Do NOT delay navigation for animation.
+
+## 6. Never show a full-screen spinner for normal navigation
+
+Avoid full-screen `Loading...` / `ActivityIndicator` for Category, Shop, Product Listing, Product Detail, Search, Account, Cart, Orders, and similar normal navigation.
+
+These screens should render immediately whenever technically possible.
+
+## 7. Data updates must be progressive
+
+If part of a screen is available, show it. Do not hide the entire screen while one API request is pending.
+
+## 8. Error states
+
+Errors should not destroy the entire UI when cached content exists. Keep the screen visible, keep existing content, and show a small contextual error/retry when needed.
+
+Only show a blocking error when the screen genuinely cannot function without the failed data.
+
+## 9. Action-specific loading is acceptable
+
+Loading indicators are OK when an action itself requires waiting: Place Order, Payment, Upload, Save, Delete, Login submission, Add to Cart button state.
+
+Prefer changing the action's state (`Adding...` → `Added`) rather than covering the entire screen.
+
+## 10. Performance
+
+Avoid artificial delays, setTimeout-based navigation, unnecessary refetching, unnecessary screen remounts, replacing cached data with loading states, and blocking navigation on unrelated API requests.
+
+## 11. Quality bar
+
+For EVERY new screen or interaction ask: "Can the user see and interact with the destination immediately?"
+
+If yes → do it.
+
+If no → determine the smallest amount of information actually required before rendering.
+
+Do not automatically add spinner, skeleton, or loading screen just because an API request exists.
+
+AFOMA should feel: **FAST · CONTINUOUS · RESPONSIVE · TACTILE · PREMIUM**

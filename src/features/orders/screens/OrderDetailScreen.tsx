@@ -1,16 +1,25 @@
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ErrorState } from '../../../components/ecommerce/ErrorState';
+import { AppButton } from '../../../components/ui/AppButton';
+import { AppCard } from '../../../components/ui/AppCard';
+import { AppDivider } from '../../../components/ui/AppDivider';
+import { AppText } from '../../../components/ui/AppText';
+import { colors, spacing } from '../../../design-system';
+import type { ShoppingStackParamList } from '../../../app/navigation/types';
+import { useRequireAuth } from '../../auth/hooks/useRequireAuth';
+import { authReturnTo } from '../../auth/utils/authNavigation';
 import { OrderLineItemRow } from '../components/OrderLineItemRow';
+import { useCancelOrder } from '../hooks/useCancelOrder';
 import { useOrderDetail } from '../hooks/useOrderDetail';
 import {
+  canCancelOrder,
+  formatBillingAddressLines,
+  formatCustomerEmail,
+  formatCustomerName,
   formatOrderDate,
   formatOrderDisplayId,
   formatOrderStatus,
@@ -19,12 +28,25 @@ import {
 import {
   calculateOrderGrandTotal,
   calculateOrderItemsSubTotal,
+  calculateOrderServiceFees,
   calculateOrderShippingTotal,
   formatOrderMoney,
 } from '../utils/orderPricing';
-import type { ShoppingStackParamList } from '../../../app/navigation/types';
 
 type Props = NativeStackScreenProps<ShoppingStackParamList, 'OrderDetail'>;
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.detailRow}>
+      <AppText variant="caption" color="textMuted" style={styles.detailLabel}>
+        {label}
+      </AppText>
+      <AppText variant="bodyMedium" style={styles.detailValue}>
+        {value}
+      </AppText>
+    </View>
+  );
+}
 
 function SummaryRow({ label, value, emphasized = false }: {
   label: string;
@@ -33,195 +55,302 @@ function SummaryRow({ label, value, emphasized = false }: {
 }) {
   return (
     <View style={styles.summaryRow}>
-      <Text style={emphasized ? styles.totalLabel : styles.summaryLabel}>{label}</Text>
-      <Text style={emphasized ? styles.totalValue : styles.summaryValue}>{value}</Text>
+      <AppText variant={emphasized ? 'bodyMedium' : 'bodySmall'} color={emphasized ? 'textPrimary' : 'textSecondary'}>
+        {label}
+      </AppText>
+      <AppText
+        variant={emphasized ? 'bodyMedium' : 'bodySmall'}
+        color={emphasized ? 'secondary' : 'textPrimary'}
+        style={emphasized ? styles.summaryTotal : undefined}
+      >
+        {value}
+      </AppText>
     </View>
   );
 }
 
 export function OrderDetailScreen({ route }: Props) {
   const { orderId } = route.params;
-  const { order, isLoading, error, retry } = useOrderDetail(orderId);
+  const insets = useSafeAreaInsets();
+  const returnTo = useMemo(() => authReturnTo.orderDetail(orderId), [orderId]);
+  const { isAuthorized } = useRequireAuth(returnTo);
+  const { order, isLoading, error, isNotFound, retry } = useOrderDetail(orderId);
+  const [cancelSuccessMessage, setCancelSuccessMessage] = useState<string | null>(null);
+
+  const { cancelOrder, isCancelling, cancelError, clearCancelError } = useCancelOrder(orderId, () => {
+    setCancelSuccessMessage('Order cancelled successfully.');
+    void retry();
+  });
+
+  const handleCancelPress = () => {
+    if (!order || !canCancelOrder(order.status) || isCancelling) {
+      return;
+    }
+
+    Alert.alert(
+      'Cancel Order',
+      'Are you sure you want to cancel this order?',
+      [
+        { text: 'Keep Order', style: 'cancel' },
+        {
+          text: 'Yes, Cancel',
+          style: 'destructive',
+          onPress: () => {
+            clearCancelError();
+            void cancelOrder();
+          },
+        },
+      ],
+    );
+  };
+
+  if (!isAuthorized) {
+    return (
+      <View style={[styles.centeredState, { paddingBottom: insets.bottom }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   if (isLoading) {
     return (
-      <View style={styles.centeredState}>
-        <ActivityIndicator size="large" color="#EA580C" />
-        <Text style={styles.stateText}>Loading order...</Text>
+      <View style={[styles.centeredState, { paddingBottom: insets.bottom }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <AppText variant="bodySmall" color="textMuted">
+          Loading order...
+        </AppText>
       </View>
     );
   }
 
   if (error || !order) {
     return (
-      <View style={styles.centeredState}>
-        <Text style={styles.errorText}>{error ?? 'Order not found.'}</Text>
-        <Pressable style={styles.primaryButton} onPress={() => void retry()}>
-          <Text style={styles.primaryButtonText}>Try again</Text>
-        </Pressable>
+      <View style={[styles.centeredState, { paddingBottom: insets.bottom }]}>
+        <ErrorState
+          message={isNotFound ? 'Order not found.' : (error ?? 'Failed to load order.')}
+          onAction={() => void retry()}
+          style={styles.errorState}
+        />
       </View>
     );
   }
 
   const subtotal = calculateOrderItemsSubTotal(order);
+  const serviceFees = calculateOrderServiceFees(order);
   const shipping = calculateOrderShippingTotal(order);
   const total = calculateOrderGrandTotal(order);
-  const addressLines = formatShippingAddressLines(order.userInfo);
+  const shippingLines = formatShippingAddressLines(order.userInfo);
+  const billingLines = formatBillingAddressLines(order.billing_address);
+  const customerName = formatCustomerName(order.userInfo);
+  const customerEmail = formatCustomerEmail(order.userInfo) ?? order.userInfo?.email;
+  const cancellable = canCancelOrder(order.status);
 
   return (
-    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.sectionBox}>
-        <Text style={styles.sectionTitle}>Order Information</Text>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Order ID</Text>
-          <Text style={styles.infoValue}>{formatOrderDisplayId(order._id ?? orderId)}</Text>
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={[
+        styles.content,
+        { paddingBottom: insets.bottom + spacing.xxl },
+      ]}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.headerRow}>
+        <View style={styles.headerCopy}>
+          <AppText variant="h3" style={styles.headerTitle}>
+            Order {formatOrderDisplayId(order._id ?? orderId)}
+          </AppText>
+          <AppText variant="bodySmall" color="textSecondary">
+            Placed {formatOrderDate(order.createdAt)}
+          </AppText>
         </View>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Order Date</Text>
-          <Text style={styles.infoValue}>{formatOrderDate(order.createdAt)}</Text>
-        </View>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Status</Text>
-          <Text style={styles.statusValue}>{formatOrderStatus(order.status)}</Text>
-        </View>
+
+        <AppButton
+          label="Cancel"
+          variant="outline"
+          size="md"
+          disabled={!cancellable || isCancelling}
+          loading={isCancelling}
+          onPress={handleCancelPress}
+          style={styles.cancelButton}
+          labelStyle={styles.cancelButtonLabel}
+        />
       </View>
 
-      <View style={styles.sectionBox}>
-        <Text style={styles.sectionTitle}>Products</Text>
+      {cancelSuccessMessage ? (
+        <AppCard variant="flat" style={styles.banner}>
+          <AppText variant="bodySmall" color="success">
+            {cancelSuccessMessage}
+          </AppText>
+        </AppCard>
+      ) : null}
+
+      {cancelError ? (
+        <ErrorState
+          message={cancelError}
+          actionLabel="Dismiss"
+          onAction={clearCancelError}
+          style={styles.inlineError}
+        />
+      ) : null}
+
+      <AppCard variant="flat">
+        <AppText variant="bodyMedium" style={styles.sectionTitle}>
+          Order Information
+        </AppText>
+        <DetailRow label="Order ID" value={formatOrderDisplayId(order._id ?? orderId)} />
+        <DetailRow label="Order Date" value={formatOrderDate(order.createdAt)} />
+        <DetailRow label="Status" value={formatOrderStatus(order.status)} />
+        {customerName ? <DetailRow label="Customer" value={customerName} /> : null}
+        {customerEmail ? <DetailRow label="Email" value={customerEmail} /> : null}
+      </AppCard>
+
+      <AppCard variant="flat">
+        <AppText variant="bodyMedium" style={styles.sectionTitle}>
+          Products
+        </AppText>
         {order.cart?.length ? (
-          order.cart.map((line, index) => (
-            <OrderLineItemRow
-              key={`${line.productData?._id ?? 'line'}-${index}`}
-              line={line}
-              order={order}
-            />
-          ))
+          <View style={styles.productList}>
+            {order.cart.map((line, index) => (
+              <OrderLineItemRow
+                key={`${line.productData?._id ?? 'line'}-${index}`}
+                line={line}
+                order={order}
+              />
+            ))}
+          </View>
         ) : (
-          <Text style={styles.emptyText}>No products found for this order.</Text>
+          <AppText variant="bodySmall" color="textMuted">
+            No products found for this order.
+          </AppText>
         )}
-      </View>
+      </AppCard>
 
-      <View style={styles.sectionBox}>
-        <Text style={styles.sectionTitle}>Order Summary</Text>
-        <SummaryRow label="Subtotal" value={formatOrderMoney(order, subtotal)} />
-        <SummaryRow label="Shipping" value={formatOrderMoney(order, shipping)} />
+      <AppCard variant="flat">
+        <AppText variant="bodyMedium" style={styles.sectionTitle}>
+          Payment Details
+        </AppText>
+        <SummaryRow label="Item(s) total" value={formatOrderMoney(order, subtotal)} />
+        <SummaryRow
+          label="Service fees"
+          value={serviceFees > 0 ? formatOrderMoney(order, serviceFees) : '—'}
+        />
+        <SummaryRow label="Shipping charges" value={formatOrderMoney(order, shipping)} />
+        <AppDivider style={styles.summaryDivider} />
         <SummaryRow label="Total" value={formatOrderMoney(order, total)} emphasized />
-      </View>
+      </AppCard>
 
-      <View style={styles.sectionBox}>
-        <Text style={styles.sectionTitle}>Shipping Address</Text>
-        {addressLines.map((line, index) => (
-          <Text key={`${line}-${index}`} style={styles.addressLine}>
+      <AppCard variant="flat">
+        <AppText variant="bodyMedium" style={styles.sectionTitle}>
+          Shipping Information
+        </AppText>
+        {shippingLines.map((line, index) => (
+          <AppText key={`${line}-${index}`} variant="bodySmall" style={styles.addressLine}>
             {line}
-          </Text>
+          </AppText>
         ))}
-      </View>
+      </AppCard>
+
+      {billingLines.length > 0 ? (
+        <AppCard variant="flat">
+          <AppText variant="bodyMedium" style={styles.sectionTitle}>
+            Billing Information
+          </AppText>
+          {billingLines.map((line, index) => (
+            <AppText key={`${line}-${index}`} variant="bodySmall" style={styles.addressLine}>
+              {line}
+            </AppText>
+          ))}
+        </AppCard>
+      ) : null}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 16,
-    gap: 16,
-    paddingBottom: 32,
-    backgroundColor: '#FFF7ED',
+  screen: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  content: {
+    padding: spacing.lg,
+    gap: spacing.lg,
   },
   centeredState: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
-    backgroundColor: '#FFF7ED',
-    gap: 12,
+    padding: spacing.xl,
+    backgroundColor: colors.background,
+    gap: spacing.md,
   },
-  stateText: {
-    fontSize: 14,
-    color: '#64748B',
+  errorState: {
+    alignSelf: 'stretch',
+    marginHorizontal: 0,
   },
-  errorText: {
-    fontSize: 14,
-    color: '#B91C1C',
-    textAlign: 'center',
-    lineHeight: 20,
+  inlineError: {
+    alignSelf: 'stretch',
+    marginHorizontal: 0,
   },
-  primaryButton: {
-    backgroundColor: '#EA580C',
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    minWidth: 180,
-    alignItems: 'center',
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.md,
   },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
+  headerCopy: {
+    flex: 1,
+    gap: spacing.xs,
   },
-  sectionBox: {
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-    gap: 12,
+  headerTitle: {
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  cancelButton: {
+    borderColor: colors.error,
+    minWidth: 92,
+  },
+  cancelButtonLabel: {
+    color: colors.error,
+  },
+  banner: {
+    backgroundColor: colors.successBg,
+    borderColor: colors.successSoft,
   },
   sectionTitle: {
-    fontSize: 16,
+    color: colors.textPrimary,
     fontWeight: '700',
-    color: '#172554',
+    marginBottom: spacing.sm,
   },
-  infoRow: {
-    gap: 4,
+  detailRow: {
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
   },
-  infoLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
+  detailLabel: {
     textTransform: 'uppercase',
-  },
-  infoValue: {
-    fontSize: 15,
     fontWeight: '600',
-    color: '#172554',
   },
-  statusValue: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#047857',
+  detailValue: {
+    color: colors.textPrimary,
   },
-  emptyText: {
-    fontSize: 14,
-    color: '#64748B',
+  productList: {
+    gap: spacing.sm,
   },
   summaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: spacing.md,
+    marginBottom: spacing.sm,
   },
-  summaryLabel: {
-    fontSize: 14,
-    color: '#475569',
-  },
-  summaryValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#172554',
-  },
-  totalLabel: {
-    fontSize: 16,
+  summaryTotal: {
     fontWeight: '700',
-    color: '#172554',
   },
-  totalValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#EA580C',
+  summaryDivider: {
+    marginVertical: spacing.sm,
   },
   addressLine: {
-    fontSize: 14,
-    color: '#172554',
+    color: colors.textPrimary,
     lineHeight: 20,
+    marginBottom: spacing.xs,
   },
 });

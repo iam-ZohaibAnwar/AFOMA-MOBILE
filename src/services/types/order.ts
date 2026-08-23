@@ -33,11 +33,23 @@ export interface OrderUserInfo {
   zipcode?: string;
 }
 
+export interface OrderBillingAddress {
+  name?: {
+    given_name?: string;
+    surname?: string;
+  };
+  email_address?: string;
+  address?: {
+    country_code?: string;
+  };
+}
+
 export interface OrderDetail extends OrderSummary {
   conversionRate?: number | string;
   serviceFees?: number | string;
   cart?: import('./cart').CartLineItem[];
   userInfo?: OrderUserInfo;
+  billing_address?: OrderBillingAddress;
 }
 
 /** Payload traced from web checkout POST /paypal/createorder. */
@@ -50,6 +62,12 @@ export interface CreateCheckoutOrderRequest {
   conversionRate?: number | string;
   coupon?: string;
   paymentMethod?: string;
+  returnUrl?: string;
+  cancelUrl?: string;
+  return_url?: string;
+  cancel_url?: string;
+  client?: string;
+  platform?: string;
 }
 
 export interface CreateCheckoutOrderResponse {
@@ -60,6 +78,11 @@ export interface CreateCheckoutOrderResponse {
   Data?: {
     result?: {
       id?: string;
+      links?: Array<{
+        href?: string;
+        rel?: string;
+        method?: string;
+      }>;
     };
   };
 }

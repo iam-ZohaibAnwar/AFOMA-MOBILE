@@ -7,6 +7,8 @@ export interface ShippingAddress {
   state: string;
   zip: string;
   country: string;
+  countryCode?: string;
+  stateCode?: string;
 }
 
 export type ShippingAddressField = keyof ShippingAddress;

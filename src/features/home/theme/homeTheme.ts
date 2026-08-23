@@ -1,25 +1,29 @@
 import { Platform, type ViewStyle } from 'react-native';
 
+import { colors } from '../../../design-system';
+
+/** Home-specific layout tokens aligned with global AFOMA colors. */
 export const homeColors = {
-  background: '#FFF7ED',
-  surface: '#FFFFFF',
-  surfaceMuted: '#FFFBEB',
-  surfaceWarm: '#FFEDD5',
-  primary: '#EA580C',
-  primarySoft: '#FB923C',
-  navy: '#172554',
+  background: colors.background,
+  surface: colors.surface,
+  surfaceMuted: colors.surfaceMuted,
+  surfaceWarm: colors.surfaceSecondary,
+  primary: colors.primary,
+  primarySoft: colors.primarySoft,
+  accent: colors.secondary,
+  accentSoft: colors.secondarySoft,
+  navy: colors.textPrimary,
   navyMuted: '#1E3A8A',
-  text: '#172554',
-  textSecondary: '#475569',
-  textMuted: '#64748B',
-  textSubtle: '#94A3B8',
-  border: '#FED7AA',
+  text: colors.textPrimary,
+  textSecondary: colors.textSecondary,
+  textMuted: colors.textMuted,
+  textSubtle: colors.textSubtle,
+  border: colors.border,
   borderLight: '#FFE4C7',
-  accent: '#1D4ED8',
-  success: '#047857',
-  error: '#B91C1C',
-  errorBg: '#FEF2F2',
-  errorBorder: '#FECACA',
+  success: colors.success,
+  error: colors.error,
+  errorBg: colors.errorBg,
+  errorBorder: colors.errorBorder,
 };
 
 export const homeSpacing = {
@@ -44,7 +48,7 @@ export const homeTypography = {
     color: homeColors.navy,
   },
   logoAccent: {
-    color: homeColors.primary,
+    color: homeColors.accent,
   },
   sectionTitle: {
     fontSize: 20,

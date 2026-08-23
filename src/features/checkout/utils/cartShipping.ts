@@ -6,19 +6,37 @@ export interface SellerCartGroup {
   lines: CartLineItem[];
 }
 
+function hasShippingService(value: CartLineItem['shippingService']): value is NonNullable<CartLineItem['shippingService']> {
+  if (value == null || value === '') {
+    return false;
+  }
+
+  if (typeof value === 'object' && Object.keys(value as object).length === 0) {
+    return false;
+  }
+
+  return true;
+}
+
+/** Payload shape sent to POST /shipping/getRate — mirrors web `formatCartGrouping` cart lines. */
 function toCartLinePayload(line: CartLineItem): CartLineItem {
-  return {
+  const payload: CartLineItem = {
     orderQuantiy: line.orderQuantiy,
     totalAmount: line.totalAmount,
     productData: line.productData,
     basePrice: line.basePrice,
     maxQuantity: line.maxQuantity,
-    remark: line.remark,
+    remark: line.remark ?? '',
     shippingOptions: line.shippingOptions ?? [],
     shippingRate: line.shippingRate,
-    shippingService: line.shippingService,
     selectedVariations: line.selectedVariations,
   };
+
+  if (hasShippingService(line.shippingService)) {
+    payload.shippingService = line.shippingService;
+  }
+
+  return payload;
 }
 
 export function groupCartBySeller(cart: CartMap): SellerCartGroup[] {

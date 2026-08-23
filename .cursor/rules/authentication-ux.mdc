@@ -1,0 +1,76 @@
+---
+description: Authentication UX rules for auth-gated navigation and return-to flows
+globs:
+  - src/features/auth/**
+  - src/features/account/**
+  - src/features/orders/**
+  - src/features/checkout/**
+  - src/app/navigation/**
+alwaysApply: false
+---
+
+# Authentication UX Rule
+
+Account is an authenticated area.
+
+When an unauthenticated user taps the Account tab:
+
+- DO NOT render the authenticated Account screen.
+- Redirect the user to the existing Login screen/route.
+
+After successful authentication:
+
+- Return the user to Account, or
+- Return them to their original intended destination if they came from another protected action.
+
+The Account screen itself must also verify authentication so that protected content cannot be accessed by directly navigating to its route.
+
+Do not duplicate authentication logic. Reuse the existing auth/session state and navigation utilities in:
+
+- `src/features/auth/utils/authNavigation.ts`
+- `src/features/auth/hooks/useRequireAuth.ts`
+
+Apply the same authentication-gating principle to:
+
+- Orders
+- Profile
+- Addresses
+- Checkout
+- Place Order
+- Other authenticated-only actions
+
+Do not change the authentication API or business logic.
+
+For guest users, never display fake/empty authenticated account information just to populate the Account screen.
+
+The UX should clearly communicate why authentication is required.
+
+## Auth-gated action policy
+
+| Action         | Guest   | Logged in |
+| -------------- | ------- | --------- |
+| Home           | Yes     | Yes       |
+| Categories     | Yes     | Yes       |
+| Search         | Yes     | Yes       |
+| Product Detail | Yes     | Yes       |
+| Cart           | Yes     | Yes       |
+| Account        | Login   | Yes       |
+| Orders         | Login   | Yes       |
+| Profile        | Login   | Yes       |
+| Addresses      | Login   | Yes       |
+| Checkout       | Login   | Yes       |
+| Place Order    | Login   | Yes       |
+
+## Return-to pattern
+
+When redirecting guests to Login, pass an `AuthReturnTo` destination via `openAuthLogin(navigation, returnTo)`.
+
+After OTP verification, `completeAuthNavigation` dismisses the auth modal and navigates to the preserved destination.
+
+Example: guest cart checkout flow:
+
+```
+Checkout -> not logged in -> Login -> successful login -> Payment
+```
+
+Do not dump users on Account after login when they intended Checkout or another protected action.

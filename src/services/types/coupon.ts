@@ -9,6 +9,8 @@ export interface AppliedCoupon {
   discountAmount?: number;
   couponType?: 'percentage' | 'fixed' | string;
   createdBy?: {
+    _id?: string;
+    userId?: string;
     userRole?: string;
   };
 }

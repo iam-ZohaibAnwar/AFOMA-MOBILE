@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { colors } from '../../../design-system';
 import type { OrderSummary } from '../../../services/types/order';
 import {
   formatOrderDate,
@@ -53,9 +54,9 @@ const styles = StyleSheet.create({
   card: {
     padding: 16,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#FED7AA',
+    borderColor: colors.border,
     gap: 10,
   },
   cardPressed: {
@@ -65,7 +66,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#FFEDD5',
+    borderBottomColor: colors.divider,
   },
   orderIdLabel: {
     fontSize: 12,

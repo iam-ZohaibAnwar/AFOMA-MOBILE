@@ -1,9 +1,18 @@
 import { useState } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Pressable, StyleSheet, View } from 'react-native';
 
+import { AppText } from '../../../components/ui/AppText';
+import { colors, radius, spacing } from '../../../design-system';
 import type { CartLineItem } from '../../../services/types/cart';
 import type { OrderDetail } from '../../../services/types/order';
 import { getProductDisplayName, getProductImageUrl } from '../../products/utils/productDisplay';
+import {
+  formatLineVariations,
+  formatSellerDisplayId,
+  formatSellerDisplayName,
+  getDownloadableProductUrl,
+  isDownloadableLine,
+} from '../utils/orderDisplay';
 import {
   calculateOrderItemLineTotal,
   calculateOrderItemUnitPrice,
@@ -22,6 +31,17 @@ export function OrderLineItemRow({ line, order }: OrderLineItemRowProps) {
   const quantity = line.orderQuantiy ?? 0;
   const unitPrice = calculateOrderItemUnitPrice(line, order);
   const lineTotal = calculateOrderItemLineTotal(line, order);
+  const sellerName = formatSellerDisplayName(line);
+  const sellerId = formatSellerDisplayId(line);
+  const variations = formatLineVariations(line);
+  const downloadUrl = getDownloadableProductUrl(line);
+  const isDownloadable = isDownloadableLine(line);
+
+  const handleDownloadPress = () => {
+    if (downloadUrl) {
+      void Linking.openURL(downloadUrl);
+    }
+  };
 
   return (
     <View style={styles.card}>
@@ -35,18 +55,66 @@ export function OrderLineItemRow({ line, order }: OrderLineItemRowProps) {
           />
         ) : (
           <View style={styles.imagePlaceholder}>
-            <Text style={styles.imagePlaceholderText}>No image</Text>
+            <AppText variant="caption" color="textMuted" style={styles.placeholderText}>
+              No image
+            </AppText>
           </View>
         )}
       </View>
 
       <View style={styles.details}>
-        <Text style={styles.name} numberOfLines={2}>
+        <AppText variant="bodyMedium" numberOfLines={2} style={styles.name}>
           {product ? getProductDisplayName(product) : 'Product'}
-        </Text>
-        <Text style={styles.meta}>Qty: {quantity || '—'}</Text>
-        <Text style={styles.meta}>Unit: {formatOrderMoney(order, unitPrice)}</Text>
-        <Text style={styles.lineTotal}>Total: {formatOrderMoney(order, lineTotal)}</Text>
+        </AppText>
+
+        <AppText variant="bodySmall" color="textSecondary">
+          Qty: {quantity || '—'}
+        </AppText>
+        <AppText variant="bodySmall" color="textSecondary">
+          Unit: {formatOrderMoney(order, unitPrice)}
+        </AppText>
+        <AppText variant="bodyMedium" color="secondary" style={styles.lineTotal}>
+          Total: {formatOrderMoney(order, lineTotal)}
+        </AppText>
+
+        {product?.sku ? (
+          <AppText variant="caption" color="textMuted">
+            SKU: {product.sku}
+          </AppText>
+        ) : null}
+
+        {sellerName ? (
+          <AppText variant="caption" color="textMuted">
+            Seller: {sellerName}
+            {sellerId ? ` (${sellerId})` : ''}
+          </AppText>
+        ) : null}
+
+        {variations.map((variation) => (
+          <AppText key={variation} variant="caption" color="textMuted">
+            {variation}
+          </AppText>
+        ))}
+
+        {line.remark ? (
+          <AppText variant="caption" color="textSecondary" style={styles.remark}>
+            Note: {line.remark}
+          </AppText>
+        ) : null}
+
+        {isDownloadable ? (
+          downloadUrl ? (
+            <Pressable accessibilityRole="link" onPress={handleDownloadPress} style={styles.downloadLink}>
+              <AppText variant="bodySmall" color="textLink" style={styles.downloadText}>
+                Download product
+              </AppText>
+            </Pressable>
+          ) : (
+            <AppText variant="caption" color="textMuted">
+              Download unavailable
+            </AppText>
+          )
+        ) : null}
       </View>
     </View>
   );
@@ -55,12 +123,12 @@ export function OrderLineItemRow({ line, order }: OrderLineItemRowProps) {
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
-    gap: 12,
-    padding: 12,
-    borderRadius: 10,
-    backgroundColor: '#FFFBEB',
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.medium,
+    backgroundColor: colors.surfaceMuted,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: colors.border,
   },
   imageWrap: {
     width: 72,
@@ -69,38 +137,39 @@ const styles = StyleSheet.create({
   image: {
     width: 72,
     height: 72,
-    borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    borderRadius: radius.small,
+    backgroundColor: colors.disabledBg,
   },
   imagePlaceholder: {
     width: 72,
     height: 72,
-    borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    borderRadius: radius.small,
+    backgroundColor: colors.disabledBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  imagePlaceholderText: {
-    fontSize: 11,
-    color: '#64748B',
+  placeholderText: {
     textAlign: 'center',
   },
   details: {
     flex: 1,
-    gap: 4,
+    gap: spacing.xs,
   },
   name: {
-    fontSize: 15,
+    color: colors.textPrimary,
     fontWeight: '700',
-    color: '#172554',
-  },
-  meta: {
-    fontSize: 13,
-    color: '#475569',
   },
   lineTotal: {
-    fontSize: 14,
     fontWeight: '600',
-    color: '#EA580C',
+  },
+  remark: {
+    marginTop: spacing.xs,
+  },
+  downloadLink: {
+    marginTop: spacing.xs,
+    alignSelf: 'flex-start',
+  },
+  downloadText: {
+    fontWeight: '600',
   },
 });

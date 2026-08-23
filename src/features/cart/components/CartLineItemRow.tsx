@@ -1,59 +1,87 @@
 import { useState } from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  StyleSheet,
+  View,
+} from 'react-native';
 
+import { QuantityStepper } from '../../../components/ecommerce/QuantityStepper';
+import { AppText } from '../../../components/ui/AppText';
+import { colors, radius, spacing } from '../../../design-system';
 import type { CartLineItem } from '../../../services/types/cart';
+import { getCartLineAttributes } from '../utils/cartUtils';
 import {
   formatProductPrice,
   getProductDisplayName,
   getProductImageUrl,
-  getProductPrice,
 } from '../../products/utils/productDisplay';
+import { parseMaxQuantity } from '../utils/cartLineMerge';
 
-interface CartLineItemRowProps {
+export interface CartLineItemRowProps {
   itemId: string;
   line: CartLineItem;
+  currency?: string;
+  displayLineTotal?: number;
+  selected?: boolean;
+  onToggleSelect?: (itemId: string) => void;
   onRemove?: (itemId: string) => void;
+  onQuantityChange?: (itemId: string, nextQuantity: number) => void;
   isRemoving?: boolean;
+  isUpdating?: boolean;
   showRemove?: boolean;
+  showQuantityControls?: boolean;
 }
 
-function getLineUnitPrice(line: CartLineItem): number | undefined {
-  if (typeof line.basePrice === 'number' && Number.isFinite(line.basePrice)) {
-    return line.basePrice;
-  }
-
-  return getProductPrice(line.productData ?? {});
-}
-
-function getLineTotal(line: CartLineItem, unitPrice: number | undefined): number | undefined {
-  if (typeof line.totalAmount === 'number' && Number.isFinite(line.totalAmount)) {
-    return line.totalAmount;
-  }
-
-  const quantity = line.orderQuantiy ?? 0;
-  if (unitPrice === undefined) {
+function toDisplayAmount(amount: number | undefined): number | undefined {
+  if (amount === undefined || !Number.isFinite(amount)) {
     return undefined;
   }
 
-  return unitPrice * quantity;
+  return parseFloat(amount.toFixed(2));
 }
 
 export function CartLineItemRow({
   itemId,
   line,
+  currency = 'CAD',
+  displayLineTotal,
+  selected = true,
+  onToggleSelect,
   onRemove,
+  onQuantityChange,
   isRemoving,
-  showRemove = true,
+  isUpdating,
+  showRemove = false,
+  showQuantityControls = true,
 }: CartLineItemRowProps) {
   const [imageFailed, setImageFailed] = useState(false);
   const product = line.productData;
   const imageUrl = product ? getProductImageUrl(product) : undefined;
-  const unitPrice = getLineUnitPrice(line);
-  const lineTotal = getLineTotal(line, unitPrice);
   const quantity = line.orderQuantiy ?? 0;
+  const lineTotal = toDisplayAmount(displayLineTotal ?? line.totalAmount);
+  const attributes = getCartLineAttributes(line);
+  const maxQuantity = parseMaxQuantity(line.maxQuantity, product?.quantity);
+  const isDownloadable = product?.productType === 'Downloadable';
+  const isBusy = isRemoving || isUpdating;
 
   return (
-    <View style={styles.card}>
+    <View style={styles.container}>
+      <Pressable
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: selected }}
+        disabled={!onToggleSelect || isBusy}
+        onPress={() => onToggleSelect?.(itemId)}
+        style={({ pressed }) => [
+          styles.checkbox,
+          selected && styles.checkboxSelected,
+          pressed && styles.pressed,
+        ]}
+      >
+        {selected ? <AppText variant="caption" style={styles.checkmark}>✓</AppText> : null}
+      </Pressable>
+
       <View style={styles.imageWrap}>
         {imageUrl && !imageFailed ? (
           <Image
@@ -63,54 +91,101 @@ export function CartLineItemRow({
             onError={() => setImageFailed(true)}
           />
         ) : (
-          <View style={styles.imagePlaceholder}>
-            <Text style={styles.imagePlaceholderText}>No image</Text>
-          </View>
+          <View style={styles.imagePlaceholder} />
         )}
       </View>
 
-      <View style={styles.details}>
-        <Text style={styles.name} numberOfLines={2}>
-          {product ? getProductDisplayName(product) : 'Product'}
-        </Text>
-        <Text style={styles.meta}>Qty: {quantity}</Text>
-        <Text style={styles.meta}>Unit: {formatProductPrice(unitPrice)}</Text>
-        <Text style={styles.lineTotal}>Total: {formatProductPrice(lineTotal)}</Text>
+      <View style={styles.content}>
+        <View style={styles.topRow}>
+          <View style={styles.titleBlock}>
+            <AppText variant="bodyMedium" numberOfLines={2} style={styles.name}>
+              {product ? getProductDisplayName(product) : 'Product'}
+            </AppText>
+            {attributes ? (
+              <AppText variant="bodySmall" color="textMuted">
+                {attributes}
+              </AppText>
+            ) : null}
+          </View>
 
-        {showRemove ? (
-          <Pressable
-            style={[styles.removeButton, isRemoving && styles.removeButtonDisabled]}
-            disabled={isRemoving}
-            onPress={() => onRemove?.(itemId)}
-          >
-            {isRemoving ? (
-              <ActivityIndicator size="small" color="#B91C1C" />
-            ) : (
-              <Text style={styles.removeButtonText}>Remove</Text>
-            )}
-          </Pressable>
-        ) : null}
+          <AppText variant="bodyMedium" style={styles.price}>
+            {formatProductPrice(lineTotal, currency)}
+          </AppText>
+        </View>
+
+        <View style={styles.bottomRow}>
+          {showQuantityControls && !isDownloadable ? (
+            <QuantityStepper
+              value={quantity}
+              min={1}
+              max={Number.isFinite(maxQuantity) ? maxQuantity : undefined}
+              disabled={isBusy}
+              onDecrement={() => onQuantityChange?.(itemId, quantity - 1)}
+              onIncrement={() => onQuantityChange?.(itemId, quantity + 1)}
+              style={styles.stepper}
+            />
+          ) : (
+            <AppText variant="caption" color="textMuted">
+              Qty: {quantity}
+            </AppText>
+          )}
+
+          {showRemove ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Remove item"
+              disabled={isBusy}
+              onPress={() => onRemove?.(itemId)}
+              style={({ pressed }) => [styles.removeButton, pressed && styles.pressed]}
+            >
+              {isRemoving ? (
+                <ActivityIndicator size="small" color={colors.textMuted} />
+              ) : (
+                <AppText variant="bodySmall" color="textMuted">
+                  Remove
+                </AppText>
+              )}
+            </Pressable>
+          ) : null}
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  container: {
     flexDirection: 'row',
-    gap: 12,
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#FED7AA',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    paddingVertical: spacing.lg,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: colors.borderStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 26,
+    backgroundColor: colors.surface,
+  },
+  checkboxSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  checkmark: {
+    color: colors.textInverse,
+    fontWeight: '700',
+    fontSize: 12,
   },
   imageWrap: {
-    width: 88,
-    height: 88,
-    borderRadius: 10,
+    width: 72,
+    height: 72,
+    borderRadius: radius.large,
     overflow: 'hidden',
-    backgroundColor: '#FFEDD5',
+    backgroundColor: colors.disabledBg,
   },
   image: {
     width: '100%',
@@ -118,52 +193,44 @@ const styles = StyleSheet.create({
   },
   imagePlaceholder: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: colors.disabledBg,
   },
-  imagePlaceholderText: {
-    fontSize: 11,
-    color: '#64748B',
-    textAlign: 'center',
-  },
-  details: {
+  content: {
     flex: 1,
-    gap: 4,
+    gap: spacing.sm,
+  },
+  topRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'flex-start',
+  },
+  titleBlock: {
+    flex: 1,
+    gap: 2,
   },
   name: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#172554',
-    lineHeight: 20,
-  },
-  meta: {
-    fontSize: 13,
-    color: '#64748B',
-  },
-  lineTotal: {
-    fontSize: 14,
+    color: colors.textPrimary,
     fontWeight: '700',
-    color: '#EA580C',
-    marginTop: 2,
+  },
+  price: {
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  bottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  stepper: {
+    borderRadius: radius.pill,
+    backgroundColor: colors.disabledBg,
   },
   removeButton: {
-    alignSelf: 'flex-start',
-    marginTop: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    backgroundColor: '#FEF2F2',
-    minWidth: 84,
-    alignItems: 'center',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
   },
-  removeButtonDisabled: {
-    opacity: 0.7,
-  },
-  removeButtonText: {
-    color: '#B91C1C',
-    fontSize: 13,
-    fontWeight: '600',
+  pressed: {
+    opacity: 0.85,
   },
 });

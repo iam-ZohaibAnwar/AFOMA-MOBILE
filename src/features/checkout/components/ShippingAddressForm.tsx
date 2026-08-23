@@ -1,5 +1,6 @@
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { colors } from '../../../design-system';
 import type {
   ShippingAddress,
   ShippingAddressErrors,
@@ -77,7 +78,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#FED7AA',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surfaceWhite,
     paddingHorizontal: 14,
     fontSize: 15,
     color: '#172554',

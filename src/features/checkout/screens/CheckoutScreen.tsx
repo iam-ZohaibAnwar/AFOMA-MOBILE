@@ -15,19 +15,30 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { useAuth } from '../../auth/hooks/useAuth';
+import { useRequireAuth } from '../../auth/hooks/useRequireAuth';
+import { authReturnTo } from '../../auth/utils/authNavigation';
+import { resolveAuthUserId } from '../../auth/utils/resolveAuthUserId';
+import { usePricing } from '../../../app/providers/PricingProvider';
 import { CartLineItemRow } from '../../cart/components/CartLineItemRow';
 import { useCart } from '../../cart/hooks/useCart';
+import { useAppliedCoupon } from '../../cart/hooks/useAppliedCoupon';
+import { PayPalProcessingOverlay } from '../components/PayPalProcessingOverlay';
 import { ShippingAddressForm } from '../components/ShippingAddressForm';
 import { ShippingOptionsSection } from '../components/ShippingOptionsSection';
 import { useCheckoutShippingAddress } from '../hooks/useCheckoutShippingAddress';
 import { useCheckoutShippingRates } from '../hooks/useCheckoutShippingRates';
-import { usePlaceOrder } from '../hooks/usePlaceOrder';
-import { usePayPalCapture } from '../hooks/usePayPalCapture';
+import { useGuestCheckoutIdentity } from '../hooks/useGuestCheckoutIdentity';
+import {
+  formatPayPalCheckoutFailure,
+  getPayPalCheckoutErrorMessage,
+  usePayPalCheckout,
+} from '../hooks/usePayPalCheckout';
 import {
   cartHasShippableItems,
 } from '../utils/buildCheckoutOrderPayload';
 import { validateShippingAddress } from '../utils/validateShippingAddress';
 import { formatProductPrice } from '../../products/utils/productDisplay';
+import { navigateToCartTab, navigateToHomeTab } from '../../../app/navigation/shoppingNavigation';
 import type { RootStackParamList, ShoppingStackParamList } from '../../../app/navigation/types';
 
 type Props = NativeStackScreenProps<ShoppingStackParamList, 'Checkout'>;
@@ -37,18 +48,36 @@ type CheckoutNavigationProp = CompositeNavigationProp<
   NativeStackNavigationProp<RootStackParamList>
 >;
 
+const CHECKOUT_RETURN_TO = authReturnTo.checkout();
+
 export function CheckoutScreen(_props: Props) {
   const navigation = useNavigation<CheckoutNavigationProp>();
   const rootNavigation = navigation;
   const { user, isAuthenticated } = useAuth();
-  const { cart, entries, subTotal, isLoading, error, retry } = useCart(user?.userId);
+  const { isAuthorized } = useRequireAuth(CHECKOUT_RETURN_TO);
+  const authUserId = resolveAuthUserId(user);
+  const { userInfo } = usePricing();
+  const { cart, entries, subTotal, isLoading, error, retry } = useCart(authUserId, userInfo);
+  const { appliedCoupon } = useAppliedCoupon(authUserId);
+  const discountAmount = appliedCoupon?.discountAmount ?? 0;
   const { shippingAddress, addressErrors, updateField, validateAddress } =
     useCheckoutShippingAddress(user);
+  const {
+    resolveIdentityForAddress,
+    establishGuestCheckout,
+    isEstablishingGuest,
+    guestError,
+  } = useGuestCheckoutIdentity(user);
   const [formNotice, setFormNotice] = useState<string | null>(null);
 
   const canFetchRates = useMemo(
     () => validateShippingAddress(shippingAddress).isValid,
     [shippingAddress],
+  );
+
+  const checkoutIdentity = useMemo(
+    () => resolveIdentityForAddress(shippingAddress),
+    [resolveIdentityForAddress, shippingAddress],
   );
 
   const {
@@ -61,17 +90,64 @@ export function CheckoutScreen(_props: Props) {
     isLoading: isShippingLoading,
     error: shippingError,
     retry: retryShipping,
-  } = useCheckoutShippingRates(cart, shippingAddress, user, canFetchRates);
+  } = useCheckoutShippingRates(cart, shippingAddress, checkoutIdentity, canFetchRates, userInfo.country);
 
-  const { isPlacingOrder, orderError, createdOrderId, placeOrder } = usePlaceOrder();
-  const { isCapturing, captureError, captureResult, capturePayPalOrder } = usePayPalCapture();
+  const payPalCheckout = usePayPalCheckout();
+  const {
+    isPlacingOrder,
+    isCapturing,
+    isOpeningPayPal,
+    orderError,
+    captureError,
+    captureResult,
+    createdOrderId,
+    checkoutNotice,
+    startPayPalCheckout,
+    continuePayPalCheckout,
+  } = payPalCheckout;
+  const showPayPalProcessing =
+    payPalCheckout.isPayPalCapturing === true || payPalCheckout.isPayPalBrowserPending === true;
+  const payPalProcessingMessage = payPalCheckout.isPayPalCapturing
+    ? 'Processing your PayPal payment...'
+    : 'Complete PayPal, then close the browser to return here.';
 
   const shippingAmount = canFetchRates ? selectedShippingCost : 0;
-  const total = subTotal + shippingAmount;
+  const total = Math.max(0, subTotal + shippingAmount - discountAmount);
+  const currency = userInfo.currency ?? 'CAD';
+  const currencyRate = userInfo.currencyRate ?? 1;
+  const checkoutParams = useMemo(
+    () => ({
+      identity: checkoutIdentity,
+      cart,
+      shippingAddress,
+      selectedOptions,
+      totals: {
+        subTotal,
+        shippingTotal: shippingAmount,
+        grandTotal: total,
+      },
+      currency,
+      conversionRate: currencyRate,
+      couponCode: appliedCoupon?.couponCode,
+    }),
+    [
+      appliedCoupon?.couponCode,
+      cart,
+      checkoutIdentity,
+      currency,
+      currencyRate,
+      selectedOptions,
+      shippingAddress,
+      shippingAmount,
+      subTotal,
+      total,
+    ],
+  );
+  const paymentError = getPayPalCheckoutErrorMessage(orderError, captureError, checkoutNotice);
   const requiresShippingSelection = cartHasShippableItems(cart);
 
   const handlePlaceOrderPress = async () => {
-    if (!user || isPlacingOrder) {
+    if (isPlacingOrder || isEstablishingGuest) {
       return;
     }
 
@@ -97,48 +173,45 @@ export function CheckoutScreen(_props: Props) {
       return;
     }
 
-    await placeOrder({
-      user,
-      cart,
-      shippingAddress,
-      selectedOptions,
-      totals: {
-        subTotal,
-        shippingTotal: shippingAmount,
-        grandTotal: total,
-      },
-    });
+    try {
+      const identity = isAuthenticated && checkoutIdentity
+        ? checkoutIdentity
+        : await establishGuestCheckout(shippingAddress);
+
+      await startPayPalCheckout({
+        ...checkoutParams,
+        identity,
+      });
+    } catch (err) {
+      setFormNotice(formatPayPalCheckoutFailure(err, 'Failed to prepare checkout'));
+    }
   };
 
   const handlePayWithPayPalPress = async () => {
-    if (!user || !createdOrderId || isCapturing) {
+    if (!createdOrderId || isCapturing || isOpeningPayPal || !checkoutIdentity) {
       return;
     }
 
-    await capturePayPalOrder(createdOrderId, {
-      user,
-      cart,
-      shippingAddress,
-      selectedOptions,
-      totals: {
-        subTotal,
-        shippingTotal: shippingAmount,
-        grandTotal: total,
-      },
+    let identity = checkoutIdentity;
+    if (!isAuthenticated) {
+      try {
+        identity = await establishGuestCheckout(shippingAddress);
+      } catch (err) {
+        setFormNotice(formatPayPalCheckoutFailure(err, 'Failed to prepare guest checkout'));
+        return;
+      }
+    }
+
+    await continuePayPalCheckout(createdOrderId, {
+      ...checkoutParams,
+      identity,
     });
   };
 
-  if (!isAuthenticated || !user?.userId) {
+  if (!isAuthorized) {
     return (
       <View style={styles.centeredState}>
-        <Text style={styles.title}>Checkout</Text>
-        <Text style={styles.subtitle}>Sign in to continue to checkout.</Text>
-        <Pressable
-          style={styles.primaryButton}
-          onPress={() => rootNavigation.navigate('Auth', { screen: 'Login' })}
-        >
-          <Text style={styles.primaryButtonText}>Sign in</Text>
-        </Pressable>
+        <ActivityIndicator size="large" color="#EA580C" />
       </View>
     );
   }
@@ -170,7 +243,7 @@ export function CheckoutScreen(_props: Props) {
         <Text style={styles.subtitle}>Your cart is empty. Add items before checkout.</Text>
         <Pressable
           style={styles.primaryButton}
-          onPress={() => rootNavigation.navigate('Shopping', { screen: 'Cart' })}
+          onPress={() => navigateToCartTab(rootNavigation)}
         >
           <Text style={styles.primaryButtonText}>Back to Cart</Text>
         </Pressable>
@@ -181,7 +254,12 @@ export function CheckoutScreen(_props: Props) {
   if (createdOrderId) {
     if (captureResult) {
       return (
-        <View style={styles.centeredState}>
+        <>
+          <PayPalProcessingOverlay
+            visible={showPayPalProcessing}
+            message={payPalProcessingMessage}
+          />
+          <View style={styles.centeredState}>
           <Text style={styles.paymentSuccessTitle}>Payment successful</Text>
           <Text style={styles.subtitle}>
             Your PayPal payment was captured successfully.
@@ -194,15 +272,21 @@ export function CheckoutScreen(_props: Props) {
               </View>
             ))}
           </View>
-          <Pressable style={styles.primaryButton} onPress={() => navigation.navigate('Home')}>
+          <Pressable style={styles.primaryButton} onPress={() => navigateToHomeTab(rootNavigation)}>
             <Text style={styles.primaryButtonText}>Continue Shopping</Text>
           </Pressable>
-        </View>
+          </View>
+        </>
       );
     }
 
     return (
-      <View style={styles.centeredState}>
+      <>
+        <PayPalProcessingOverlay
+          visible={showPayPalProcessing}
+          message={payPalProcessingMessage}
+        />
+        <View style={styles.centeredState}>
         <Text style={styles.title}>Order placed</Text>
         <Text style={styles.subtitle}>
           Your order was created. Complete payment with PayPal to finish checkout.
@@ -212,9 +296,9 @@ export function CheckoutScreen(_props: Props) {
           <Text style={styles.successValue}>{createdOrderId}</Text>
         </View>
 
-        {captureError ? (
+        {paymentError ? (
           <View style={[styles.noticeBox, styles.noticeError, styles.successNotice]}>
-            <Text style={[styles.noticeText, styles.noticeTextError]}>{captureError}</Text>
+            <Text style={[styles.noticeText, styles.noticeTextError]}>{paymentError}</Text>
           </View>
         ) : null}
 
@@ -230,10 +314,11 @@ export function CheckoutScreen(_props: Props) {
           )}
         </Pressable>
 
-        <Pressable style={styles.secondaryButton} onPress={() => navigation.navigate('Home')}>
+        <Pressable style={styles.secondaryButton} onPress={() => navigateToHomeTab(rootNavigation)}>
           <Text style={styles.secondaryButtonText}>Continue Shopping</Text>
         </Pressable>
-      </View>
+        </View>
+      </>
     );
   }
 
@@ -251,6 +336,11 @@ export function CheckoutScreen(_props: Props) {
         renderItem={({ item }) => (
           <CartLineItemRow itemId={item.id} line={item.line} showRemove={false} />
         )}
+        ListHeaderComponent={
+          <View style={styles.checkoutHeader}>
+            <Text style={styles.title}>Checkout</Text>
+          </View>
+        }
         ListFooterComponent={
           <View style={styles.footer}>
             <View style={styles.sectionBox}>
@@ -299,6 +389,12 @@ export function CheckoutScreen(_props: Props) {
               </View>
             </View>
 
+            {guestError ? (
+              <View style={[styles.noticeBox, styles.noticeError]}>
+                <Text style={[styles.noticeText, styles.noticeTextError]}>{guestError}</Text>
+              </View>
+            ) : null}
+
             {formNotice ? (
               <View style={[styles.noticeBox, styles.noticeInfo]}>
                 <Text style={[styles.noticeText, styles.noticeTextInfo]}>{formNotice}</Text>
@@ -314,12 +410,13 @@ export function CheckoutScreen(_props: Props) {
             <Pressable
               style={[
                 styles.placeOrderButton,
-                (isPlacingOrder || isShippingLoading) && styles.placeOrderButtonDisabled,
+                (isPlacingOrder || isShippingLoading || isEstablishingGuest) &&
+                  styles.placeOrderButtonDisabled,
               ]}
-              disabled={isPlacingOrder || isShippingLoading}
+              disabled={isPlacingOrder || isShippingLoading || isEstablishingGuest}
               onPress={() => void handlePlaceOrderPress()}
             >
-              {isPlacingOrder ? (
+              {isPlacingOrder || isEstablishingGuest ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <Text style={styles.placeOrderButtonText}>Place Order</Text>
@@ -328,6 +425,10 @@ export function CheckoutScreen(_props: Props) {
             <Text style={styles.disabledNote}>Payment is completed on the next screen.</Text>
           </View>
         }
+      />
+      <PayPalProcessingOverlay
+        visible={showPayPalProcessing}
+        message={payPalProcessingMessage}
       />
     </KeyboardAvoidingView>
   );
@@ -346,6 +447,31 @@ const styles = StyleSheet.create({
   footer: {
     gap: 16,
     marginTop: 8,
+  },
+  checkoutHeader: {
+    gap: 12,
+    marginBottom: 8,
+  },
+  guestBanner: {
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    gap: 8,
+  },
+  guestBannerText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#92400E',
+  },
+  signInLink: {
+    alignSelf: 'flex-start',
+  },
+  signInLinkText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1F628E',
   },
   sectionBox: {
     padding: 16,

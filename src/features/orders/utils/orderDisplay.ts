@@ -1,4 +1,6 @@
-import type { OrderDetail, OrderSummary, OrderUserInfo } from '../../../services/types/order';
+import type { CartLineItem } from '../../../services/types/cart';
+import type { OrderDetail, OrderSummary, OrderUserInfo, OrderBillingAddress } from '../../../services/types/order';
+import { ApiError } from '../../../services/api/errors';
 
 export function formatOrderDisplayId(orderId?: string): string {
   if (!orderId) {
@@ -84,4 +86,85 @@ export function formatShippingAddressLines(userInfo?: OrderUserInfo): string[] {
 
 export function getOrderDetailRouteId(order: OrderDetail): string | undefined {
   return order._id;
+}
+
+/** Web parity: cancel disabled when order is Shipped or Cancelled. */
+export function canCancelOrder(status?: string): boolean {
+  const normalized = status?.trim();
+  return normalized !== 'Shipped' && normalized !== 'Cancelled';
+}
+
+export function formatSellerDisplayName(line: CartLineItem): string | undefined {
+  const seller = line.productData?.seller;
+  if (!seller) {
+    return undefined;
+  }
+
+  const name = [seller.firstName, seller.lastName].filter(Boolean).join(' ').trim();
+  return name || seller.storeTitle || undefined;
+}
+
+export function formatSellerDisplayId(line: CartLineItem): string | undefined {
+  const uuid = line.productData?.seller?.uuid;
+  if (uuid == null || uuid === '') {
+    return undefined;
+  }
+
+  const value = String(uuid).trim();
+  return value || undefined;
+}
+
+export function formatLineVariations(line: CartLineItem): string[] {
+  if (!line.selectedVariations?.length) {
+    return [];
+  }
+
+  return line.selectedVariations
+    .filter((variation) => variation.attributeName && variation.attributeValue)
+    .map((variation) => `${variation.attributeName}: ${variation.attributeValue}`);
+}
+
+export function isDownloadableLine(line: CartLineItem): boolean {
+  const productType = line.productData?.productType?.toLowerCase();
+  return productType === 'downloadable';
+}
+
+export function getDownloadableProductUrl(line: CartLineItem): string | undefined {
+  const url = line.productData?.downloadableLink?.featuredProductUrl;
+  if (url == null || url === '') {
+    return undefined;
+  }
+
+  const value = String(url).trim();
+  return value || undefined;
+}
+
+export function formatBillingAddressLines(billing?: OrderBillingAddress): string[] {
+  if (!billing) {
+    return [];
+  }
+
+  const name = [billing.name?.given_name, billing.name?.surname].filter(Boolean).join(' ').trim();
+  const lines = [
+    name || undefined,
+    billing.email_address?.trim() || undefined,
+    billing.address?.country_code?.trim() || undefined,
+  ].filter((line): line is string => Boolean(line));
+
+  return lines;
+}
+
+export function formatCustomerEmail(userInfo?: OrderUserInfo): string | undefined {
+  return userInfo?.email?.trim() || undefined;
+}
+
+export function formatCustomerName(userInfo?: OrderUserInfo): string | undefined {
+  const firstName = userInfo?.firstName ?? userInfo?.fname;
+  const lastName = userInfo?.lastName ?? userInfo?.lname;
+  const name = [firstName, lastName].filter(Boolean).join(' ').trim();
+  return name || undefined;
+}
+
+export function isOrderNotFoundError(error: unknown): boolean {
+  return error instanceof ApiError && error.statusCode === 404;
 }

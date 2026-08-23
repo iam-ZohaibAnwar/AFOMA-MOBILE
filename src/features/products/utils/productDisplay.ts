@@ -1,4 +1,19 @@
-import type { Product } from '../../../services/types/product';
+import {
+  calculateSurcharge,
+  cloneProductsForPricing,
+  compareAtWithDiscountFallback,
+} from '../../../services/pricing/pricingUtils';
+import type { UserPricingInfo } from '../../../services/pricing/types';
+import type { Product, ProductStorePolicy, ProductVariation } from '../../../services/types/product';
+import {
+  areAllAttributesSelected,
+  findMatchingVariation,
+  findCartVariation,
+  hasAnyInStockVariation,
+  isInventoryOutOfStock,
+  type SelectedAttributes,
+  type VariationAttributeSelection,
+} from './productVariations';
 
 export function filterApprovedProducts(products: Product[]): Product[] {
   return products.filter(
@@ -14,8 +29,100 @@ export function getProductImageUrl(product: Product): string | undefined {
   return product.images?.[0]?.imageUrl;
 }
 
-export function getProductPrice(product: Product): number | undefined {
+function parseDiscountCode(product: Product): number | undefined {
+  const discount =
+    typeof product.discountCode === 'number'
+      ? product.discountCode
+      : Number(product.discountCode);
+
+  return Number.isFinite(discount) && discount > 0 ? discount : undefined;
+}
+
+function getCustomizableVariation(product: Product, selectedAttributes?: SelectedAttributes) {
+  if (selectedAttributes && product.variations?.length) {
+    return findMatchingVariation(product.variations, selectedAttributes);
+  }
+
+  return product.variations?.[0];
+}
+
+function getVariationSalePrice(variation: ProductVariation | undefined): number | undefined {
   const price =
+    variation?.surTotalAmount ??
+    variation?.finalPrice ??
+    variation?.price;
+
+  return typeof price === 'number' && Number.isFinite(price) ? price : undefined;
+}
+
+function getVariationCompareAtPrice(
+  variation: ProductVariation | undefined,
+  product: Product,
+): number | undefined {
+  const discountPercent = parseDiscountCode(product);
+  const salePrice = getVariationSalePrice(variation);
+  const compareAt =
+    variation?.surTotalAmountBDis ??
+    variation?.totalPrice ??
+    product.totalPrice ??
+    product.totalAmount ??
+    product.basePrice ??
+    product.price;
+
+  return compareAtWithDiscountFallback(salePrice, compareAt, discountPercent);
+}
+
+export function getProductPriceForSelection(
+  product: Product,
+  selectedAttributes?: SelectedAttributes,
+): number | undefined {
+  if (product.productType === 'Customizable') {
+    const variation =
+      selectedAttributes &&
+      areAllAttributesSelected(product.variations, selectedAttributes)
+        ? findMatchingVariation(product.variations, selectedAttributes)
+        : product.variations?.[0];
+
+    return getVariationSalePrice(variation);
+  }
+
+  return getProductPrice(product);
+}
+
+export function getProductCompareAtPriceForSelection(
+  product: Product,
+  selectedAttributes?: SelectedAttributes,
+): number | undefined {
+  if (product.productType === 'Customizable') {
+    const variation =
+      selectedAttributes &&
+      areAllAttributesSelected(product.variations, selectedAttributes)
+        ? findMatchingVariation(product.variations, selectedAttributes)
+        : product.variations?.[0];
+
+    return getVariationCompareAtPrice(variation, product);
+  }
+
+  return getProductCompareAtPrice(product);
+}
+
+export function getProductPrice(product: Product): number | undefined {
+  if (product.productType === 'Customizable') {
+    const variation = getCustomizableVariation(product);
+    const variationPrice =
+      variation?.surTotalAmount ??
+      variation?.finalPrice ??
+      variation?.price ??
+      product.finalPrice ??
+      product.price;
+
+    return typeof variationPrice === 'number' && Number.isFinite(variationPrice)
+      ? variationPrice
+      : undefined;
+  }
+
+  const price =
+    product.surTotalAmount ??
     product.finalPrice ??
     product.totalAmount ??
     product.price ??
@@ -24,12 +131,52 @@ export function getProductPrice(product: Product): number | undefined {
   return typeof price === 'number' && Number.isFinite(price) ? price : undefined;
 }
 
-export function formatProductPrice(price: number | undefined): string {
+export function getProductCompareAtPrice(product: Product): number | undefined {
+  const discountPercent = parseDiscountCode(product);
+  const salePrice = getProductPrice(product);
+
+  if (product.productType === 'Customizable') {
+    return getVariationCompareAtPrice(getCustomizableVariation(product), product);
+  }
+
+  const compareAt =
+    product.surTotalAmountBDis ??
+    product.totalPrice ??
+    product.totalAmount ??
+    product.basePrice ??
+    product.price;
+
+  return compareAtWithDiscountFallback(salePrice, compareAt, discountPercent);
+}
+
+export function getProductDiscountPercent(product: Product): number | undefined {
+  return parseDiscountCode(product);
+}
+
+export function formatProductPrice(
+  price: number | undefined,
+  currency = 'CAD',
+): string {
   if (price === undefined) {
     return '—';
   }
 
-  return `CAD ${price.toFixed(2)}`;
+  return `${currency} ${price.toFixed(2)}`;
+}
+
+export function applyProductPricing(
+  products: Product[],
+  userInfo: UserPricingInfo,
+): Product[] {
+  return calculateSurcharge(cloneProductsForPricing(products), userInfo);
+}
+
+/** Apply geo/user-country pricing to a single product (PDP, cart re-pricing). */
+export function applySingleProductPricing(
+  product: Product,
+  userInfo: UserPricingInfo,
+): Product {
+  return applyProductPricing([product], userInfo)[0] ?? product;
 }
 
 export function getProductRouteId(product: Product): string | undefined {
@@ -55,6 +202,10 @@ export function getSellerDisplayName(product: Product): string | undefined {
     return undefined;
   }
 
+  if (seller.storeTitle?.trim()) {
+    return seller.storeTitle.trim();
+  }
+
   if (seller.storeSlug?.trim()) {
     return seller.storeSlug.trim();
   }
@@ -63,6 +214,109 @@ export function getSellerDisplayName(product: Product): string | undefined {
   return fullName || undefined;
 }
 
-export function isProductOutOfStock(product: Product): boolean {
-  return product.inventory === 'OutOffStock';
+function isPolicyEnabled(value: boolean | string | undefined): boolean {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    return normalized === 'true' || normalized === 'yes' || normalized === '1';
+  }
+
+  return false;
+}
+
+export function getSellerStorePolicy(product: Product): ProductStorePolicy | undefined {
+  return product.seller?.storePolicy;
+}
+
+export function hasSellerStorePolicy(policy: ProductStorePolicy | undefined): boolean {
+  if (!policy) {
+    return false;
+  }
+
+  return isPolicyEnabled(policy.cancellationPolicy) || isPolicyEnabled(policy.returnPolicy);
+}
+
+export function getCancellationPolicyMessage(policy: ProductStorePolicy): string | null {
+  if (!isPolicyEnabled(policy.cancellationPolicy)) {
+    return null;
+  }
+
+  const hours = policy.cancellationPolicyTime;
+  if (hours != null && String(hours).trim()) {
+    return `I accept order cancellations within ${hours} hours of purchase.`;
+  }
+
+  return 'I accept order cancellations within a limited time after purchase.';
+}
+
+export function getReturnPolicyMessage(policy: ProductStorePolicy): string | null {
+  if (!isPolicyEnabled(policy.returnPolicy)) {
+    return null;
+  }
+
+  if (policy.returnPolicyDetails?.trim()) {
+    return policy.returnPolicyDetails.trim();
+  }
+
+  return "Returns and exchanges are subject to the seller's discretion. If you have an issue with your order, please contact the seller within 7 days of delivery. Buyers may be responsible for return shipping costs.";
+}
+
+export function isProductDisabled(product: Product): boolean {
+  return product.status === 0;
+}
+
+export function isProductOutOfStock(
+  product: Product,
+  selectedAttributes?: SelectedAttributes,
+): boolean {
+  if (product.productType === 'Customizable' && product.variations?.length) {
+    if (!selectedAttributes || Object.keys(selectedAttributes).length === 0) {
+      return true;
+    }
+
+    const inventory = findMatchingVariation(product.variations, selectedAttributes)?.inventory;
+    return isInventoryOutOfStock(inventory ?? 'OutOffStock');
+  }
+
+  return isInventoryOutOfStock(product.inventory);
+}
+
+/** Listing cards have no selected variation — avoid false "Out of stock" badges. */
+export function isProductOutOfStockForListing(product: Product): boolean {
+  if (product.productType === 'Customizable') {
+    if (product.variations?.length) {
+      return !hasAnyInStockVariation(product.variations);
+    }
+
+    // Home list APIs often omit variations; don't badge from parent inventory alone.
+    return false;
+  }
+
+  return isInventoryOutOfStock(product.inventory);
+}
+
+/** CAD unit price stored on cart lines — mirrors web `getCartUnitPriceCad`. */
+export function getCartUnitPriceCad(
+  product: Product,
+  selectedVariations?: VariationAttributeSelection[],
+): number {
+  if (product.productType === 'Customizable' && selectedVariations?.length) {
+    const variation = findCartVariation(product, selectedVariations);
+    if (variation?.finalPrice != null && Number.isFinite(Number(variation.finalPrice))) {
+      return parseFloat(Number(variation.finalPrice).toFixed(2));
+    }
+
+    if (variation?.price != null && Number.isFinite(Number(variation.price))) {
+      return parseFloat(Number(variation.price).toFixed(2));
+    }
+  }
+
+  if (product.finalPrice != null && Number.isFinite(Number(product.finalPrice))) {
+    return parseFloat(Number(product.finalPrice).toFixed(2));
+  }
+
+  return parseFloat(String(product.price ?? 0)) || 0;
 }

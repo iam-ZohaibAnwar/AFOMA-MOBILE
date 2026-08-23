@@ -18,8 +18,8 @@ export interface ShippingUserInfo {
   city?: string;
   streetAddress?: string;
   zipcode?: string;
+  ZipCode?: string;
   moNumber?: string;
-  phone?: string;
   information?: string;
   shippingMethod?: string;
   accesstoken?: string;
@@ -50,13 +50,34 @@ export interface ProductShippingEstimateRequest {
   length?: number;
   width?: number;
   height?: number;
+  quantity?: number;
+  price?: number | string;
+  dispatchDays?: number | string;
+}
+
+export interface ProductShippingDestination {
+  code: string;
+  name: string;
+}
+
+export interface ProductShippingDestinationsResponse {
+  destinations?: ProductShippingDestination[];
+}
+
+export interface ProductShippingEstimateCarrierResult {
+  countryName?: string;
+  productPriceCad?: number | string;
+  shippingCostCad?: number | string;
+  serviceName?: string;
+  carrierName?: string;
+  error?: string;
+}
+
+export interface ProductShippingEstimateResponse {
+  estimate?: ProductShippingEstimateCarrierResult | null;
+  freightComEstimate?: ProductShippingEstimateCarrierResult | null;
 }
 
 export interface UserSurchargeResponse {
-  // TODO: Verify surcharge map structure from GET /shipping-config/user-surcharge
   [key: string]: unknown;
 }
-
-export type ProductShippingDestinationsResponse = unknown;
-
-export type ProductShippingEstimateResponse = unknown;

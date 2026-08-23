@@ -1,16 +1,33 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
 
+import type { AuthReturnTo } from '../../features/auth/utils/authNavigation';
+import type { AdminStackParamList } from '../../features/admin/navigation/adminTypes';
+import type { SellerStackParamList } from './sellerTypes';
+
 export type AuthStackParamList = {
-  Login: undefined;
+  Login: { returnTo?: AuthReturnTo } | undefined;
   OtpVerification: {
     email: string;
     otpToken: string;
+    returnTo?: AuthReturnTo;
+  };
+  RegisterChoice: undefined;
+  RegisterAccount: {
+    accountType: 'buyer' | 'seller';
+  };
+  RegistrationSuccess: {
+    accountType: 'buyer' | 'seller';
   };
 };
 
+export type MainTabParamList = {
+  MarketplaceTab: { segment?: 'home' | 'category' } | undefined;
+  CartTab: undefined;
+  AccountTab: undefined;
+};
+
 export type ShoppingStackParamList = {
-  Home: undefined;
-  Categories: undefined;
+  MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
   SubCategories: {
     categoryId: string;
     categoryName?: string;
@@ -30,6 +47,7 @@ export type ShoppingStackParamList = {
     childCategoryName?: string;
     searchQuery?: string;
     title?: string;
+    listingSource?: 'best' | 'newArrival' | 'discounted';
   };
   ProductDetail: {
     productId?: string;
@@ -38,11 +56,18 @@ export type ShoppingStackParamList = {
   Search: {
     query?: string;
   };
-  Cart: undefined;
   Checkout: undefined;
+  Payment: undefined;
   Orders: undefined;
+  AccountDetails: undefined;
+  AddressBook: undefined;
+  ReferralEarnings: undefined;
+  TermsConditions: undefined;
   OrderDetail: {
     orderId: string;
+  };
+  Shop: {
+    slug: string;
   };
 };
 
@@ -53,7 +78,15 @@ export type AppStackParamList = {
 
 export type RootStackParamList = {
   Shopping: NavigatorScreenParams<ShoppingStackParamList>;
+  Seller: NavigatorScreenParams<SellerStackParamList>;
+  Admin: NavigatorScreenParams<AdminStackParamList>;
   Auth: NavigatorScreenParams<AuthStackParamList>;
+  GetPaid:
+    | {
+        token?: string;
+        commissionId?: string;
+      }
+    | undefined;
 };
 
 declare global {

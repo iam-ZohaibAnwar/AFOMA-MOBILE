@@ -11,10 +11,13 @@ import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import { navigateToHomeTab } from '../../../app/navigation/shoppingNavigation';
+import type { RootStackParamList, ShoppingStackParamList } from '../../../app/navigation/types';
 import { useAuth } from '../../auth/hooks/useAuth';
+import { useRequireAuth } from '../../auth/hooks/useRequireAuth';
+import { authReturnTo } from '../../auth/utils/authNavigation';
 import { OrderListItem } from '../components/OrderListItem';
 import { useOrders } from '../hooks/useOrders';
-import type { RootStackParamList, ShoppingStackParamList } from '../../../app/navigation/types';
 
 type Props = NativeStackScreenProps<ShoppingStackParamList, 'Orders'>;
 
@@ -23,25 +26,18 @@ type OrdersNavigationProp = CompositeNavigationProp<
   NativeStackNavigationProp<RootStackParamList>
 >;
 
+const ORDERS_RETURN_TO = authReturnTo.orders();
+
 export function OrdersScreen({ navigation }: Props) {
   const rootNavigation = useNavigation<OrdersNavigationProp>();
-  const { user, isAuthenticated } = useAuth();
+  const { user } = useAuth();
+  const { isAuthorized } = useRequireAuth(ORDERS_RETURN_TO);
   const { orders, totalOrders, isLoading, error, retry } = useOrders(user?.userId);
 
-  if (!isAuthenticated || !user?.userId) {
+  if (!isAuthorized) {
     return (
       <View style={styles.centeredState}>
-        <Text style={styles.title}>My Orders</Text>
-        <Text style={styles.subtitle}>Sign in to view your order history.</Text>
-        <Pressable
-          style={styles.primaryButton}
-          onPress={() => rootNavigation.navigate('Auth', { screen: 'Login' })}
-        >
-          <Text style={styles.primaryButtonText}>Sign in</Text>
-        </Pressable>
-        <Pressable style={styles.secondaryButton} onPress={() => navigation.navigate('Home')}>
-          <Text style={styles.secondaryButtonText}>Continue Shopping</Text>
-        </Pressable>
+        <ActivityIndicator size="large" color="#EA580C" />
       </View>
     );
   }
@@ -73,7 +69,7 @@ export function OrdersScreen({ navigation }: Props) {
         <Text style={styles.subtitle}>
           When you place an order, it will appear here.
         </Text>
-        <Pressable style={styles.primaryButton} onPress={() => navigation.navigate('Home')}>
+        <Pressable style={styles.primaryButton} onPress={() => navigateToHomeTab(rootNavigation)}>
           <Text style={styles.primaryButtonText}>Continue Shopping</Text>
         </Pressable>
       </View>
@@ -155,21 +151,6 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  secondaryButton: {
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    minWidth: 180,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#FFFFFF',
-  },
-  secondaryButtonText: {
-    color: '#475569',
     fontSize: 15,
     fontWeight: '600',
   },

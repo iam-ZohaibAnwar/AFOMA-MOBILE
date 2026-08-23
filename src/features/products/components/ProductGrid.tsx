@@ -1,20 +1,31 @@
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import type { ReactElement } from 'react';
+import { FlatList, StyleSheet, View } from 'react-native';
 
+import { ProductCard } from '../../../components/ecommerce/ProductCard';
+import { AppText } from '../../../components/ui/AppText';
+import { colors, spacing } from '../../../design-system';
 import type { Product } from '../../../services/types/product';
 import { getProductRouteId } from '../utils/productDisplay';
-import { ProductCard } from './ProductCard';
 
 interface ProductGridProps {
   products: Product[];
   onProductPress: (product: Product) => void;
   emptyMessage?: string;
+  isLoading?: boolean;
+  ListHeaderComponent?: ReactElement | null;
+  ListFooterComponent?: ReactElement | null;
 }
 
 export function ProductGrid({
   products,
   onProductPress,
   emptyMessage = 'No products found.',
+  isLoading = false,
+  ListHeaderComponent = null,
+  ListFooterComponent = null,
 }: ProductGridProps) {
+  const showEmptyState = !isLoading && products.length === 0;
+
   return (
     <FlatList
       data={products}
@@ -23,35 +34,52 @@ export function ProductGrid({
       columnWrapperStyle={styles.row}
       contentContainerStyle={styles.listContent}
       showsVerticalScrollIndicator={false}
-      renderItem={({ item }) => <ProductCard product={item} onPress={onProductPress} />}
-      ListEmptyComponent={
-        <View style={styles.emptyBox}>
-          <Text style={styles.emptyText}>{emptyMessage}</Text>
+      ListHeaderComponent={ListHeaderComponent ?? undefined}
+      renderItem={({ item }) => (
+        <View style={styles.cardWrap}>
+          <ProductCard
+            product={item}
+            onPress={onProductPress}
+            variant="elevated"
+            layout="marketplace"
+            showSeller
+          />
         </View>
+      )}
+      ListEmptyComponent={
+        showEmptyState ? (
+          <View style={styles.emptyBox}>
+            <AppText variant="bodySmall" color="textSecondary" style={styles.emptyText}>
+              {emptyMessage}
+            </AppText>
+          </View>
+        ) : null
       }
+      ListFooterComponent={ListFooterComponent ?? undefined}
     />
   );
 }
 
 const styles = StyleSheet.create({
   listContent: {
-    padding: 16,
+    padding: spacing.lg,
     flexGrow: 1,
   },
   row: {
-    gap: 12,
-    marginBottom: 12,
+    gap: spacing.md,
+    marginBottom: spacing.md,
+  },
+  cardWrap: {
+    flex: 1,
   },
   emptyBox: {
-    padding: 24,
+    padding: spacing.xl,
     borderRadius: 12,
-    backgroundColor: '#FFEDD5',
+    backgroundColor: colors.surfaceMuted,
     borderWidth: 1,
-    borderColor: '#FED7AA',
+    borderColor: colors.border,
   },
   emptyText: {
-    color: '#475569',
-    fontSize: 14,
     textAlign: 'center',
   },
 });

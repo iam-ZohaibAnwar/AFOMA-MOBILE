@@ -15,6 +15,21 @@ export interface StoredUserProfile {
   country?: string;
   countryName?: string;
   Country?: string;
+  countryCode?: string;
+  stateCode?: string;
+  streetAddress?: string;
+  state?: string;
+  city?: string;
+  ZipCode?: string;
+  zipcode?: string;
+  phone?: string;
+  moNumber?: string;
+  gender?: string;
+  DOB?: string;
+  web3address?: string;
+  networkType?: string;
+  userProfile?: string;
+  company?: string;
 }
 
 export interface AuthUser extends StoredUserProfile {

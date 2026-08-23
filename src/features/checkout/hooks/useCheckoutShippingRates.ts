@@ -1,21 +1,23 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { getShippingRates } from '../../../services/api/shippingApi';
 import { getErrorMessage } from '../../../services/api/errors';
 import type { ShippingRateOption } from '../../../services/types/shipping';
 import type { CartMap } from '../../../services/types/cart';
-import type { AuthUser } from '../../auth/types';
+import type { CheckoutIdentity } from '../types/checkoutIdentity';
 import type { ShippingAddress } from '../types/shippingAddress';
 import {
   buildShippingUserInfo,
-  getShippingUserCountry,
+  getShippingBuyerCountry,
 } from '../utils/buildShippingUserInfo';
 import { buildSellerCartPayload, groupCartBySeller } from '../utils/cartShipping';
+import { resolveAddressRegionCodes } from '../utils/resolveAddressRegionCodes';
 import {
   formatShippingOptionLabel,
   getShippingOptionId,
   normalizeShippingRate,
 } from '../utils/formatShippingOption';
+import { buildShippingRatesRequestKey } from '../utils/shippingRatesRequestKey';
 
 export interface CheckoutShippingOption {
   id: string;
@@ -44,38 +46,69 @@ function buildDefaultSelections(groups: SellerShippingOptionsGroup[]): Record<st
 export function useCheckoutShippingRates(
   cart: CartMap,
   address: ShippingAddress,
-  user: AuthUser | null,
+  identity: CheckoutIdentity | null,
   canFetchRates: boolean,
+  pricingCountry?: string,
 ) {
   const [groups, setGroups] = useState<SellerShippingOptionsGroup[]>([]);
   const [selectedOptionBySeller, setSelectedOptionBySeller] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const cartRef = useRef(cart);
+  const hasLoadedRatesRef = useRef(false);
+
+  cartRef.current = cart;
+
+  const requestKey = useMemo(
+    () => buildShippingRatesRequestKey(cart, address, identity, canFetchRates, pricingCountry),
+    [address, canFetchRates, cart, identity, pricingCountry],
+  );
 
   const fetchRates = useCallback(async () => {
-    if (!user || !canFetchRates) {
+    const currentCart = cartRef.current;
+
+    if (!canFetchRates || !identity?.email?.trim()) {
       setGroups([]);
       setSelectedOptionBySeller({});
       setError(null);
       setIsLoading(false);
+      hasLoadedRatesRef.current = false;
       return;
     }
 
-    const sellerGroups = groupCartBySeller(cart);
+    const sellerGroups = groupCartBySeller(currentCart);
     if (sellerGroups.length === 0) {
       setGroups([]);
       setSelectedOptionBySeller({});
       setError('No shippable cart items found.');
       setIsLoading(false);
+      hasLoadedRatesRef.current = false;
       return;
     }
 
-    setIsLoading(true);
+    if (!hasLoadedRatesRef.current) {
+      setIsLoading(true);
+    }
     setError(null);
 
     try {
-      const userInfo = buildShippingUserInfo(address, user);
-      const userCountry = getShippingUserCountry(address, user);
+      const regionCodes = resolveAddressRegionCodes({
+        country: address.country,
+        state: address.state,
+        countryCode: identity?.countryCode,
+        stateCode: identity?.stateCode,
+      });
+      const userInfo = buildShippingUserInfo(address, identity, regionCodes);
+      const userCountry = getShippingBuyerCountry(pricingCountry);
+
+      if (!userCountry) {
+        throw new Error('Buyer country is unavailable for shipping quotes.');
+      }
+
+      if (!regionCodes.countryCode) {
+        throw new Error('Enter a valid country name so we can calculate shipping.');
+      }
+
       const nextGroups: SellerShippingOptionsGroup[] = [];
 
       for (const sellerGroup of sellerGroups) {
@@ -114,7 +147,20 @@ export function useCheckoutShippingRates(
       }
 
       setGroups(nextGroups);
-      setSelectedOptionBySeller(buildDefaultSelections(nextGroups));
+      setSelectedOptionBySeller((current) => {
+        const defaults = buildDefaultSelections(nextGroups);
+        const merged = { ...defaults };
+
+        for (const group of nextGroups) {
+          const existingSelection = current[group.sellerId];
+          if (existingSelection && group.options.some((option) => option.id === existingSelection)) {
+            merged[group.sellerId] = existingSelection;
+          }
+        }
+
+        return merged;
+      });
+      hasLoadedRatesRef.current = nextGroups.length > 0;
 
       if (nextGroups.length === 0) {
         setError('No shipping options are available for this address.');
@@ -122,19 +168,29 @@ export function useCheckoutShippingRates(
     } catch (err) {
       setGroups([]);
       setSelectedOptionBySeller({});
+      hasLoadedRatesRef.current = false;
       setError(getErrorMessage(err, 'Failed to load shipping rates'));
     } finally {
       setIsLoading(false);
     }
-  }, [address, canFetchRates, cart, user]);
+  }, [address, canFetchRates, identity, pricingCountry]);
 
   useEffect(() => {
+    if (requestKey === 'disabled') {
+      setGroups([]);
+      setSelectedOptionBySeller({});
+      setError(null);
+      setIsLoading(false);
+      hasLoadedRatesRef.current = false;
+      return;
+    }
+
     const timeoutId = setTimeout(() => {
       void fetchRates();
     }, 400);
 
     return () => clearTimeout(timeoutId);
-  }, [fetchRates]);
+  }, [fetchRates, requestKey]);
 
   const selectOption = useCallback((sellerId: string, optionId: string) => {
     setSelectedOptionBySeller((current) => ({

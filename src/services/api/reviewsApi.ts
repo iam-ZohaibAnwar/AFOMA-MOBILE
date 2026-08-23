@@ -1,5 +1,7 @@
 import type {
   CreateReviewRequest,
+  CreateSellerReviewReplyRequest,
+  LinkReviewReplyRequest,
   ProductAverageReviewResponse,
   ProductReviewsResponse,
   Review,
@@ -63,6 +65,24 @@ export async function updateReviewStatus(
     undefined,
     'Failed to update review status',
   );
+}
+
+/** PUT /reviews/{reviewId} — partial update (e.g. link seller reply). */
+export async function linkReviewReply(
+  reviewId: string,
+  body: LinkReviewReplyRequest,
+): Promise<Review> {
+  return apiPut<Review>(
+    `/reviews/${encodeURIComponent(reviewId)}`,
+    body,
+    undefined,
+    'Failed to link review reply',
+  );
+}
+
+/** POST /reviews/ — seller reply record (web parity). */
+export async function createSellerReviewReply(body: CreateSellerReviewReplyRequest): Promise<Review> {
+  return apiPost<Review>('/reviews/', body, undefined, 'Failed to post review reply');
 }
 
 /** GET /reviews/best/review — used on home page */

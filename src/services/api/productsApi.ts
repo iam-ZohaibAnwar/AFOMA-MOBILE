@@ -3,9 +3,10 @@ import type {
   Product,
   ProductsBySellerCountResponse,
   ProductsListResponse,
+  SellerProductsPage,
 } from '../types/product';
 import type { PaginationParams } from '../types/common';
-import { apiGet } from './request';
+import { apiDelete, apiGet } from './request';
 
 function normalizeProductList(data: Product[] | ProductsListResponse | undefined): Product[] {
   if (!data) {
@@ -53,10 +54,49 @@ export async function getProductsBySellerId(
   sellerId: string,
   params: PaginationParams = {},
 ): Promise<Product[]> {
-  return apiGet<Product[]>(
+  const page = await getSellerProductsPage(sellerId, params);
+  return page.products;
+}
+
+export async function getSellerProductsPage(
+  sellerId: string,
+  params: PaginationParams = {},
+): Promise<SellerProductsPage> {
+  const data = await apiGet<Product[] | ProductsListResponse>(
     `/products/by/${encodeURIComponent(sellerId)}`,
     { params },
     'Failed to load seller products',
+  );
+
+  return {
+    products: normalizeProductList(data),
+    pagination: Array.isArray(data) ? undefined : data.pagination,
+  };
+}
+
+/** GET /products/by/{sellerId}/all — seller product management list (web parity). */
+export async function getSellerProductsManagementPage(
+  sellerId: string,
+  params: PaginationParams = {},
+): Promise<SellerProductsPage> {
+  const data = await apiGet<Product[] | ProductsListResponse>(
+    `/products/by/${encodeURIComponent(sellerId)}/all`,
+    { params },
+    'Failed to load seller products',
+  );
+
+  return {
+    products: normalizeProductList(data),
+    pagination: Array.isArray(data) ? undefined : data.pagination,
+  };
+}
+
+/** DELETE /products/{productId} */
+export async function deleteSellerProduct(productId: string): Promise<void> {
+  await apiDelete<void>(
+    `/products/${encodeURIComponent(productId)}`,
+    undefined,
+    'Failed to delete product',
   );
 }
 

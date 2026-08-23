@@ -2,11 +2,14 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 
 import { requestOtp as requestOtpApi, verifyOtp as verifyOtpApi } from '../api/authApi';
 import type { AuthContextValue, AuthState } from '../types';
+import { mergeGuestCartIntoAccount } from '../../cart/utils/mergeGuestCartIntoAccount';
+import { resolveAuthUserId } from '../utils/resolveAuthUserId';
 import {
   clearAuthenticatedSession,
   loadAuthenticatedSession,
   saveAuthenticatedSession,
 } from '../../../services/auth/authSession';
+import { getStoredUserPricingInfo, clearStoredUserPricingInfo } from '../../../services/storage/userPricingStorage';
 import { ApiError } from '../../../services/api/errors';
 
 const initialState: AuthState = {
@@ -75,6 +78,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const session = await saveAuthenticatedSession(response.user);
+    const userId = resolveAuthUserId(session.user);
+
+    if (userId) {
+      try {
+        const userInfo = await getStoredUserPricingInfo();
+        await mergeGuestCartIntoAccount(userId, userInfo);
+      } catch {
+        // Cart merge should not block successful sign-in.
+      }
+    }
+
     setState({
       user: session.user,
       role: session.role,
@@ -86,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await clearAuthenticatedSession();
+    await clearStoredUserPricingInfo();
     setState({
       user: null,
       role: null,

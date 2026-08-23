@@ -1,0 +1,63 @@
+---
+description: Flatten category hierarchy in mobile UI — discovery screen, not navigation tree
+alwaysApply: true
+---
+
+# AFOMA — Category Discovery UX
+
+The category hierarchy may remain unchanged in the backend, but the mobile UI must **flatten** it for faster shopping.
+
+## Do NOT
+
+- Create a separate screen for every category depth by default
+- Force `Parent → Subcategory → Child → Products` as the primary flow
+- Block navigation with `await resolveCategoryDestination()` before showing content
+- Use full-screen spinners or skeletons for category exploration
+
+## DO
+
+- Treat the Category tab as a **discovery/exploration screen**
+- Show parent categories with expandable sub/child sections **in the same context**
+- Let users reach products in as few meaningful interactions as possible
+- Navigate directly to `ProductListing` from any valid category filter
+
+## Desired paths
+
+```
+Category → expand parent → tap child → Products
+Category → View all parent → Products
+Category → tap subcategory → Products
+```
+
+NOT:
+
+```
+Category → SubCategories screen → Child screen → Products
+```
+
+## Parent categories must stay useful
+
+Every parent category needs a **View all** action that opens `ProductListing` filtered by that parent.
+
+Subcategories with children should expose:
+- child image tiles → filtered `ProductListing`
+- subcategory header / View all → subcategory-filtered `ProductListing`
+
+## Implementation notes
+
+- Reuse existing APIs: `/categories`, `/sub-categories/search/parent/{id}`, `/child-category/search/parent/{id}`
+- Reuse `navigateToCategoryProductListing`, `navigateFromSubCategorySection`, `navigateFromSubCategorySectionChild`
+- Compose the tree on the client; cache sections in `screenCache.ts`
+- Lazy-load sub/child data when a parent expands
+- Use lightweight in-place expansion (LayoutAnimation / RN Animated), not Reanimated-dependent flows required for Expo Go
+- Stack routes `SubCategories` / `ChildCategories` may remain for deep links only
+
+## Visual direction
+
+Premium marketplace feel: category cards, expandable sections, image tiles, clear hierarchy, tactile press states — not a plain vertical folder list.
+
+## Success criteria
+
+The user should **not** feel: "I clicked three times and I'm still inside categories."
+
+The user **should** feel: "I can explore categories quickly and get to products immediately."

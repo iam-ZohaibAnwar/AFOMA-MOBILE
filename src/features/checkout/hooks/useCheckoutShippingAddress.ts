@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import type { AuthUser } from '../../auth/types';
+import { resolveAuthUserId } from '../../auth/utils/resolveAuthUserId';
 import type {
   ShippingAddress,
   ShippingAddressErrors,
@@ -11,52 +12,32 @@ import {
   updateShippingAddressField,
   validateShippingAddress,
 } from '../utils/validateShippingAddress';
-
-function buildInitialAddress(user: AuthUser | null): ShippingAddress {
-  const base = emptyShippingAddress();
-
-  if (!user) {
-    return base;
-  }
-
-  return {
-    ...base,
-    name: [user.firstName, user.lastName].filter(Boolean).join(' ').trim(),
-    email: user.email?.trim() ?? '',
-    country: user.countryName?.trim() || user.country?.trim() || user.Country?.trim() || '',
-  };
-}
+import { useAuthenticatedShippingAddress } from './useAuthenticatedShippingAddress';
 
 export function useCheckoutShippingAddress(user: AuthUser | null) {
-  const [shippingAddress, setShippingAddress] = useState<ShippingAddress>(() =>
-    buildInitialAddress(user),
-  );
+  const authUserId = resolveAuthUserId(user);
+  const authShipping = useAuthenticatedShippingAddress(user, authUserId);
+  const [guestShippingAddress, setGuestShippingAddress] = useState<ShippingAddress>(emptyShippingAddress());
   const [addressErrors, setAddressErrors] = useState<ShippingAddressErrors>({});
 
-  useEffect(() => {
-    setShippingAddress((current) => {
-      const seeded = buildInitialAddress(user);
-      return {
-        ...current,
-        name: current.name || seeded.name,
-        email: current.email || seeded.email,
-        country: current.country || seeded.country,
-      };
-    });
-  }, [user]);
+  const shippingAddress = authUserId ? authShipping.shippingAddress : guestShippingAddress;
+  const setShippingAddress = authUserId ? authShipping.setShippingAddress : setGuestShippingAddress;
 
-  const updateField = useCallback((field: ShippingAddressField, value: string) => {
-    setShippingAddress((current) => updateShippingAddressField(current, field, value));
-    setAddressErrors((currentErrors) => {
-      if (!currentErrors[field]) {
-        return currentErrors;
-      }
+  const updateField = useCallback(
+    (field: ShippingAddressField, value: string) => {
+      setShippingAddress((current) => updateShippingAddressField(current, field, value));
+      setAddressErrors((currentErrors) => {
+        if (!currentErrors[field]) {
+          return currentErrors;
+        }
 
-      const nextErrors = { ...currentErrors };
-      delete nextErrors[field];
-      return nextErrors;
-    });
-  }, []);
+        const nextErrors = { ...currentErrors };
+        delete nextErrors[field];
+        return nextErrors;
+      });
+    },
+    [setShippingAddress],
+  );
 
   const validateAddress = useCallback(() => {
     const result = validateShippingAddress(shippingAddress);
@@ -69,5 +50,8 @@ export function useCheckoutShippingAddress(user: AuthUser | null) {
     addressErrors,
     updateField,
     validateAddress,
+    isLoadingAuthAddress: authShipping.isLoading,
+    authAddressError: authShipping.error,
+    reloadAuthAddress: authShipping.reload,
   };
 }

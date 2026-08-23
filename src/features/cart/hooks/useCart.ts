@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { getErrorMessage } from '../../../services/api/errors';
+import type { UserPricingInfo } from '../../../services/pricing/types';
+import { loadGuestCart, saveGuestCart } from '../../../services/storage/cartStorage';
 import type { CartMap } from '../../../services/types/cart';
 import {
   calculateSubTotal,
@@ -8,62 +10,138 @@ import {
   loadUserCart,
   persistCart,
   removeCartLine,
+  updateCartLineQuantity,
 } from '../utils/cartUtils';
+import { syncCartLinePrices } from '../utils/cartPricing';
+import { getCartMemoryCache, setCartMemoryCache } from '../utils/cartMemoryCache';
+import { notifyCartChanged, subscribeCartRefresh } from '../utils/cartRefresh';
 
-export function useCart(userId?: string) {
-  const [cart, setCart] = useState<CartMap>({});
-  const [totalShippingRate, setTotalShippingRate] = useState(0);
-  const [fetchedShippingRate, setFetchedShippingRate] = useState(0);
-  const [isLoading, setIsLoading] = useState(Boolean(userId));
+export function useCart(userId?: string, userInfo?: UserPricingInfo) {
+  const initialCache = getCartMemoryCache(userId);
+  const [cart, setCart] = useState<CartMap>(initialCache?.cart ?? {});
+  const [totalShippingRate, setTotalShippingRate] = useState(initialCache?.totalShippingRate ?? 0);
+  const [fetchedShippingRate, setFetchedShippingRate] = useState(initialCache?.fetchedShippingRate ?? 0);
+  const [isRefreshing, setIsRefreshing] = useState(
+    !initialCache || Object.keys(initialCache.cart).length === 0,
+  );
   const [error, setError] = useState<string | null>(null);
   const [removingItemId, setRemovingItemId] = useState<string | null>(null);
+  const [updatingItemId, setUpdatingItemId] = useState<string | null>(null);
 
   const loadCart = useCallback(async () => {
+    const applyPricing = (cartData: CartMap) =>
+      userInfo?.country ? syncCartLinePrices(cartData, userInfo) : cartData;
+
+    let hasExistingItems = false;
+    setCart((current) => {
+      hasExistingItems = Object.keys(current).length > 0;
+      return current;
+    });
+
+    if (!hasExistingItems) {
+      setIsRefreshing(true);
+    }
+
+    setError(null);
+
     if (!userId) {
-      setCart({});
-      setTotalShippingRate(0);
-      setFetchedShippingRate(0);
-      setError(null);
-      setIsLoading(false);
+      try {
+        const guestCart = applyPricing(await loadGuestCart());
+        const cached = getCartMemoryCache(userId);
+        const nextTotalShipping = cached?.totalShippingRate ?? 0;
+        const nextFetchedShipping = cached?.fetchedShippingRate ?? 0;
+        setCart(guestCart);
+        setTotalShippingRate(nextTotalShipping);
+        setFetchedShippingRate(nextFetchedShipping);
+        setCartMemoryCache(userId, {
+          cart: guestCart,
+          totalShippingRate: nextTotalShipping,
+          fetchedShippingRate: nextFetchedShipping,
+        });
+      } catch (err) {
+        if (!hasExistingItems) {
+          setCart({});
+          setError(getErrorMessage(err, 'Failed to load cart'));
+        } else {
+          setError(getErrorMessage(err, 'Unable to refresh cart. Showing saved items.'));
+        }
+      } finally {
+        setIsRefreshing(false);
+      }
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
-
     try {
       const response = await loadUserCart(userId);
-      setCart(response.cart ?? {});
-      setTotalShippingRate(response.totalShippingRate ?? 0);
-      setFetchedShippingRate(response.fetchedShippingRate ?? 0);
+      const nextCart = applyPricing(response.cart ?? {});
+      const nextTotalShipping = response.totalShippingRate ?? 0;
+      const nextFetchedShipping = response.fetchedShippingRate ?? 0;
+      setCart(nextCart);
+      setTotalShippingRate(nextTotalShipping);
+      setFetchedShippingRate(nextFetchedShipping);
+      setCartMemoryCache(userId, {
+        cart: nextCart,
+        totalShippingRate: nextTotalShipping,
+        fetchedShippingRate: nextFetchedShipping,
+      });
     } catch (err) {
-      setCart({});
-      setError(getErrorMessage(err, 'Failed to load cart'));
+      if (!hasExistingItems) {
+        setCart({});
+        setError(getErrorMessage(err, 'Failed to load cart'));
+      } else {
+        setError(getErrorMessage(err, 'Unable to refresh cart. Showing saved items.'));
+      }
     } finally {
-      setIsLoading(false);
+      setIsRefreshing(false);
     }
+  }, [userId, userInfo]);
+
+  useEffect(() => {
+    const cached = getCartMemoryCache(userId);
+    if (cached) {
+      setCart(cached.cart);
+      setTotalShippingRate(cached.totalShippingRate);
+      setFetchedShippingRate(cached.fetchedShippingRate);
+      setIsRefreshing(Object.keys(cached.cart).length === 0);
+      return;
+    }
+
+    setCart({});
+    setTotalShippingRate(0);
+    setFetchedShippingRate(0);
+    setIsRefreshing(true);
   }, [userId]);
 
   useEffect(() => {
     void loadCart();
   }, [loadCart]);
 
+  useEffect(() => subscribeCartRefresh(() => {
+    void loadCart();
+  }), [loadCart]);
+
   const removeItem = useCallback(
     async (itemId: string) => {
-      if (!userId) {
-        return;
-      }
-
       setRemovingItemId(itemId);
       setError(null);
 
       try {
         const nextCart = removeCartLine(cart, itemId);
-        await persistCart(userId, nextCart, {
+        if (userId) {
+          await persistCart(userId, nextCart, {
+            totalShippingRate,
+            fetchedShippingRate,
+          });
+        } else {
+          await saveGuestCart(nextCart);
+        }
+        setCart(nextCart);
+        notifyCartChanged();
+        setCartMemoryCache(userId, {
+          cart: nextCart,
           totalShippingRate,
           fetchedShippingRate,
         });
-        setCart(nextCart);
       } catch (err) {
         setError(getErrorMessage(err, 'Failed to remove item from cart'));
       } finally {
@@ -73,8 +151,68 @@ export function useCart(userId?: string) {
     [cart, fetchedShippingRate, totalShippingRate, userId],
   );
 
+  const updateQuantity = useCallback(
+    async (itemId: string, nextQuantity: number) => {
+      if (nextQuantity < 1) {
+        await removeItem(itemId);
+        return;
+      }
+
+      setUpdatingItemId(itemId);
+      setError(null);
+
+      try {
+        const nextCart = updateCartLineQuantity(cart, itemId, nextQuantity);
+        if (userId) {
+          await persistCart(userId, nextCart, {
+            totalShippingRate,
+            fetchedShippingRate,
+          });
+        } else {
+          await saveGuestCart(nextCart);
+        }
+        setCart(nextCart);
+        notifyCartChanged();
+        setCartMemoryCache(userId, {
+          cart: nextCart,
+          totalShippingRate,
+          fetchedShippingRate,
+        });
+      } catch (err) {
+        setError(getErrorMessage(err, 'Failed to update cart quantity'));
+      } finally {
+        setUpdatingItemId(null);
+      }
+    },
+    [cart, fetchedShippingRate, removeItem, totalShippingRate, userId],
+  );
+
+  const replaceCart = useCallback((nextCart: CartMap) => {
+    setCart(nextCart);
+    setCartMemoryCache(userId, {
+      cart: nextCart,
+      totalShippingRate,
+      fetchedShippingRate,
+    });
+  }, [fetchedShippingRate, totalShippingRate, userId]);
+
+  const setShippingTotals = useCallback((total: number, fetched: number) => {
+    setTotalShippingRate(total);
+    setFetchedShippingRate(fetched);
+
+    const cached = getCartMemoryCache(userId);
+    if (cached) {
+      setCartMemoryCache(userId, {
+        cart: cached.cart,
+        totalShippingRate: total,
+        fetchedShippingRate: fetched,
+      });
+    }
+  }, [userId]);
+
   const entries = useMemo(() => getCartEntries(cart), [cart]);
   const subTotal = useMemo(() => calculateSubTotal(cart), [cart]);
+  const isLoading = isRefreshing && entries.length === 0;
 
   return {
     cart,
@@ -82,10 +220,15 @@ export function useCart(userId?: string) {
     subTotal,
     totalShippingRate,
     fetchedShippingRate,
+    isRefreshing,
     isLoading,
     error,
     removingItemId,
+    updatingItemId,
     retry: loadCart,
     removeItem,
+    updateQuantity,
+    replaceCart,
+    setShippingTotals,
   };
 }

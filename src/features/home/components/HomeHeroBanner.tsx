@@ -1,86 +1,124 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
-import { homeColors, homeRadii, homeShadows, homeSpacing, homeTypography } from '../theme/homeTheme';
+import { AppText } from '../../../components/ui/AppText';
+import {
+  colors,
+  radius,
+  screenPaddingHorizontal,
+  sectionGap,
+  shadows,
+  spacing,
+} from '../../../design-system';
 
-export function HomeHeroBanner() {
+interface HomeHeroBannerProps {
+  onPress?: () => void;
+}
+
+export function HomeHeroBanner({ onPress }: HomeHeroBannerProps) {
   return (
     <View style={styles.wrapper}>
-      <View style={styles.banner}>
-        <View style={styles.glow} />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Shop summer deals"
+        onPress={onPress}
+        style={({ pressed }) => [styles.banner, pressed && styles.bannerPressed]}
+      >
+        <View style={styles.accentOrb} />
         <View style={styles.content}>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>Handmade marketplace</Text>
+          <AppText variant="caption" color="textInverse" style={styles.eyebrow}>
+            Summer deals
+          </AppText>
+          <AppText variant="h2" color="textInverse" style={styles.title}>
+            Up to 40% off artisan finds
+          </AppText>
+          <AppText variant="bodySmall" style={styles.subtitle}>
+            Curated picks from independent makers across the marketplace.
+          </AppText>
+          <View style={styles.ctaRow}>
+            <View style={styles.ctaButton}>
+              <AppText variant="button" color="primary" style={styles.ctaLabel}>
+                Shop deals
+              </AppText>
+              <AppText variant="button" color="primary" style={styles.ctaArrow}>
+                →
+              </AppText>
+            </View>
           </View>
-          <Text style={styles.title}>Shop unique crafts from global artisans</Text>
-          <Text style={styles.subtitle}>
-            Curated products, fair pricing, and stories behind every maker.
-          </Text>
         </View>
-        <View style={styles.accentBar} />
-      </View>
+      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrapper: {
-    paddingHorizontal: homeSpacing.screen,
-    marginTop: homeSpacing.block,
-    marginBottom: homeSpacing.section - 8,
+    paddingHorizontal: screenPaddingHorizontal,
+    marginTop: spacing.lg,
+    marginBottom: sectionGap - spacing.md,
   },
   banner: {
-    borderRadius: homeRadii.lg,
+    borderRadius: radius.xl,
     overflow: 'hidden',
-    backgroundColor: homeColors.navy,
-    minHeight: 156,
-    ...homeShadows.card,
+    backgroundColor: colors.primary,
+    borderWidth: 1,
+    borderColor: colors.primaryPressed,
+    minHeight: 168,
+    ...shadows.floating,
   },
-  glow: {
+  bannerPressed: {
+    opacity: 0.96,
+  },
+  accentOrb: {
     position: 'absolute',
-    top: -40,
-    right: -20,
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: 'rgba(234, 88, 12, 0.22)',
+    top: -36,
+    right: -24,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: colors.secondary,
+    opacity: 0.88,
   },
   content: {
-    paddingHorizontal: 20,
-    paddingTop: 22,
-    paddingBottom: 18,
-    gap: 10,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xl,
+    gap: spacing.sm,
+    maxWidth: '82%',
   },
-  badge: {
-    alignSelf: 'flex-start',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: homeRadii.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#FDE68A',
-    letterSpacing: 0.4,
+  eyebrow: {
     textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    fontWeight: '700',
+    color: colors.primarySoft,
   },
   title: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    lineHeight: 28,
-    letterSpacing: -0.4,
-    maxWidth: 320,
+    color: colors.textInverse,
+    fontSize: 24,
+    lineHeight: 30,
   },
   subtitle: {
-    ...homeTypography.body,
-    color: 'rgba(255, 255, 255, 0.82)',
-    maxWidth: 340,
+    color: 'rgba(255, 255, 255, 0.88)',
+    lineHeight: 20,
   },
-  accentBar: {
-    height: 5,
-    backgroundColor: homeColors.primary,
+  ctaRow: {
+    marginTop: spacing.sm,
+  },
+  ctaButton: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: radius.pill,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+  },
+  ctaLabel: {
+    color: colors.primary,
+    fontSize: 14,
+  },
+  ctaArrow: {
+    color: colors.secondary,
+    fontSize: 16,
+    lineHeight: 18,
   },
 });

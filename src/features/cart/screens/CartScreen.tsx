@@ -1,118 +1,406 @@
+import { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
-  Pressable,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AppButton } from '../../../components/ui/AppButton';
+import { AppText } from '../../../components/ui/AppText';
+import { usePricing } from '../../../app/providers/PricingProvider';
+import { colors, spacing } from '../../../design-system';
 import { useAuth } from '../../auth/hooks/useAuth';
+import { authReturnTo, openAuthLogin } from '../../auth/utils/authNavigation';
+import { resolveAuthUserId } from '../../auth/utils/resolveAuthUserId';
+import { getProductRouteId } from '../../products/utils/productDisplay';
+import {
+  navigateToBrowseTab,
+  navigateToHomeTab,
+} from '../../../app/navigation/shoppingNavigation';
+import type { MainTabParamList, RootStackParamList, ShoppingStackParamList } from '../../../app/navigation/types';
+import { CartGuestAddressModal } from '../components/CartGuestAddressModal';
+import { DeliveryAddressSheet } from '../../checkout/components/DeliveryAddressSheet';
+import { ShippingOptionsSheet } from '../components/ShippingOptionsSheet';
 import { CartLineItemRow } from '../components/CartLineItemRow';
+import { CartRecommendationsSection } from '../components/CartRecommendationsSection';
+import { CartScreenHeader } from '../components/CartScreenHeader';
+import { CartShippingSection } from '../components/CartShippingSection';
+import { CartSummarySheet } from '../components/CartSummarySheet';
 import { useCart } from '../hooks/useCart';
-import { formatProductPrice } from '../../products/utils/productDisplay';
-import type { RootStackParamList, ShoppingStackParamList } from '../../../app/navigation/types';
+import { useCartShipping } from '../hooks/useCartShipping';
+import { useCartCoupon } from '../hooks/useCartCoupon';
+import { useCartRecommendations } from '../hooks/useCartRecommendations';
+import { getCartItemCount } from '../utils/cartUtils';
+import {
+  getCartLineDisplayAmount,
+  getCartSubtotalCad,
+  getSelectedCartDisplaySubtotal,
+} from '../utils/cartPricing';
+import { calculateCartTotals } from '../utils/cartTotals';
+import {
+  isCartShippingPending,
+  resolveCartShippingCad,
+} from '../utils/resolveCartShipping';
+import {
+  emptyShippingAddress,
+  type ShippingAddressField,
+} from '../../checkout/types/shippingAddress';
+import {
+  updateShippingAddressField,
+  validateShippingAddress,
+} from '../../checkout/utils/validateShippingAddress';
 
-type Props = NativeStackScreenProps<ShoppingStackParamList, 'Cart'>;
+type Props = BottomTabScreenProps<MainTabParamList, 'CartTab'>;
 
 type CartNavigationProp = CompositeNavigationProp<
-  NativeStackNavigationProp<ShoppingStackParamList, 'Cart'>,
-  NativeStackNavigationProp<RootStackParamList>
+  BottomTabScreenProps<MainTabParamList, 'CartTab'>['navigation'],
+  CompositeNavigationProp<
+    NativeStackNavigationProp<ShoppingStackParamList>,
+    NativeStackNavigationProp<RootStackParamList>
+  >
 >;
 
-export function CartScreen({ navigation }: Props) {
+function CartDivider() {
+  return <View style={styles.divider} />;
+}
+
+export function CartScreen(_props: Props) {
+  const insets = useSafeAreaInsets();
   const rootNavigation = useNavigation<CartNavigationProp>();
   const { user, isAuthenticated } = useAuth();
-  const { entries, subTotal, isLoading, error, removingItemId, retry, removeItem } = useCart(
-    user?.userId,
+  const authUserId = resolveAuthUserId(user);
+  const { userInfo } = usePricing();
+  const currency = userInfo.currency ?? 'CAD';
+  const currencyRate = userInfo.currencyRate ?? 1;
+
+  const {
+    cart,
+    entries,
+    subTotal,
+    totalShippingRate,
+    fetchedShippingRate,
+    isLoading,
+    error,
+    removingItemId,
+    updatingItemId,
+    retry,
+    removeItem,
+    updateQuantity,
+    replaceCart,
+    setShippingTotals,
+  } = useCart(authUserId, userInfo);
+
+  const cartShipping = useCartShipping({
+    cart,
+    user,
+    authUserId,
+    replaceCart,
+    setShippingTotals,
+  });
+
+  const [modalAddress, setModalAddress] = useState(emptyShippingAddress());
+  const [modalErrors, setModalErrors] = useState<Partial<Record<ShippingAddressField, string>>>({});
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    setSelectedItemIds(new Set(entries.map((entry) => entry.id)));
+  }, [entries]);
+
+  useEffect(() => {
+    if (cartShipping.addressModalVisible) {
+      setModalAddress(cartShipping.shippingAddress);
+      setModalErrors({});
+    }
+  }, [cartShipping.addressModalVisible, cartShipping.shippingAddress]);
+
+  const shippingRates = useMemo(
+    () => ({
+      totalShippingRate,
+      fetchedShippingRate,
+    }),
+    [fetchedShippingRate, totalShippingRate],
   );
 
-  if (!isAuthenticated || !user?.userId) {
+  const {
+    appliedCoupon,
+    discountAmount,
+    isApplying: isApplyingCoupon,
+    couponMessage,
+    couponError,
+    applyPromoCode,
+    clearCoupon,
+  } = useCartCoupon(authUserId, user?.email, cart, shippingRates, replaceCart);
+
+  const cartProductIds = useMemo(
+    () =>
+      entries
+        .map(({ line }) => getProductRouteId(line.productData ?? {}))
+        .filter((id): id is string => Boolean(id)),
+    [entries],
+  );
+
+  const { products: recommendations, isLoading: isRecommendationsLoading } =
+    useCartRecommendations(cartProductIds);
+
+  const selectedEntries = useMemo(
+    () => entries.filter((entry) => selectedItemIds.has(entry.id)),
+    [entries, selectedItemIds],
+  );
+
+  const filteredSelectedCart = useMemo(() => {
+    const next: typeof cart = {};
+    for (const itemId of selectedItemIds) {
+      if (cart[itemId]) {
+        next[itemId] = cart[itemId];
+      }
+    }
+    return next;
+  }, [cart, selectedItemIds]);
+
+  const selectedSubTotalCad = useMemo(
+    () => getCartSubtotalCad(filteredSelectedCart, userInfo),
+    [filteredSelectedCart, userInfo],
+  );
+
+  const displaySubTotal = useMemo(
+    () => getSelectedCartDisplaySubtotal(cart, selectedItemIds, userInfo),
+    [cart, selectedItemIds, userInfo],
+  );
+
+  const shippingCad = useMemo(
+    () => resolveCartShippingCad(cart, totalShippingRate, fetchedShippingRate),
+    [cart, fetchedShippingRate, totalShippingRate],
+  );
+  const shippingPending =
+    cartShipping.shippingContext.needsDeliveryDetails ||
+    cartShipping.isLoading ||
+    isCartShippingPending(cart, shippingCad);
+
+  const totals = useMemo(
+    () =>
+      calculateCartTotals({
+        subtotalCad: selectedSubTotalCad,
+        shippingCad,
+        discountDisplay: discountAmount,
+        currencyRate,
+        shippingPending,
+      }),
+    [currencyRate, discountAmount, selectedSubTotalCad, shippingCad, shippingPending],
+  );
+
+  const itemCount = getCartItemCount(cart);
+  const selectedItemCount = selectedEntries.length;
+
+  const handleSubmitDeliveryDetails = () => {
+    const validation = validateShippingAddress(modalAddress);
+    if (!validation.isValid) {
+      setModalErrors(validation.errors);
+      return;
+    }
+
+    void cartShipping.submitDeliveryDetails(modalAddress).catch(() => {
+      // Error surfaced via cartShipping.addressError in modal.
+    });
+  };
+
+  const handleModalAddressChange = (field: ShippingAddressField, value: string) => {
+    setModalAddress((current) => updateShippingAddressField(current, field, value));
+    setModalErrors((current) => {
+      if (!current[field]) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  };
+
+  const toggleItemSelection = (itemId: string) => {
+    setSelectedItemIds((current) => {
+      const next = new Set(current);
+      if (next.has(itemId)) {
+        if (next.size === 1) {
+          return current;
+        }
+        next.delete(itemId);
+      } else {
+        next.add(itemId);
+      }
+      return next;
+    });
+  };
+
+  if (error && entries.length === 0 && !isLoading) {
     return (
-      <View style={styles.centeredState}>
-        <Text style={styles.title}>Your cart</Text>
-        <Text style={styles.subtitle}>Sign in to view and manage your cart items.</Text>
-        <Pressable
-          style={styles.primaryButton}
-          onPress={() => rootNavigation.navigate('Auth', { screen: 'Login' })}
-        >
-          <Text style={styles.primaryButtonText}>Sign in</Text>
-        </Pressable>
-        <Pressable style={styles.secondaryButton} onPress={() => navigation.navigate('Home')}>
-          <Text style={styles.secondaryButtonText}>Continue Shopping</Text>
-        </Pressable>
+      <View style={[styles.centeredState, { paddingTop: insets.top }]}>
+        <AppText variant="bodySmall" color="error">
+          {error}
+        </AppText>
+        <AppButton label="Try again" onPress={() => void retry()} />
       </View>
     );
   }
 
-  if (isLoading) {
+  if (isLoading && entries.length === 0) {
     return (
-      <View style={styles.centeredState}>
-        <ActivityIndicator size="large" color="#EA580C" />
-        <Text style={styles.stateText}>Loading cart...</Text>
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={styles.centeredState}>
-        <Text style={styles.errorText}>{error}</Text>
-        <Pressable style={styles.primaryButton} onPress={() => void retry()}>
-          <Text style={styles.primaryButtonText}>Try again</Text>
-        </Pressable>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <CartScreenHeader
+          itemCount={0}
+          onBack={() => {
+            if (rootNavigation.canGoBack()) {
+              rootNavigation.goBack();
+            } else {
+              navigateToHomeTab(rootNavigation);
+            }
+          }}
+        />
       </View>
     );
   }
 
   if (entries.length === 0) {
     return (
-      <View style={styles.centeredState}>
-        <Text style={styles.title}>Your cart is empty</Text>
-        <Text style={styles.subtitle}>Browse categories and add products to your cart.</Text>
-        <Pressable style={styles.primaryButton} onPress={() => navigation.navigate('Home')}>
-          <Text style={styles.primaryButtonText}>Continue Shopping</Text>
-        </Pressable>
-        <Pressable style={styles.secondaryButton} onPress={() => navigation.navigate('Categories')}>
-          <Text style={styles.secondaryButtonText}>Browse Categories</Text>
-        </Pressable>
+      <View style={[styles.centeredState, { paddingTop: insets.top }]}>
+        <AppText variant="h2">Your cart is empty</AppText>
+        <AppText variant="body" style={styles.centeredCopy}>
+          Browse categories and add products to your cart.
+        </AppText>
+        <AppButton label="Continue shopping" onPress={() => navigateToHomeTab(rootNavigation)} fullWidth />
+        <AppButton
+          label="Browse categories"
+          variant="outline"
+          onPress={() => navigateToBrowseTab(rootNavigation)}
+          fullWidth
+        />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <CartScreenHeader
+        itemCount={itemCount}
+        onBack={() => {
+          if (rootNavigation.canGoBack()) {
+            rootNavigation.goBack();
+          } else {
+            navigateToHomeTab(rootNavigation);
+          }
+        }}
+      />
+
       <FlatList
         data={entries}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        ItemSeparatorComponent={CartDivider}
         renderItem={({ item }) => (
           <CartLineItemRow
             itemId={item.id}
             line={item.line}
+            currency={currency}
+            displayLineTotal={getCartLineDisplayAmount(item.line, cart, userInfo)}
+            selected={selectedItemIds.has(item.id)}
+            onToggleSelect={toggleItemSelection}
             onRemove={(itemId) => void removeItem(itemId)}
+            onQuantityChange={(itemId, nextQuantity) => void updateQuantity(itemId, nextQuantity)}
             isRemoving={removingItemId === item.id}
+            isUpdating={updatingItemId === item.id}
+            showRemove
           />
         )}
         ListFooterComponent={
-          <View style={styles.summaryBox}>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Subtotal</Text>
-              <Text style={styles.summaryValue}>{formatProductPrice(subTotal)}</Text>
-            </View>
-            <Pressable
-              style={styles.primaryButton}
-              onPress={() => navigation.navigate('Checkout')}
-            >
-              <Text style={styles.primaryButtonText}>Proceed to Checkout</Text>
-            </Pressable>
+          <View style={styles.footerContent}>
+            <CartShippingSection
+              isAuthenticated={isAuthenticated}
+              isLoadingAuthAddress={cartShipping.isLoadingAuthAddress}
+              needsDeliveryDetails={cartShipping.shippingContext.needsDeliveryDetails}
+              canFetchRates={cartShipping.shippingContext.canFetchRates}
+              isLoading={cartShipping.isLoading}
+              error={cartShipping.error}
+              selectedOptions={cartShipping.selectedOptions}
+              hasMultipleSellers={cartShipping.hasMultipleSellers}
+              onOpenDeliveryDetails={cartShipping.openDeliveryDetails}
+              onOpenShippingOptions={cartShipping.openShippingOptions}
+              onSignIn={() => openAuthLogin(rootNavigation, authReturnTo.cartTab())}
+              onRetry={() => void cartShipping.retry()}
+            />
+
+            <CartRecommendationsSection
+              products={recommendations}
+              isLoading={isRecommendationsLoading}
+              currency={currency}
+              onProductPress={(product) =>
+                rootNavigation.navigate('ProductDetail', {
+                  productId: getProductRouteId(product),
+                  slug: product.slug,
+                })
+              }
+            />
           </View>
         }
+      />
+
+      <CartSummarySheet
+        currency={currency}
+        itemCount={selectedItemCount}
+        subTotal={displaySubTotal}
+        discountAmount={totals.displayDiscount}
+        shippingAmount={totals.displayShipping}
+        serviceChargeAmount={totals.displayServiceCharge}
+        total={totals.displayTotal}
+        onApplyPromo={applyPromoCode}
+        onRemovePromo={clearCoupon}
+        isApplyingCoupon={isApplyingCoupon}
+        appliedCode={appliedCoupon?.couponCode}
+        couponError={couponError}
+        couponMessage={couponMessage}
+        checkoutDisabled={!cartShipping.canProceedToCheckout || selectedItemCount === 0}
+        onCheckout={() => {
+          if (!isAuthenticated) {
+            openAuthLogin(rootNavigation, authReturnTo.payment());
+            return;
+          }
+
+          rootNavigation.navigate('Payment');
+        }}
+      />
+
+      <DeliveryAddressSheet
+        visible={cartShipping.deliveryAddressSheetVisible}
+        user={user}
+        userId={authUserId}
+        onClose={() => cartShipping.setDeliveryAddressSheetVisible(false)}
+        onSelectAddress={(address) => cartShipping.selectSavedAddress(address)}
+      />
+
+      <ShippingOptionsSheet
+        visible={cartShipping.shippingOptionsSheetVisible}
+        groups={cartShipping.groups}
+        selectedOptionBySeller={cartShipping.selectedOptionBySeller}
+        hasMultipleSellers={cartShipping.hasMultipleSellers}
+        isLoading={cartShipping.isLoading}
+        error={cartShipping.error}
+        onClose={() => cartShipping.setShippingOptionsSheetVisible(false)}
+        onRetry={() => void cartShipping.retry()}
+        onConfirm={cartShipping.confirmShippingOptions}
+      />
+
+      <CartGuestAddressModal
+        visible={cartShipping.addressModalVisible}
+        value={modalAddress}
+        errors={modalErrors}
+        isSubmitting={cartShipping.isSavingAddress}
+        errorMessage={cartShipping.addressError}
+        onChange={handleModalAddressChange}
+        onSubmit={handleSubmitDeliveryDetails}
+        onClose={() => cartShipping.setAddressModalVisible(false)}
       />
     </View>
   );
@@ -121,94 +409,30 @@ export function CartScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: colors.background,
   },
   listContent: {
-    padding: 16,
-    gap: 12,
-    paddingBottom: 32,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xl,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.borderStrong,
+  },
+  footerContent: {
+    gap: spacing.sm,
+    paddingBottom: spacing.sm,
   },
   centeredState: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: 'stretch',
     justifyContent: 'center',
-    padding: 24,
-    backgroundColor: '#FFF7ED',
-    gap: 12,
+    padding: spacing.xl,
+    backgroundColor: colors.background,
+    gap: spacing.md,
   },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#172554',
+  centeredCopy: {
     textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 15,
-    color: '#475569',
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 4,
-  },
-  stateText: {
-    fontSize: 14,
-    color: '#64748B',
-  },
-  errorText: {
-    fontSize: 14,
-    color: '#B91C1C',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  primaryButton: {
-    backgroundColor: '#EA580C',
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    minWidth: 180,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  secondaryButton: {
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    minWidth: 180,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-    backgroundColor: '#FFEDD5',
-  },
-  secondaryButtonText: {
-    color: '#172554',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  summaryBox: {
-    marginTop: 8,
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: '#FFEDD5',
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-    gap: 8,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  summaryLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#172554',
-  },
-  summaryValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#EA580C',
+    marginBottom: spacing.sm,
   },
 });

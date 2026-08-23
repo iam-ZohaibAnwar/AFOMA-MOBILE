@@ -3,17 +3,27 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider } from './src/app/providers/AuthProvider';
+import { PricingProvider } from './src/app/providers/PricingProvider';
+import { StripeAppProvider } from './src/app/providers/StripeAppProvider';
+import { preparePayPalAuthSession } from './src/features/checkout/utils/openPayPalAuthSession';
+import { rootLinking } from './src/app/navigation/linking';
 import { RootNavigator } from './src/app/navigation/RootNavigator';
 
 export default function App() {
+  preparePayPalAuthSession();
+
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <NavigationContainer>
-          <RootNavigator />
-          <StatusBar style="dark" />
-        </NavigationContainer>
-      </AuthProvider>
+      <StripeAppProvider>
+        <AuthProvider>
+          <PricingProvider>
+            <NavigationContainer linking={rootLinking}>
+              <RootNavigator />
+              <StatusBar style="dark" />
+            </NavigationContainer>
+          </PricingProvider>
+        </AuthProvider>
+      </StripeAppProvider>
     </SafeAreaProvider>
   );
 }

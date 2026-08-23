@@ -8,7 +8,7 @@ export interface CartLineItem {
   orderQuantiy?: number;
   basePrice?: number;
   totalAmount?: number;
-  maxQuantity?: number;
+  maxQuantity?: number | string;
   remark?: string;
   productData?: Product;
   selectedVariations?: Array<{ attributeName?: string; attributeValue?: string }>;

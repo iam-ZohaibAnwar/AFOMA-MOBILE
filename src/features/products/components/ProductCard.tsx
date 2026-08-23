@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { ProductPrice } from '../../../components/ecommerce/ProductPrice';
+import { colors, radius, shadows } from '../../../design-system';
 import type { Product } from '../../../services/types/product';
 import {
-  formatProductPrice,
+  getProductCompareAtPrice,
+  getProductDiscountPercent,
   getProductDisplayName,
   getProductImageUrl,
   getProductPrice,
@@ -14,29 +17,6 @@ interface ProductCardProps {
   onPress: (product: Product) => void;
   variant?: 'default' | 'elevated';
 }
-
-const colors = {
-  surface: '#FFFFFF',
-  surfaceWarm: '#FFEDD5',
-  border: '#FED7AA',
-  borderLight: '#FFEDD5',
-  text: '#172554',
-  textMuted: '#64748B',
-  primary: '#EA580C',
-};
-
-const elevatedShadow = Platform.select({
-  ios: {
-    shadowColor: '#172554',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-  },
-  android: {
-    elevation: 4,
-  },
-  default: {},
-});
 
 export function ProductCard({ product, onPress, variant = 'default' }: ProductCardProps) {
   const [imageFailed, setImageFailed] = useState(false);
@@ -72,9 +52,13 @@ export function ProductCard({ product, onPress, variant = 'default' }: ProductCa
         <Text style={[styles.name, isElevated && styles.nameElevated]} numberOfLines={2}>
           {getProductDisplayName(product)}
         </Text>
-        <Text style={[styles.price, isElevated && styles.priceElevated]}>
-          {formatProductPrice(getProductPrice(product))}
-        </Text>
+        <ProductPrice
+          price={getProductPrice(product)}
+          compareAtPrice={getProductCompareAtPrice(product)}
+          discountPercent={getProductDiscountPercent(product)}
+          size="sm"
+          layout="marketplace"
+        />
       </View>
     </Pressable>
   );
@@ -83,15 +67,15 @@ export function ProductCard({ product, onPress, variant = 'default' }: ProductCa
 const styles = StyleSheet.create({
   card: {
     flex: 1,
-    borderRadius: 14,
+    borderRadius: radius.large,
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderColor: colors.border,
     overflow: 'hidden',
   },
   cardElevated: {
-    borderColor: colors.border,
-    ...elevatedShadow,
+    borderColor: colors.borderStrong,
+    ...shadows.card,
   },
   cardPressed: {
     opacity: 0.94,
@@ -99,7 +83,7 @@ const styles = StyleSheet.create({
   imageWrap: {
     width: '100%',
     aspectRatio: 1,
-    backgroundColor: colors.surfaceWarm,
+    backgroundColor: colors.surfaceMuted,
   },
   imageWrapElevated: {
     aspectRatio: 0.92,
@@ -128,7 +112,7 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.text,
+    color: colors.textPrimary,
     lineHeight: 18,
     minHeight: 36,
   },
@@ -136,13 +120,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     minHeight: 34,
-  },
-  price: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  priceElevated: {
-    fontSize: 15,
   },
 });

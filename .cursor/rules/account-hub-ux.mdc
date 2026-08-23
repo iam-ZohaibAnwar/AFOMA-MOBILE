@@ -1,0 +1,46 @@
+---
+description: Unified Account hub — Personal, Seller, and Preferences in one navigation hierarchy
+alwaysApply: true
+---
+
+# AFOMA — Account Hub UX
+
+Account is the **single navigation hub** for identity, customer actions, seller actions, and preferences.
+
+## Do NOT
+
+- Present a separate "Seller Account" screen as a UX layer
+- Force `Account → Seller Account → Seller Dashboard → Feature`
+- Duplicate earnings labels without distinction
+- Split logout across multiple seller-only screens
+
+## DO
+
+Structure Account as:
+
+```
+Profile header
+PERSONAL   — Account details, My orders, Addresses, Referral earnings
+SELLER     — (sellers only) Dashboard, Products, Orders, Shipping, Seller earnings, etc.
+PREFERENCES — Notifications, Help & support
+Logout
+```
+
+## Seller section rules
+
+- Show **Seller** section only when `role === 'seller'` and a valid `sellerId` exists
+- Seller menu rows navigate directly into `SellerNavigator` screens — no intermediate hub
+- Incomplete onboarding: show **Finish setting up your shop** progress card at top of Seller section
+- Label customer affiliate earnings **Referral earnings**; seller payouts **Seller earnings**
+
+## Navigation architecture
+
+`SellerNavigator` may remain a root stack for code organization, but users enter seller flows **from Account**, not from a separate seller identity screen.
+
+Legacy `SellerAccount` route may redirect to `SellerDashboard` for deep links only.
+
+## Visual direction
+
+Grouped sections with labeled headers and card panels — not one flat generic list.
+
+Profile header is tappable → Account details.
