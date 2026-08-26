@@ -13,7 +13,11 @@
       "backgroundColor": "#FFF7ED"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.zohaibanwarsorganization.afoma",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +25,11 @@
         "backgroundColor": "#FFF7ED"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.zohaibanwarsorganization.afoma"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -41,8 +49,14 @@
           "merchantIdentifier": "merchant.com.afoma",
           "enableGooglePay": false
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
-    "scheme": "afoma"
+    "scheme": "afoma",
+    "extra": {
+      "eas": {
+        "projectId": "20c4513d-aa95-4627-af30-460bd319aed4"
+      }
+    }
   }
 }

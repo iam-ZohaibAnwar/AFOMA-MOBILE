@@ -18,6 +18,7 @@ import { useAuth } from '../../auth/hooks/useAuth';
 import { authReturnTo, openAuthLogin } from '../../auth/utils/authNavigation';
 import { resolveAuthUserId } from '../../auth/utils/resolveAuthUserId';
 import { getProductRouteId } from '../../products/utils/productDisplay';
+import type { SelectedAttributes } from '../../products/utils/productVariations';
 import {
   navigateToBrowseTab,
   navigateToHomeTab,
@@ -31,11 +32,11 @@ import { CartRecommendationsSection } from '../components/CartRecommendationsSec
 import { CartScreenHeader } from '../components/CartScreenHeader';
 import { CartShippingSection } from '../components/CartShippingSection';
 import { CartSummarySheet } from '../components/CartSummarySheet';
+import { CartVariationSheet, buildCartVariationSelections } from '../components/CartVariationSheet';
 import { useCart } from '../hooks/useCart';
 import { useCartShipping } from '../hooks/useCartShipping';
 import { useCartCoupon } from '../hooks/useCartCoupon';
 import { useCartRecommendations } from '../hooks/useCartRecommendations';
-import { getCartItemCount } from '../utils/cartUtils';
 import {
   getCartLineDisplayAmount,
   getCartSubtotalCad,
@@ -91,6 +92,7 @@ export function CartScreen(_props: Props) {
     retry,
     removeItem,
     updateQuantity,
+    updateVariations,
     replaceCart,
     setShippingTotals,
   } = useCart(authUserId, userInfo);
@@ -106,6 +108,8 @@ export function CartScreen(_props: Props) {
   const [modalAddress, setModalAddress] = useState(emptyShippingAddress());
   const [modalErrors, setModalErrors] = useState<Partial<Record<ShippingAddressField, string>>>({});
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [variationItemId, setVariationItemId] = useState<string | null>(null);
+  const [variationError, setVariationError] = useState<string | null>(null);
 
   useEffect(() => {
     setSelectedItemIds(new Set(entries.map((entry) => entry.id)));
@@ -179,7 +183,7 @@ export function CartScreen(_props: Props) {
   const shippingPending =
     cartShipping.shippingContext.needsDeliveryDetails ||
     cartShipping.isLoading ||
-    isCartShippingPending(cart, shippingCad);
+    isCartShippingPending(cart, cartShipping.selectedOptions);
 
   const totals = useMemo(
     () =>
@@ -193,8 +197,35 @@ export function CartScreen(_props: Props) {
     [currencyRate, discountAmount, selectedSubTotalCad, shippingCad, shippingPending],
   );
 
-  const itemCount = getCartItemCount(cart);
   const selectedItemCount = selectedEntries.length;
+  const editingVariationLine = variationItemId ? cart[variationItemId] ?? null : null;
+
+  const handleBackFromCart = () => {
+    if (rootNavigation.canGoBack()) {
+      rootNavigation.goBack();
+    } else {
+      navigateToHomeTab(rootNavigation);
+    }
+  };
+
+  const handleSaveVariations = async (selectedAttributes: SelectedAttributes) => {
+    if (!variationItemId || !editingVariationLine?.productData) {
+      return;
+    }
+
+    setVariationError(null);
+
+    try {
+      const selectedVariations = buildCartVariationSelections(
+        editingVariationLine.productData,
+        selectedAttributes,
+      );
+      await updateVariations(variationItemId, selectedVariations);
+      setVariationItemId(null);
+    } catch (err) {
+      setVariationError(err instanceof Error ? err.message : 'Failed to update options.');
+    }
+  };
 
   const handleSubmitDeliveryDetails = () => {
     const validation = validateShippingAddress(modalAddress);
@@ -249,16 +280,7 @@ export function CartScreen(_props: Props) {
   if (isLoading && entries.length === 0) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <CartScreenHeader
-          itemCount={0}
-          onBack={() => {
-            if (rootNavigation.canGoBack()) {
-              rootNavigation.goBack();
-            } else {
-              navigateToHomeTab(rootNavigation);
-            }
-          }}
-        />
+        <CartScreenHeader onBack={handleBackFromCart} />
       </View>
     );
   }
@@ -283,16 +305,7 @@ export function CartScreen(_props: Props) {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <CartScreenHeader
-        itemCount={itemCount}
-        onBack={() => {
-          if (rootNavigation.canGoBack()) {
-            rootNavigation.goBack();
-          } else {
-            navigateToHomeTab(rootNavigation);
-          }
-        }}
-      />
+      <CartScreenHeader onBack={handleBackFromCart} />
 
       <FlatList
         data={entries}
@@ -310,6 +323,10 @@ export function CartScreen(_props: Props) {
             onToggleSelect={toggleItemSelection}
             onRemove={(itemId) => void removeItem(itemId)}
             onQuantityChange={(itemId, nextQuantity) => void updateQuantity(itemId, nextQuantity)}
+            onEditVariations={(itemId) => {
+              setVariationError(null);
+              setVariationItemId(itemId);
+            }}
             isRemoving={removingItemId === item.id}
             isUpdating={updatingItemId === item.id}
             showRemove
@@ -401,6 +418,20 @@ export function CartScreen(_props: Props) {
         onChange={handleModalAddressChange}
         onSubmit={handleSubmitDeliveryDetails}
         onClose={() => cartShipping.setAddressModalVisible(false)}
+      />
+
+      <CartVariationSheet
+        visible={variationItemId !== null}
+        line={editingVariationLine}
+        isSaving={Boolean(variationItemId && updatingItemId === variationItemId)}
+        errorMessage={variationError}
+        onClose={() => {
+          setVariationItemId(null);
+          setVariationError(null);
+        }}
+        onSave={(selectedAttributes) => {
+          void handleSaveVariations(selectedAttributes);
+        }}
       />
     </View>
   );

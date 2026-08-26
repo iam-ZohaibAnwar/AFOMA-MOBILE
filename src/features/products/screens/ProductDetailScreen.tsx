@@ -443,7 +443,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
 
 
 
-        <View style={[styles.contentSheet, { backgroundColor: theme.background }]}>
+        <View style={[styles.contentSheet, { backgroundColor: theme.surface }]}>
 
           <ProductDetailHeader
 

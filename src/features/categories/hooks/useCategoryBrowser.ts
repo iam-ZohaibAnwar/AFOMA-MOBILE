@@ -1,68 +1,77 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
-  getChildCategoriesByParent,
-  getSubCategoriesByParent,
-} from '../../../services/api/categoriesApi';
+  ensureCategoryTreeLoaded,
+  getCachedCategorySections,
+  getCachedParentCategories,
+  getCategoryTreeLoadError,
+  isCategoryTreeLoaded,
+  subscribeCategoryTree,
+} from '../../../services/cache/categoryTreeCache';
 import { getErrorMessage } from '../../../services/api/errors';
 import type { Category } from '../../../services/types/category';
 import {
   getCategoryRouteId,
   getNavigableCategories,
 } from '../utils/categoryNavigation';
-import { useCategories } from './useCategories';
 
 import type { SubCategoryBrowserSection } from '../types/subCategoryBrowser';
 
 export type { SubCategoryBrowserSection };
 
 export function useCategoryBrowser() {
-  const { categories, isLoading, error, retry } = useCategories();
+  const [categories, setCategories] = useState<Category[]>(() =>
+    getNavigableCategories(getCachedParentCategories()),
+  );
+  const [isLoading, setIsLoading] = useState(() => !isCategoryTreeLoaded());
+  const [error, setError] = useState<string | null>(() => getCategoryTreeLoadError());
+
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [sections, setSections] = useState<SubCategoryBrowserSection[]>([]);
+  const [sectionsError, setSectionsError] = useState<string | null>(null);
+
   const navigableCategories = useMemo(
     () => getNavigableCategories(categories),
     [categories],
   );
 
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const [sections, setSections] = useState<SubCategoryBrowserSection[]>([]);
-  const [sectionsLoading, setSectionsLoading] = useState(false);
-  const [sectionsError, setSectionsError] = useState<string | null>(null);
+  const syncFromCache = useCallback(() => {
+    setCategories(getNavigableCategories(getCachedParentCategories()));
+    setError(getCategoryTreeLoadError());
+    if (isCategoryTreeLoaded()) {
+      setIsLoading(false);
+    }
+  }, []);
 
-  const loadSections = useCallback(async (categoryId: string) => {
-    setSectionsLoading(true);
+  const loadTree = useCallback(async () => {
+    if (!isCategoryTreeLoaded()) {
+      setIsLoading(true);
+    }
+
+    setError(null);
     setSectionsError(null);
 
     try {
-      const subCategories = await getSubCategoriesByParent(categoryId);
-      const navigableSubCategories = getNavigableCategories(
-        Array.isArray(subCategories) ? subCategories : [],
-      );
-
-      const sectionResults = await Promise.all(
-        navigableSubCategories.map(async (subCategory) => {
-          const subCategoryId = getCategoryRouteId(subCategory);
-          if (!subCategoryId) {
-            return { subCategory, childCategories: [] };
-          }
-
-          const childCategories = await getChildCategoriesByParent(subCategoryId);
-          return {
-            subCategory,
-            childCategories: getNavigableCategories(
-              Array.isArray(childCategories) ? childCategories : [],
-            ),
-          };
-        }),
-      );
-
-      setSections(sectionResults);
+      await ensureCategoryTreeLoaded();
+      syncFromCache();
     } catch (err) {
-      setSections([]);
-      setSectionsError(getErrorMessage(err, 'Failed to load sub-categories'));
+      const message = getErrorMessage(err, 'Failed to load categories');
+      setError(message);
+      setSectionsError(message);
+      syncFromCache();
     } finally {
-      setSectionsLoading(false);
+      setIsLoading(false);
     }
-  }, []);
+  }, [syncFromCache]);
+
+  useEffect(() => {
+    syncFromCache();
+    return subscribeCategoryTree(syncFromCache);
+  }, [syncFromCache]);
+
+  useEffect(() => {
+    void loadTree();
+  }, [loadTree]);
 
   useEffect(() => {
     if (navigableCategories.length === 0) {
@@ -86,8 +95,8 @@ export function useCategoryBrowser() {
       return;
     }
 
-    void loadSections(selectedCategoryId);
-  }, [loadSections, selectedCategoryId]);
+    setSections(getCachedCategorySections(selectedCategoryId));
+  }, [selectedCategoryId, categories]);
 
   const selectedCategory = useMemo(
     () =>
@@ -98,10 +107,8 @@ export function useCategoryBrowser() {
   );
 
   const retrySections = useCallback(() => {
-    if (selectedCategoryId) {
-      void loadSections(selectedCategoryId);
-    }
-  }, [loadSections, selectedCategoryId]);
+    void loadTree();
+  }, [loadTree]);
 
   return {
     categories: navigableCategories,
@@ -109,11 +116,11 @@ export function useCategoryBrowser() {
     selectedCategory,
     setSelectedCategoryId,
     sections,
-    sectionsLoading,
+    sectionsLoading: false,
     sectionsError,
     retrySections,
     isLoading,
     error,
-    retry,
+    retry: loadTree,
   };
 }

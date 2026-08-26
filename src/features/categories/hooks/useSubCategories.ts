@@ -1,15 +1,25 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { getSubCategoriesByParent } from '../../../services/api/categoriesApi';
+import {
+  ensureCategoryTreeLoaded,
+  getCachedSubCategoriesByParent,
+  getCategoryTreeLoadError,
+  isCategoryTreeLoaded,
+  subscribeCategoryTree,
+} from '../../../services/cache/categoryTreeCache';
 import { getErrorMessage } from '../../../services/api/errors';
 import type { Category } from '../../../services/types/category';
 
 export function useSubCategories(categoryId: string) {
-  const [subCategories, setSubCategories] = useState<Category[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [subCategories, setSubCategories] = useState<Category[]>(() =>
+    categoryId ? getCachedSubCategoriesByParent(categoryId) : [],
+  );
+  const [isLoading, setIsLoading] = useState(
+    () => Boolean(categoryId) && !isCategoryTreeLoaded(),
+  );
+  const [error, setError] = useState<string | null>(() => getCategoryTreeLoadError());
 
-  const loadSubCategories = useCallback(async () => {
+  const syncFromCache = useCallback(() => {
     if (!categoryId) {
       setSubCategories([]);
       setError('Missing category.');
@@ -17,19 +27,40 @@ export function useSubCategories(categoryId: string) {
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const data = await getSubCategoriesByParent(categoryId);
-      setSubCategories(Array.isArray(data) ? data : []);
-    } catch (err) {
-      setSubCategories([]);
-      setError(getErrorMessage(err, 'Failed to load sub-categories'));
-    } finally {
+    setSubCategories(getCachedSubCategoriesByParent(categoryId));
+    setError(getCategoryTreeLoadError());
+    if (isCategoryTreeLoaded()) {
       setIsLoading(false);
     }
   }, [categoryId]);
+
+  const loadSubCategories = useCallback(async () => {
+    if (!categoryId) {
+      syncFromCache();
+      return;
+    }
+
+    if (!isCategoryTreeLoaded()) {
+      setIsLoading(true);
+    }
+
+    setError(null);
+
+    try {
+      await ensureCategoryTreeLoaded();
+      syncFromCache();
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to load sub-categories'));
+      syncFromCache();
+    } finally {
+      setIsLoading(false);
+    }
+  }, [categoryId, syncFromCache]);
+
+  useEffect(() => {
+    syncFromCache();
+    return subscribeCategoryTree(syncFromCache);
+  }, [syncFromCache]);
 
   useEffect(() => {
     void loadSubCategories();

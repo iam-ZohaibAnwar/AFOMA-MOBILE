@@ -4,12 +4,14 @@ import { getErrorMessage } from '../../../services/api/errors';
 import type { UserPricingInfo } from '../../../services/pricing/types';
 import { loadGuestCart, saveGuestCart } from '../../../services/storage/cartStorage';
 import type { CartMap } from '../../../services/types/cart';
+import type { VariationAttributeSelection } from '../../products/utils/productVariations';
 import {
   calculateSubTotal,
   getCartEntries,
   loadUserCart,
   persistCart,
   removeCartLine,
+  replaceCartLineVariations,
   updateCartLineQuantity,
 } from '../utils/cartUtils';
 import { syncCartLinePrices } from '../utils/cartPricing';
@@ -187,6 +189,43 @@ export function useCart(userId?: string, userInfo?: UserPricingInfo) {
     [cart, fetchedShippingRate, removeItem, totalShippingRate, userId],
   );
 
+  const updateVariations = useCallback(
+    async (itemId: string, selectedVariations: VariationAttributeSelection[]) => {
+      if (!userInfo) {
+        setError('Unable to update options right now.');
+        return;
+      }
+
+      setUpdatingItemId(itemId);
+      setError(null);
+
+      try {
+        const nextCart = replaceCartLineVariations(cart, itemId, selectedVariations, userInfo);
+        if (userId) {
+          await persistCart(userId, nextCart, {
+            totalShippingRate,
+            fetchedShippingRate,
+          });
+        } else {
+          await saveGuestCart(nextCart);
+        }
+        setCart(nextCart);
+        notifyCartChanged();
+        setCartMemoryCache(userId, {
+          cart: nextCart,
+          totalShippingRate,
+          fetchedShippingRate,
+        });
+      } catch (err) {
+        setError(getErrorMessage(err, 'Failed to update product options'));
+        throw err;
+      } finally {
+        setUpdatingItemId(null);
+      }
+    },
+    [cart, fetchedShippingRate, totalShippingRate, userId, userInfo],
+  );
+
   const replaceCart = useCallback((nextCart: CartMap) => {
     setCart(nextCart);
     setCartMemoryCache(userId, {
@@ -228,6 +267,7 @@ export function useCart(userId?: string, userInfo?: UserPricingInfo) {
     retry: loadCart,
     removeItem,
     updateQuantity,
+    updateVariations,
     replaceCart,
     setShippingTotals,
   };

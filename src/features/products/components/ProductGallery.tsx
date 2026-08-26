@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(23, 37, 84, 0.72)',
+    backgroundColor: 'rgba(23, 37, 84, 0.45)',
   },
   expandBadgeText: {
     color: colors.textInverse,

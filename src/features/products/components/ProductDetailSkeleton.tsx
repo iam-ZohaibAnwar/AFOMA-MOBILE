@@ -21,8 +21,11 @@ export function ProductDetailSkeleton() {
 
       <View style={styles.sheet}>
         <Skeleton variant="text" height={28} style={styles.titleLine} />
-        <Skeleton variant="text" width="55%" height={24} />
-        <Skeleton variant="text" width="35%" height={18} style={styles.priceLine} />
+        <Skeleton variant="text" width="55%" height={16} />
+        <View style={styles.priceRow}>
+          <Skeleton variant="text" width="35%" height={24} />
+          <Skeleton variant="rect" width={112} height={40} style={styles.stepper} />
+        </View>
         <Skeleton variant="rect" height={44} style={styles.optionRow} />
         <Skeleton variant="rect" height={44} style={styles.optionRow} />
         <Skeleton variant="text" height={14} />
@@ -68,9 +71,15 @@ const styles = StyleSheet.create({
   titleLine: {
     width: '88%',
   },
-  priceLine: {
-    marginTop: spacing.xs,
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
     marginBottom: spacing.sm,
+  },
+  stepper: {
+    borderRadius: radius.pill,
   },
   optionRow: {
     borderRadius: radius.medium,

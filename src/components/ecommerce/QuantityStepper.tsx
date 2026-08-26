@@ -10,6 +10,7 @@ export interface QuantityStepperProps {
   onDecrement: () => void;
   onIncrement: () => void;
   disabled?: boolean;
+  size?: 'default' | 'compact';
   style?: StyleProp<ViewStyle>;
 }
 
@@ -20,20 +21,23 @@ export function QuantityStepper({
   onDecrement,
   onIncrement,
   disabled = false,
+  size = 'default',
   style,
 }: QuantityStepperProps) {
   const atMin = value <= min;
   const atMax = max !== undefined && value >= max;
+  const isCompact = size === 'compact';
 
   return (
-    <View style={[styles.container, style]}>
+    <View style={[styles.container, isCompact && styles.containerCompact, style]}>
       <StepperButton
         label="−"
         accessibilityLabel="Decrease quantity"
         onPress={onDecrement}
         disabled={disabled || atMin}
+        compact={isCompact}
       />
-      <AppText variant="bodyMedium" style={styles.value}>
+      <AppText variant="bodyMedium" style={[styles.value, isCompact && styles.valueCompact]}>
         {value}
       </AppText>
       <StepperButton
@@ -41,6 +45,7 @@ export function QuantityStepper({
         accessibilityLabel="Increase quantity"
         onPress={onIncrement}
         disabled={disabled || atMax}
+        compact={isCompact}
       />
     </View>
   );
@@ -51,11 +56,13 @@ function StepperButton({
   accessibilityLabel,
   onPress,
   disabled,
+  compact,
 }: {
   label: string;
   accessibilityLabel: string;
   onPress: () => void;
   disabled: boolean;
+  compact: boolean;
 }) {
   return (
     <Pressable
@@ -66,11 +73,16 @@ function StepperButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
+        compact && styles.buttonCompact,
         disabled && styles.buttonDisabled,
         pressed && !disabled && styles.buttonPressed,
       ]}
     >
-      <AppText variant="bodyMedium" color={disabled ? 'disabledText' : 'primary'} style={styles.buttonLabel}>
+      <AppText
+        variant="bodyMedium"
+        color={disabled ? 'disabledText' : 'primary'}
+        style={[styles.buttonLabel, compact && styles.buttonLabelCompact]}
+      >
         {label}
       </AppText>
     </Pressable>
@@ -88,6 +100,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     overflow: 'hidden',
   },
+  containerCompact: {
+    borderRadius: radius.pill,
+    backgroundColor: colors.disabledBg,
+    borderColor: colors.border,
+  },
   button: {
     minWidth: layout.minTouchTarget,
     minHeight: layout.minTouchTarget,
@@ -95,6 +112,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
     backgroundColor: colors.surfaceMuted,
+  },
+  buttonCompact: {
+    minWidth: 28,
+    minHeight: 28,
+    paddingHorizontal: spacing.xs,
+    backgroundColor: colors.surface,
   },
   buttonDisabled: {
     backgroundColor: colors.disabledBg,
@@ -107,9 +130,19 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontWeight: '700',
   },
+  buttonLabelCompact: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
   value: {
     minWidth: 40,
     textAlign: 'center',
     paddingHorizontal: spacing.sm,
+  },
+  valueCompact: {
+    minWidth: 24,
+    fontSize: 13,
+    fontWeight: '700',
+    paddingHorizontal: spacing.xs,
   },
 });

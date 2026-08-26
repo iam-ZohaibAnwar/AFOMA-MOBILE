@@ -53,7 +53,7 @@ export function ShoppingNavigator() {
       />
       <Stack.Screen name="ProductListing" component={ProductListingScreen} options={{ title: 'Products' }} />
       <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="Shop" component={ShopScreen} options={{ title: 'Shop' }} />
+      <Stack.Screen name="Shop" component={ShopScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Search" component={SearchScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ title: 'Checkout' }} />
       <Stack.Screen name="Payment" component={PaymentScreen} options={{ headerShown: false }} />

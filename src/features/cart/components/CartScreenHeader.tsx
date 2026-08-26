@@ -5,11 +5,10 @@ import { HeaderBackButton } from '../../../components/ui/HeaderBackButton';
 import { colors, spacing } from '../../../design-system';
 
 export interface CartScreenHeaderProps {
-  itemCount: number;
   onBack?: () => void;
 }
 
-export function CartScreenHeader({ itemCount, onBack }: CartScreenHeaderProps) {
+export function CartScreenHeader({ onBack }: CartScreenHeaderProps) {
   return (
     <View style={styles.header}>
       <HeaderBackButton onPress={onBack} />
@@ -18,18 +17,7 @@ export function CartScreenHeader({ itemCount, onBack }: CartScreenHeaderProps) {
         My Cart
       </AppText>
 
-      <View style={styles.iconButton}>
-        <AppText variant="bodyMedium" style={styles.bagIcon}>
-          🛍
-        </AppText>
-        {itemCount > 0 ? (
-          <View style={styles.badge}>
-            <AppText variant="caption" style={styles.badgeText}>
-              {itemCount > 99 ? '99+' : itemCount}
-            </AppText>
-          </View>
-        ) : null}
-      </View>
+      <View style={styles.sideSpacer} />
     </View>
   );
 }
@@ -46,30 +34,8 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontWeight: '700',
   },
-  iconButton: {
+  sideSpacer: {
     width: 40,
     height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bagIcon: {
-    fontSize: 20,
-  },
-  badge: {
-    position: 'absolute',
-    top: 2,
-    right: 0,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-  },
-  badgeText: {
-    color: colors.textInverse,
-    fontSize: 10,
-    fontWeight: '700',
   },
 });

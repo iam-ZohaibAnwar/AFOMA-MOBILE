@@ -23,6 +23,7 @@ export interface CountryStateFieldsProps {
   stateError?: string;
   disabled?: boolean;
   required?: boolean;
+  tone?: 'default' | 'surface';
   style?: StyleProp<ViewStyle>;
   countryOptions?: SelectOption[];
 }
@@ -38,6 +39,7 @@ export function CountryStateFields({
   stateError,
   disabled = false,
   required = false,
+  tone = 'default',
   style,
   countryOptions,
 }: CountryStateFieldsProps) {
@@ -80,6 +82,7 @@ export function CountryStateFields({
         placeholder={countryPlaceholder}
         error={countryError}
         disabled={disabled}
+        tone={tone}
         modalTitle={countryLabel}
       />
       <SelectField
@@ -90,6 +93,7 @@ export function CountryStateFields({
         placeholder={statePlaceholder}
         error={stateError}
         disabled={disabled || !normalizedValue.countryCode}
+        tone={tone}
         modalTitle={stateLabel}
       />
     </View>

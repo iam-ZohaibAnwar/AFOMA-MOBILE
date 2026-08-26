@@ -1,57 +1,38 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import {
-  getCategorySectionsCache,
-  setCategorySectionsCache,
-} from '../../../services/cache/screenCache';
-import {
-  getChildCategoriesByParent,
-  getSubCategoriesByParent,
-} from '../../../services/api/categoriesApi';
+  ensureCategoryTreeLoaded,
+  getCachedCategorySections,
+  getCategoryTreeLoadError,
+  isCategoryTreeLoaded,
+  subscribeCategoryTree,
+} from '../../../services/cache/categoryTreeCache';
 import { getErrorMessage } from '../../../services/api/errors';
-import {
-  getCategoryRouteId,
-  getNavigableCategories,
-} from '../utils/categoryNavigation';
 import type { SubCategoryBrowserSection } from '../types/subCategoryBrowser';
 
 export type { SubCategoryBrowserSection };
 
-async function fetchCategorySections(categoryId: string): Promise<SubCategoryBrowserSection[]> {
-  const subCategories = await getSubCategoriesByParent(categoryId);
-  const navigableSubCategories = getNavigableCategories(
-    Array.isArray(subCategories) ? subCategories : [],
-  );
-
-  return Promise.all(
-    navigableSubCategories.map(async (subCategory) => {
-      const subCategoryId = getCategoryRouteId(subCategory);
-      if (!subCategoryId) {
-        return { subCategory, childCategories: [] };
-      }
-
-      const childCategories = await getChildCategoriesByParent(subCategoryId);
-      return {
-        subCategory,
-        childCategories: getNavigableCategories(
-          Array.isArray(childCategories) ? childCategories : [],
-        ),
-      };
-    }),
-  );
-}
-
 export function useSubCategoryBrowserSections(categoryId: string, enabled = true) {
-  const cachedSections = categoryId ? getCategorySectionsCache(categoryId) : undefined;
-  const [sections, setSections] = useState<SubCategoryBrowserSection[]>(cachedSections ?? []);
-  const [isRefreshing, setIsRefreshing] = useState(Boolean(enabled && categoryId && !cachedSections));
-  const [error, setError] = useState<string | null>(null);
+  const [sections, setSections] = useState<SubCategoryBrowserSection[]>(() =>
+    categoryId ? getCachedCategorySections(categoryId) : [],
+  );
+  const [isRefreshing, setIsRefreshing] = useState(
+    () => Boolean(enabled && categoryId) && !isCategoryTreeLoaded(),
+  );
+  const [error, setError] = useState<string | null>(() => getCategoryTreeLoadError());
 
-  useEffect(() => {
-    const nextCache = categoryId ? getCategorySectionsCache(categoryId) : undefined;
-    setSections(nextCache ?? []);
-    setError(null);
-    setIsRefreshing(Boolean(enabled && categoryId && !nextCache));
+  const syncFromCache = useCallback(() => {
+    if (!enabled || !categoryId) {
+      setSections([]);
+      setIsRefreshing(false);
+      return;
+    }
+
+    setSections(getCachedCategorySections(categoryId));
+    setError(getCategoryTreeLoadError());
+    if (isCategoryTreeLoaded()) {
+      setIsRefreshing(false);
+    }
   }, [categoryId, enabled]);
 
   const loadSections = useCallback(async () => {
@@ -59,19 +40,16 @@ export function useSubCategoryBrowserSections(categoryId: string, enabled = true
       return;
     }
 
-    const existingSections = getCategorySectionsCache(categoryId) ?? [];
-    const hasExistingData = existingSections.length > 0;
-
-    if (!hasExistingData) {
+    const hasExistingData = getCachedCategorySections(categoryId).length > 0;
+    if (!hasExistingData && !isCategoryTreeLoaded()) {
       setIsRefreshing(true);
     }
 
     setError(null);
 
     try {
-      const sectionResults = await fetchCategorySections(categoryId);
-      setCategorySectionsCache(categoryId, sectionResults);
-      setSections(sectionResults);
+      await ensureCategoryTreeLoaded();
+      syncFromCache();
     } catch (err) {
       if (!hasExistingData) {
         setSections([]);
@@ -82,7 +60,12 @@ export function useSubCategoryBrowserSections(categoryId: string, enabled = true
     } finally {
       setIsRefreshing(false);
     }
-  }, [categoryId, enabled]);
+  }, [categoryId, enabled, syncFromCache]);
+
+  useEffect(() => {
+    syncFromCache();
+    return subscribeCategoryTree(syncFromCache);
+  }, [syncFromCache]);
 
   useEffect(() => {
     if (enabled && categoryId) {

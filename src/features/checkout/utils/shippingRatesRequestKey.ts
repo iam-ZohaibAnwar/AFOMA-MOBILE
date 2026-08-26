@@ -22,7 +22,11 @@ export function buildShippingRatesRequestKey(
         .map((line) => {
           const productId = line.productData?._id ?? '';
           const quantity = line.orderQuantiy ?? 1;
-          return `${productId}:${quantity}`;
+          const variationSignature = (line.selectedVariations ?? [])
+            .map((variation) => `${variation.attributeName}=${variation.attributeValue}`)
+            .sort()
+            .join(';');
+          return `${productId}:${quantity}:${variationSignature}`;
         })
         .sort()
         .join(',');

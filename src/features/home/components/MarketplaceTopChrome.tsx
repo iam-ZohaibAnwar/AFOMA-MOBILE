@@ -1,22 +1,17 @@
 import { StyleSheet, View } from 'react-native';
 
-import { MarketplaceHeader } from '../../home/components/MarketplaceHeader';
-import {
-  HomeCategoryTabs,
-  type HomeCategoryTab,
-} from '../../home/components/HomeCategoryTabs';
+import { MarketplaceHeader } from './MarketplaceHeader';
 import { colors } from '../../../design-system';
 
 export interface MarketplaceTopChromeProps {
-  activeTab: HomeCategoryTab;
+  onMenuPress: () => void;
   onSearchPress: () => void;
 }
 
-export function MarketplaceTopChrome({ activeTab, onSearchPress }: MarketplaceTopChromeProps) {
+export function MarketplaceTopChrome({ onMenuPress, onSearchPress }: MarketplaceTopChromeProps) {
   return (
     <View style={styles.container}>
-      <MarketplaceHeader onSearchPress={onSearchPress} />
-      <HomeCategoryTabs activeTab={activeTab} />
+      <MarketplaceHeader onMenuPress={onMenuPress} onSearchPress={onSearchPress} />
     </View>
   );
 }

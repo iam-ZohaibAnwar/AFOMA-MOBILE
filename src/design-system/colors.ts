@@ -47,6 +47,8 @@ export const colors = {
   /** Borders and separators. */
   border: '#FED7AA',
   borderStrong: '#E2E8F0',
+  /** Web `.st-form` input/select border — `border-[#47556980]`. */
+  borderForm: 'rgba(71, 85, 105, 0.5)',
   divider: '#FFEDD5',
 
   /** Semantic states. */

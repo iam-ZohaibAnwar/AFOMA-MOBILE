@@ -8,12 +8,22 @@ interface AccountGenderSelectorProps {
   value: string;
   onChange: (nextValue: string) => void;
   error?: string;
+  tone?: 'default' | 'surface';
 }
 
-export function AccountGenderSelector({ value, onChange, error }: AccountGenderSelectorProps) {
+export function AccountGenderSelector({
+  value,
+  onChange,
+  error,
+  tone = 'default',
+}: AccountGenderSelectorProps) {
+  const isSurfaceTone = tone === 'surface';
+
   return (
     <View style={styles.container}>
-      <AppText variant="label">Gender</AppText>
+      <AppText variant="label" style={isSurfaceTone ? styles.labelSurface : undefined}>
+        Gender
+      </AppText>
       <View style={styles.optionsRow}>
         {GENDER_OPTIONS.map((option) => {
           const selected = value === option.value;
@@ -26,14 +36,15 @@ export function AccountGenderSelector({ value, onChange, error }: AccountGenderS
               onPress={() => onChange(option.value)}
               style={({ pressed }) => [
                 styles.option,
+                isSurfaceTone && styles.optionSurface,
                 selected && styles.optionSelected,
                 pressed && styles.pressed,
               ]}
             >
               <AppText
                 variant="bodySmall"
-                color={selected ? 'textInverse' : 'textSecondary'}
-                style={selected ? styles.selectedLabel : undefined}
+                color={selected ? 'textInverse' : isSurfaceTone ? 'textPrimary' : 'textSecondary'}
+                style={selected ? styles.selectedLabel : isSurfaceTone ? styles.surfaceLabel : undefined}
               >
                 {option.label}
               </AppText>
@@ -54,6 +65,10 @@ const styles = StyleSheet.create({
   container: {
     gap: spacing.sm,
   },
+  labelSurface: {
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
   optionsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -61,10 +76,14 @@ const styles = StyleSheet.create({
   },
   option: {
     borderWidth: 1,
-    borderColor: colors.borderStrong,
+    borderColor: colors.borderForm,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
+    backgroundColor: colors.surface,
+  },
+  optionSurface: {
+    borderColor: colors.borderForm,
     backgroundColor: colors.surface,
   },
   optionSelected: {
@@ -72,6 +91,9 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   selectedLabel: {
+    fontWeight: '600',
+  },
+  surfaceLabel: {
     fontWeight: '600',
   },
   pressed: {

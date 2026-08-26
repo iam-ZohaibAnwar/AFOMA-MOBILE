@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Image, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { PressableScale } from '../../components/motion';
 import { AppBadge } from '../ui/AppBadge';
@@ -20,7 +20,7 @@ import { Rating } from './Rating';
 import { WishlistButton } from './WishlistButton';
 
 type ProductCardVariant = 'default' | 'elevated';
-type ProductCardLayout = 'default' | 'marketplace';
+type ProductCardLayout = 'default' | 'marketplace' | 'shop';
 
 const MARKETPLACE_NAME_LINE_HEIGHT = 18;
 const MARKETPLACE_NAME_LINES = 2;
@@ -39,6 +39,7 @@ export interface ProductCardProps {
   showRating?: boolean;
   rating?: number;
   reviewCount?: number;
+  onCartPress?: (product: Product) => void;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -55,6 +56,7 @@ export function ProductCard({
   showRating = false,
   rating,
   reviewCount,
+  onCartPress,
   style,
 }: ProductCardProps) {
   const [imageFailed, setImageFailed] = useState(false);
@@ -62,9 +64,13 @@ export function ProductCard({
   const showImage = Boolean(imageUrl) && !imageFailed;
   const isElevated = variant === 'elevated';
   const isMarketplace = layout === 'marketplace';
+  const isShop = layout === 'shop';
   const outOfStock = isProductOutOfStockForListing(product);
   const sellerName = getSellerDisplayName(product);
-  const resolvedBadge = badgeLabel ?? (outOfStock ? 'Out of stock' : undefined);
+  const discountPercent = getProductDiscountPercent(product);
+  const resolvedBadge =
+    badgeLabel ??
+    (outOfStock ? 'Out of stock' : discountPercent && discountPercent > 0 ? 'Sale' : undefined);
 
   return (
     <PressableScale
@@ -75,6 +81,7 @@ export function ProductCard({
         styles.card,
         isElevated && styles.cardElevated,
         isMarketplace && styles.cardMarketplace,
+        isShop && styles.cardShop,
         style,
       ]}
     >
@@ -83,6 +90,7 @@ export function ProductCard({
           styles.imageWrap,
           isElevated && styles.imageWrapElevated,
           isMarketplace && styles.imageWrapMarketplace,
+          isShop && styles.imageWrapShop,
         ]}
       >
         {showImage ? (
@@ -104,7 +112,7 @@ export function ProductCard({
           <View style={styles.badgeWrap}>
             <AppBadge
               label={resolvedBadge}
-              variant={outOfStock ? 'neutral' : 'success'}
+              variant={outOfStock ? 'neutral' : isShop ? 'warning' : 'success'}
             />
           </View>
         ) : null}
@@ -120,7 +128,7 @@ export function ProductCard({
         ) : null}
       </View>
 
-      <View style={[styles.content, isMarketplace && styles.contentMarketplace]}>
+      <View style={[styles.content, isMarketplace && styles.contentMarketplace, isShop && styles.contentShop]}>
         <AppText
           variant="label"
           numberOfLines={MARKETPLACE_NAME_LINES}
@@ -128,10 +136,15 @@ export function ProductCard({
             styles.name,
             isElevated && styles.nameElevated,
             isMarketplace && styles.nameMarketplace,
+            isShop && styles.nameShop,
           ]}
         >
           {getProductDisplayName(product)}
         </AppText>
+
+        {isShop && showRating && typeof rating === 'number' && rating > 0 ? (
+          <Rating value={rating} size="sm" showValue reviewCount={reviewCount} />
+        ) : null}
 
         {isMarketplace && showSeller ? (
           <AppText
@@ -144,15 +157,38 @@ export function ProductCard({
           </AppText>
         ) : null}
 
-        <ProductPrice
-          price={getProductPrice(product)}
-          compareAtPrice={getProductCompareAtPrice(product)}
-          discountPercent={getProductDiscountPercent(product)}
-          size={isElevated || isMarketplace ? 'md' : 'sm'}
-          layout={isMarketplace ? 'marketplace' : 'inline'}
-        />
+        {isShop ? (
+          <View style={styles.shopPriceRow}>
+            <ProductPrice
+              price={getProductPrice(product)}
+              compareAtPrice={getProductCompareAtPrice(product)}
+              discountPercent={discountPercent}
+              size="md"
+              layout="marketplace"
+              style={styles.shopPrice}
+            />
+            {onCartPress ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`View ${getProductDisplayName(product)}`}
+                onPress={() => onCartPress(product)}
+                style={({ pressed }) => [styles.shopCartButton, pressed && styles.shopCartButtonPressed]}
+              >
+                <Text style={styles.shopCartGlyph}>🛒</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : (
+          <ProductPrice
+            price={getProductPrice(product)}
+            compareAtPrice={getProductCompareAtPrice(product)}
+            discountPercent={discountPercent}
+            size={isElevated || isMarketplace ? 'md' : 'sm'}
+            layout={isMarketplace ? 'marketplace' : 'inline'}
+          />
+        )}
 
-        {showRating && typeof rating === 'number' && rating > 0 ? (
+        {!isShop && showRating && typeof rating === 'number' && rating > 0 ? (
           <Rating value={rating} size="sm" reviewCount={reviewCount} />
         ) : null}
 
@@ -185,6 +221,12 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     ...shadows.card,
   },
+  cardShop: {
+    backgroundColor: colors.surfaceWhite,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    ...shadows.card,
+  },
   pressed: {
     opacity: 0.94,
   },
@@ -201,6 +243,12 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     borderRadius: radius.xl,
     backgroundColor: colors.surfaceSecondary,
+  },
+  imageWrapShop: {
+    aspectRatio: 1,
+    borderTopLeftRadius: radius.large,
+    borderTopRightRadius: radius.large,
+    backgroundColor: colors.surfaceMuted,
   },
   image: {
     width: '100%',
@@ -235,6 +283,12 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     alignItems: 'stretch',
   },
+  contentShop: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+    gap: spacing.xs,
+  },
   name: {
     minHeight: 36,
   },
@@ -248,6 +302,12 @@ const styles = StyleSheet.create({
     lineHeight: MARKETPLACE_NAME_LINE_HEIGHT,
     color: colors.textPrimary,
   },
+  nameShop: {
+    minHeight: MARKETPLACE_NAME_LINE_HEIGHT * MARKETPLACE_NAME_LINES,
+    fontWeight: '600',
+    lineHeight: MARKETPLACE_NAME_LINE_HEIGHT,
+    color: colors.textPrimary,
+  },
   seller: {
     textDecorationLine: 'underline',
   },
@@ -255,5 +315,30 @@ const styles = StyleSheet.create({
     minHeight: MARKETPLACE_SELLER_LINE_HEIGHT,
     textAlign: 'left',
     lineHeight: MARKETPLACE_SELLER_LINE_HEIGHT,
+  },
+  shopPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  shopPrice: {
+    flex: 1,
+  },
+  shopCartButton: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+  },
+  shopCartButtonPressed: {
+    backgroundColor: colors.primaryPressed,
+  },
+  shopCartGlyph: {
+    fontSize: 16,
+    lineHeight: 18,
   },
 });

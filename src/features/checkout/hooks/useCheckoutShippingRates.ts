@@ -56,6 +56,7 @@ export function useCheckoutShippingRates(
   const [error, setError] = useState<string | null>(null);
   const cartRef = useRef(cart);
   const hasLoadedRatesRef = useRef(false);
+  const lastRequestKeyRef = useRef<string | null>(null);
 
   cartRef.current = cart;
 
@@ -86,9 +87,6 @@ export function useCheckoutShippingRates(
       return;
     }
 
-    if (!hasLoadedRatesRef.current) {
-      setIsLoading(true);
-    }
     setError(null);
 
     try {
@@ -182,8 +180,18 @@ export function useCheckoutShippingRates(
       setError(null);
       setIsLoading(false);
       hasLoadedRatesRef.current = false;
+      lastRequestKeyRef.current = null;
       return;
     }
+
+    const isRecalculating =
+      lastRequestKeyRef.current !== null && lastRequestKeyRef.current !== requestKey;
+
+    if (!hasLoadedRatesRef.current || isRecalculating) {
+      setIsLoading(true);
+    }
+
+    lastRequestKeyRef.current = requestKey;
 
     const timeoutId = setTimeout(() => {
       void fetchRates();

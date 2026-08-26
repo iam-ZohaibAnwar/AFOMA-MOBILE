@@ -2,10 +2,13 @@ import type { ReactElement } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 
 import { ProductCard } from '../../../components/ecommerce/ProductCard';
+import { SectionHeader } from '../../../components/ecommerce/SectionHeader';
 import { AppText } from '../../../components/ui/AppText';
 import { colors, spacing } from '../../../design-system';
 import type { Product } from '../../../services/types/product';
 import { getProductRouteId } from '../utils/productDisplay';
+
+type ProductCardLayout = 'default' | 'marketplace' | 'shop';
 
 interface ProductGridProps {
   products: Product[];
@@ -14,6 +17,13 @@ interface ProductGridProps {
   isLoading?: boolean;
   ListHeaderComponent?: ReactElement | null;
   ListFooterComponent?: ReactElement | null;
+  edgeToEdgeHeader?: boolean;
+  sectionTitle?: string;
+  cardLayout?: ProductCardLayout;
+  showSeller?: boolean;
+  showWishlist?: boolean;
+  showRating?: boolean;
+  onCartPress?: (product: Product) => void;
 }
 
 export function ProductGrid({
@@ -23,32 +33,54 @@ export function ProductGrid({
   isLoading = false,
   ListHeaderComponent = null,
   ListFooterComponent = null,
+  edgeToEdgeHeader = false,
+  sectionTitle,
+  cardLayout = 'marketplace',
+  showSeller = true,
+  showWishlist = false,
+  showRating = false,
+  onCartPress,
 }: ProductGridProps) {
   const showEmptyState = !isLoading && products.length === 0;
+
+  const listHeader = (
+    <>
+      {ListHeaderComponent}
+      {sectionTitle && products.length > 0 ? (
+        <SectionHeader title={sectionTitle} style={styles.sectionHeader} />
+      ) : null}
+    </>
+  );
 
   return (
     <FlatList
       data={products}
       keyExtractor={(item, index) => getProductRouteId(item) ?? `product-${index}`}
       numColumns={2}
-      columnWrapperStyle={styles.row}
-      contentContainerStyle={styles.listContent}
+      columnWrapperStyle={[styles.row, edgeToEdgeHeader && styles.rowEdgeToEdge]}
+      contentContainerStyle={[
+        styles.listContent,
+        edgeToEdgeHeader && styles.listContentEdgeToEdge,
+      ]}
       showsVerticalScrollIndicator={false}
-      ListHeaderComponent={ListHeaderComponent ?? undefined}
+      ListHeaderComponent={listHeader}
       renderItem={({ item }) => (
         <View style={styles.cardWrap}>
           <ProductCard
             product={item}
             onPress={onProductPress}
             variant="elevated"
-            layout="marketplace"
-            showSeller
+            layout={cardLayout}
+            showSeller={showSeller}
+            showWishlist={showWishlist}
+            showRating={showRating}
+            onCartPress={onCartPress}
           />
         </View>
       )}
       ListEmptyComponent={
         showEmptyState ? (
-          <View style={styles.emptyBox}>
+          <View style={[styles.emptyBox, edgeToEdgeHeader && styles.emptyBoxEdgeToEdge]}>
             <AppText variant="bodySmall" color="textSecondary" style={styles.emptyText}>
               {emptyMessage}
             </AppText>
@@ -65,12 +97,24 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     flexGrow: 1,
   },
+  listContentEdgeToEdge: {
+    paddingHorizontal: 0,
+    paddingTop: 0,
+  },
   row: {
     gap: spacing.md,
     marginBottom: spacing.md,
   },
+  rowEdgeToEdge: {
+    paddingHorizontal: spacing.lg,
+  },
   cardWrap: {
     flex: 1,
+  },
+  sectionHeader: {
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.lg,
   },
   emptyBox: {
     padding: spacing.xl,
@@ -78,6 +122,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceMuted,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  emptyBoxEdgeToEdge: {
+    marginHorizontal: spacing.lg,
   },
   emptyText: {
     textAlign: 'center',

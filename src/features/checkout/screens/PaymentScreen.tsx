@@ -148,8 +148,9 @@ export function PaymentScreen(_props: Props) {
     [cart, fetchedShippingRate, totalShippingRate],
   );
 
+  const selectedShippingOptions = useMemo(() => resolveCartShippingOptions(cart), [cart]);
   const discountAmount = appliedCoupon?.discountAmount ?? 0;
-  const shippingPending = isCartShippingPending(cart, shippingCad);
+  const shippingPending = isCartShippingPending(cart, selectedShippingOptions);
 
   const totals = useMemo(
     () =>
@@ -163,7 +164,6 @@ export function PaymentScreen(_props: Props) {
     [currencyRate, discountAmount, shippingCad, shippingPending, subtotalCad],
   );
 
-  const selectedShippingOptions = useMemo(() => resolveCartShippingOptions(cart), [cart]);
   const checkoutIdentity = useMemo(
     () => resolveIdentityForAddress(shippingAddress),
     [resolveIdentityForAddress, shippingAddress],

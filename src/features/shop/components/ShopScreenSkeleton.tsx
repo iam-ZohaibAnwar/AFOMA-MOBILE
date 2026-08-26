@@ -39,12 +39,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
     paddingHorizontal: spacing.lg,
-    marginTop: -28,
+    marginTop: spacing.lg,
   },
   profileText: {
     flex: 1,
     gap: spacing.xs,
-    paddingTop: spacing.lg,
   },
   statsRow: {
     flexDirection: 'row',

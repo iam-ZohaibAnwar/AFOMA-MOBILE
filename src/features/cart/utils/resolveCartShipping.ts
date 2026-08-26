@@ -4,6 +4,36 @@ import { extractSelectedShippingFromCart } from '../../checkout/utils/extractSel
 import { cartHasShippableItems } from '../../checkout/utils/buildCheckoutOrderPayload';
 import { getCartShippingTotal } from './applyShippingToCart';
 
+function getShippableSellerIds(cart: CartMap): Set<string> {
+  const sellerIds = new Set<string>();
+
+  for (const line of Object.values(cart)) {
+    const sellerId = line.productData?.seller?._id;
+    if (sellerId && line.productData?.productType !== 'Downloadable') {
+      sellerIds.add(sellerId);
+    }
+  }
+
+  return sellerIds;
+}
+
+function getResolvedShippingSellerIds(
+  cart: CartMap,
+  selectedOptions: CheckoutShippingOption[] = [],
+): Set<string> {
+  const sellerIds = new Set<string>();
+
+  for (const option of extractSelectedShippingFromCart(cart)) {
+    sellerIds.add(option.sellerId);
+  }
+
+  for (const option of selectedOptions) {
+    sellerIds.add(option.sellerId);
+  }
+
+  return sellerIds;
+}
+
 export function resolveCartShippingCad(
   cart: CartMap,
   totalShippingRate = 0,
@@ -28,6 +58,23 @@ export function resolveCartShippingOptions(
   return extractSelectedShippingFromCart(cart);
 }
 
-export function isCartShippingPending(cart: CartMap, shippingCad: number): boolean {
-  return cartHasShippableItems(cart) && shippingCad <= 0;
+/** True when shippable items exist but at least one seller lacks a selected shipping option. */
+export function isCartShippingPending(
+  cart: CartMap,
+  selectedOptions: CheckoutShippingOption[] = [],
+): boolean {
+  if (!cartHasShippableItems(cart)) {
+    return false;
+  }
+
+  const shippableSellerIds = getShippableSellerIds(cart);
+  const resolvedSellerIds = getResolvedShippingSellerIds(cart, selectedOptions);
+
+  for (const sellerId of shippableSellerIds) {
+    if (!resolvedSellerIds.has(sellerId)) {
+      return true;
+    }
+  }
+
+  return false;
 }

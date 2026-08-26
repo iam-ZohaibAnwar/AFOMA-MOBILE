@@ -1,6 +1,10 @@
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { getSubCategoriesByParent } from '../../../services/api/categoriesApi';
+import {
+  ensureCategoryTreeLoaded,
+  getCachedSubCategoriesByParent,
+  isCategoryTreeLoaded,
+} from '../../../services/cache/categoryTreeCache';
 import type { ShoppingStackParamList } from '../../../app/navigation/types';
 import type { Category } from '../../../services/types/category';
 import {
@@ -49,9 +53,16 @@ export function navigateToCategoryProductListing(
 export async function resolveCategoryDestination(
   categoryId: string,
 ): Promise<CategoryListingDestination> {
-  const subCategories = await getSubCategoriesByParent(categoryId);
+  if (isCategoryTreeLoaded()) {
+    const navigableSubCategories = getNavigableCategories(
+      getCachedSubCategoriesByParent(categoryId),
+    );
+    return navigableSubCategories.length > 0 ? 'subCategories' : 'productListing';
+  }
+
+  await ensureCategoryTreeLoaded();
   const navigableSubCategories = getNavigableCategories(
-    Array.isArray(subCategories) ? subCategories : [],
+    getCachedSubCategoriesByParent(categoryId),
   );
 
   return navigableSubCategories.length > 0 ? 'subCategories' : 'productListing';

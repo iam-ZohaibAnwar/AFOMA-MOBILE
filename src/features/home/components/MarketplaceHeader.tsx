@@ -2,6 +2,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '../../../components/ui/AppText';
+import { MenuIcon } from '../../../components/ui/MenuIcon';
+import { SearchIcon } from '../../../components/ui/SearchIcon';
 import {
   colors,
   layout,
@@ -12,6 +14,7 @@ import {
 import { useAuth } from '../../auth/hooks/useAuth';
 
 export interface MarketplaceHeaderProps {
+  onMenuPress: () => void;
   onSearchPress: () => void;
   onNotificationsPress?: () => void;
 }
@@ -25,18 +28,8 @@ function getGreetingName(firstName?: string, email?: string): string {
   return emailPrefix || 'there';
 }
 
-function getInitials(firstName?: string, email?: string): string {
-  const name = getGreetingName(firstName, email);
-  const parts = name.split(/\s+/).filter(Boolean);
-
-  if (parts.length >= 2) {
-    return `${parts[0].charAt(0)}${parts[1].charAt(0)}`.toUpperCase();
-  }
-
-  return name.slice(0, 2).toUpperCase();
-}
-
 export function MarketplaceHeader({
+  onMenuPress,
   onSearchPress,
   onNotificationsPress,
 }: MarketplaceHeaderProps) {
@@ -45,19 +38,21 @@ export function MarketplaceHeader({
   const greetingName = isAuthenticated
     ? getGreetingName(user?.firstName, user?.email)
     : 'Guest';
-  const avatarInitials = isAuthenticated
-    ? getInitials(user?.firstName, user?.email)
-    : 'GU';
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + spacing.sm }]}>
       <View style={styles.row}>
-        <View style={styles.profileBlock}>
-          <View style={styles.avatar}>
-            <AppText variant="label" color="primary">
-              {avatarInitials}
-            </AppText>
-          </View>
+        <View style={styles.leadingBlock}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open categories menu"
+            onPress={onMenuPress}
+            hitSlop={8}
+            style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}
+          >
+            <MenuIcon color={colors.textPrimary} size={24} />
+          </Pressable>
+
           <View style={styles.greetingBlock}>
             <AppText variant="bodyMedium" style={styles.greetingTitle}>
               Hi, {greetingName}
@@ -75,9 +70,7 @@ export function MarketplaceHeader({
             onPress={onSearchPress}
             style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
           >
-            <AppText variant="bodyMedium" color="textSecondary">
-              ⌕
-            </AppText>
+            <SearchIcon color={colors.textSecondary} size={24} />
           </Pressable>
           {onNotificationsPress ? (
             <Pressable
@@ -109,23 +102,27 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.md,
   },
-  profileBlock: {
+  leadingBlock: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+    minWidth: 0,
   },
-  avatar: {
-    width: 48,
-    height: 48,
+  menuButton: {
+    width: layout.minTouchTarget,
+    height: layout.minTouchTarget,
     borderRadius: radius.pill,
-    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   greetingBlock: {
     flex: 1,
     gap: 2,
+    minWidth: 0,
   },
   greetingTitle: {
     color: colors.textPrimary,

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
   NativeScrollEvent,
@@ -32,12 +32,59 @@ export interface HomePromoCarouselProps {
   onPress?: (slide: HomePromoSlide) => void;
 }
 
+const AUTOPLAY_INTERVAL_MS = 5000;
+
 export function HomePromoCarousel({ slides, onPress }: HomePromoCarouselProps) {
   const scrollRef = useRef<ScrollView>(null);
+  const activeIndexRef = useRef(0);
+  const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { width: screenWidth } = useWindowDimensions();
   const slideWidth = screenWidth - screenPaddingHorizontal * 2;
   const [activeIndex, setActiveIndex] = useState(0);
   const visibleSlides = useMemo(() => slides.filter(Boolean).slice(0, 3), [slides]);
+
+  const stopAutoplay = useCallback(() => {
+    if (autoplayRef.current) {
+      clearInterval(autoplayRef.current);
+      autoplayRef.current = null;
+    }
+  }, []);
+
+  const scrollToSlide = useCallback(
+    (index: number, animated = true) => {
+      if (visibleSlides.length === 0) {
+        return;
+      }
+
+      const clampedIndex = Math.min(Math.max(index, 0), visibleSlides.length - 1);
+      activeIndexRef.current = clampedIndex;
+      setActiveIndex(clampedIndex);
+      scrollRef.current?.scrollTo({ x: clampedIndex * slideWidth, animated });
+    },
+    [slideWidth, visibleSlides.length],
+  );
+
+  const startAutoplay = useCallback(() => {
+    stopAutoplay();
+
+    if (visibleSlides.length <= 1) {
+      return;
+    }
+
+    autoplayRef.current = setInterval(() => {
+      const nextIndex = (activeIndexRef.current + 1) % visibleSlides.length;
+      scrollToSlide(nextIndex);
+    }, AUTOPLAY_INTERVAL_MS);
+  }, [scrollToSlide, stopAutoplay, visibleSlides.length]);
+
+  useEffect(() => {
+    activeIndexRef.current = 0;
+    setActiveIndex(0);
+    scrollRef.current?.scrollTo({ x: 0, animated: false });
+    startAutoplay();
+
+    return stopAutoplay;
+  }, [visibleSlides, startAutoplay, stopAutoplay]);
 
   if (visibleSlides.length === 0) {
     return null;
@@ -45,13 +92,13 @@ export function HomePromoCarousel({ slides, onPress }: HomePromoCarouselProps) {
 
   const handleMomentumScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const nextIndex = Math.round(event.nativeEvent.contentOffset.x / slideWidth);
+    activeIndexRef.current = nextIndex;
     setActiveIndex(nextIndex);
+    startAutoplay();
   };
 
-  const scrollToSlide = (index: number) => {
-    const clampedIndex = Math.min(Math.max(index, 0), visibleSlides.length - 1);
-    setActiveIndex(clampedIndex);
-    scrollRef.current?.scrollTo({ x: clampedIndex * slideWidth, animated: true });
+  const handleManualInteraction = () => {
+    stopAutoplay();
   };
 
   return (
@@ -71,6 +118,7 @@ export function HomePromoCarousel({ slides, onPress }: HomePromoCarouselProps) {
         showsHorizontalScrollIndicator={false}
         scrollEventThrottle={16}
         decelerationRate="fast"
+        onScrollBeginDrag={handleManualInteraction}
         onMomentumScrollEnd={handleMomentumScrollEnd}
         style={[styles.carousel, { width: slideWidth }]}
         contentContainerStyle={styles.carouselContent}
@@ -114,7 +162,10 @@ export function HomePromoCarousel({ slides, onPress }: HomePromoCarouselProps) {
               key={slide.id}
               accessibilityRole="button"
               accessibilityLabel={`Show promotion ${index + 1}`}
-              onPress={() => scrollToSlide(index)}
+              onPress={() => {
+                scrollToSlide(index);
+                startAutoplay();
+              }}
               style={[styles.dot, index === activeIndex && styles.dotActive]}
             />
           ))}

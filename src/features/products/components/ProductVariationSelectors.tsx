@@ -111,7 +111,7 @@ export function ProductVariationSelectors({
                       styles.optionChip,
                       {
                         borderColor: isSelected ? theme.pillSelectedBg : theme.pillBorder,
-                        backgroundColor: isSelected ? theme.pillSelectedBg : theme.surface,
+                        backgroundColor: isSelected ? theme.pillSelectedBg : theme.pillUnselectedBg,
                       },
                       !isAvailable && styles.optionChipUnavailable,
                       pressed && styles.pressed,

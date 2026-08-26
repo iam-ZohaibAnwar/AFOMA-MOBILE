@@ -3,6 +3,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '../../../components/ui/AppText';
 import { HeaderBackButton } from '../../../components/ui/HeaderBackButton';
+import { ShareIcon } from '../../../components/ui/ShareIcon';
 import { layout, spacing } from '../../../design-system';
 import { usePdpTheme } from '../../../design-system/pdpTheme';
 
@@ -42,11 +43,10 @@ export function ProductDetailNavBar({
           accessibilityRole="button"
           accessibilityLabel="Share product"
           onPress={onSharePress}
+          hitSlop={8}
           style={({ pressed }) => [styles.sideButton, pressed && styles.pressed]}
         >
-          <AppText variant="bodyMedium" style={[styles.shareIcon, { color: theme.textPrimary }]}>
-            ⤴
-          </AppText>
+          <ShareIcon color={theme.textPrimary} size={20} />
         </Pressable>
       ) : (
         <View style={styles.sideButton} accessibilityElementsHidden importantForAccessibility="no" />
@@ -67,11 +67,7 @@ const styles = StyleSheet.create({
     height: layout.minTouchTarget,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  shareIcon: {
-    fontSize: 20,
-    lineHeight: 22,
-    fontWeight: '700',
+    marginRight: -4,
   },
   title: {
     flex: 1,

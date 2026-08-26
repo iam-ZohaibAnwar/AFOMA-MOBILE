@@ -35,20 +35,35 @@ export function useProductDetailVariations(product: Product | null) {
   const isDownloadable = productType === 'Downloadable';
   const isStandard = productType === 'Standard';
 
+  const productIdentityKey = product
+    ? `${product._id ?? ''}:${product.slug ?? ''}:${product.productType ?? ''}`
+    : '';
+
+  const selectedAttributesKey = useMemo(
+    () => JSON.stringify(selectedAttributes),
+    [selectedAttributes],
+  );
+
   useEffect(() => {
-    if (isCustomizable && product?.variations?.length) {
+    if (!product) {
+      setSelectedAttributes({});
+      setQuantity(1);
+      return;
+    }
+
+    if (isCustomizable && product.variations?.length) {
       setSelectedAttributes(buildDefaultSelectedAttributes(product.variations));
     } else {
       setSelectedAttributes({});
     }
     setQuantity(1);
-  }, [product?._id, product?.productType, product?.slug, product?.variations]);
+  }, [isCustomizable, productIdentityKey]);
 
   useEffect(() => {
     if (isCustomizable) {
       setQuantity(1);
     }
-  }, [isCustomizable, selectedAttributes]);
+  }, [isCustomizable, selectedAttributesKey]);
 
   const attributeNames = useMemo(
     () => getVariationAttributeNames(product?.variations),
@@ -92,10 +107,14 @@ export function useProductDetailVariations(product: Product | null) {
   }, [isCustomizable, isDownloadable, matchingVariation, product?.quantity]);
 
   useEffect(() => {
-    if (quantity > maxQuantity) {
-      setQuantity(Math.max(1, maxQuantity));
-    }
-  }, [maxQuantity, quantity]);
+    setQuantity((current) => {
+      if (current > maxQuantity) {
+        return Math.max(1, maxQuantity);
+      }
+
+      return current;
+    });
+  }, [maxQuantity]);
 
   const outOfStock = useMemo(() => {
     if (!product) {

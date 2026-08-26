@@ -1,6 +1,13 @@
 import { getCartByUserId, saveCart } from '../../../services/api/cartApi';
+import type { UserPricingInfo } from '../../../services/pricing/types';
 import type { CartLineItem, CartMap, GetCartResponse } from '../../../services/types/cart';
-import { parseMaxQuantity } from './cartLineMerge';
+import {
+  findMatchingVariation,
+  getVariationMaxQuantity,
+  type SelectedAttributes,
+  type VariationAttributeSelection,
+} from '../../products/utils/productVariations';
+import { mergeProductIntoCart, parseMaxQuantity } from './cartLineMerge';
 
 export function calculateSubTotal(cart: CartMap): number {
   return Object.values(cart).reduce((sum, line) => sum + (line.totalAmount ?? 0), 0);
@@ -30,6 +37,54 @@ export function getCartLineAttributes(line: CartLineItem): string | undefined {
   }
 
   return undefined;
+}
+
+export function selectedVariationsToAttributes(
+  selectedVariations: CartLineItem['selectedVariations'],
+): SelectedAttributes {
+  if (!selectedVariations?.length) {
+    return {};
+  }
+
+  return selectedVariations.reduce<SelectedAttributes>((acc, variation) => {
+    const attributeName = variation.attributeName?.trim();
+    const attributeValue = variation.attributeValue?.trim();
+    if (attributeName && attributeValue) {
+      acc[attributeName] = attributeValue;
+    }
+    return acc;
+  }, {});
+}
+
+export function replaceCartLineVariations(
+  cart: CartMap,
+  itemId: string,
+  selectedVariations: VariationAttributeSelection[],
+  userInfo: UserPricingInfo,
+): CartMap {
+  const line = cart[itemId];
+  if (!line?.productData || line.productData.productType !== 'Customizable') {
+    return cart;
+  }
+
+  const selectedAttributes = Object.fromEntries(
+    selectedVariations.map((entry) => [entry.attributeName, entry.attributeValue]),
+  );
+  const matchingVariation = findMatchingVariation(line.productData.variations, selectedAttributes);
+  const maxQuantity = getVariationMaxQuantity(matchingVariation) || matchingVariation?.quantity;
+  const quantity = line.orderQuantiy ?? 1;
+  const cartWithoutLine = removeCartLine(cart, itemId);
+
+  const { cart: nextCart } = mergeProductIntoCart(cartWithoutLine, {
+    product: line.productData,
+    userInfo,
+    quantity,
+    selectedVariations,
+    maxQuantity,
+    mergeMode: 'set',
+  });
+
+  return nextCart;
 }
 
 export function updateCartLineQuantity(

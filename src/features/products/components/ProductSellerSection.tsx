@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingVertical: spacing.md,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.borderStrong,
+    borderTopColor: colors.border,
   },
   avatar: {
     width: 48,

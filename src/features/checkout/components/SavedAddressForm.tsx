@@ -2,7 +2,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { CountryStateFields } from '../../../components/forms';
 import { AppInput } from '../../../components/ui/AppInput';
-import { colors, spacing } from '../../../design-system';
+import { spacing } from '../../../design-system';
 import type {
   SavedAddressFormField,
   SavedAddressFormValues,
@@ -13,6 +13,7 @@ interface SavedAddressFormProps {
   errors?: Partial<Record<SavedAddressFormField, string>>;
   onChange: (field: SavedAddressFormField, nextValue: string) => void;
   disabled?: boolean;
+  tone?: 'default' | 'surface';
 }
 
 export function SavedAddressForm({
@@ -20,10 +21,12 @@ export function SavedAddressForm({
   errors = {},
   onChange,
   disabled = false,
+  tone = 'default',
 }: SavedAddressFormProps) {
   return (
     <View style={styles.container}>
       <AppInput
+        tone={tone}
         label="First name *"
         value={value.firstName}
         onChangeText={(text) => onChange('firstName', text)}
@@ -32,6 +35,7 @@ export function SavedAddressForm({
         editable={!disabled}
       />
       <AppInput
+        tone={tone}
         label="Last name *"
         value={value.lastName}
         onChangeText={(text) => onChange('lastName', text)}
@@ -40,6 +44,7 @@ export function SavedAddressForm({
         editable={!disabled}
       />
       <AppInput
+        tone={tone}
         label="Street address *"
         value={value.streetAddress}
         onChangeText={(text) => onChange('streetAddress', text)}
@@ -47,6 +52,7 @@ export function SavedAddressForm({
         editable={!disabled}
       />
       <AppInput
+        tone={tone}
         label="City *"
         value={value.city}
         onChangeText={(text) => onChange('city', text)}
@@ -55,6 +61,7 @@ export function SavedAddressForm({
         editable={!disabled}
       />
       <CountryStateFields
+        tone={tone}
         value={{
           country: value.country,
           state: value.state,
@@ -73,6 +80,7 @@ export function SavedAddressForm({
         required
       />
       <AppInput
+        tone={tone}
         label="ZIP / Postal code *"
         value={value.zip}
         onChangeText={(text) => onChange('zip', text)}

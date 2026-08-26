@@ -1,10 +1,12 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { ChevronForwardIcon } from '../../../components/ui/ChevronForwardIcon';
 import { AppText } from '../../../components/ui/AppText';
-import { colors, spacing } from '../../../design-system';
+import { colors, radius, spacing } from '../../../design-system';
+import { AccountMenuIcon, type AccountMenuIconName } from './AccountMenuIcon';
 
 export interface AccountMenuRowProps {
-  icon: string;
+  icon: AccountMenuIconName;
   label: string;
   onPress: () => void;
   showDivider?: boolean;
@@ -18,6 +20,8 @@ export function AccountMenuRow({
   showDivider = true,
   destructive = false,
 }: AccountMenuRowProps) {
+  const iconColor = destructive ? colors.error : colors.primary;
+
   return (
     <>
       <Pressable
@@ -25,19 +29,19 @@ export function AccountMenuRow({
         onPress={onPress}
         style={({ pressed }) => [styles.row, pressed && styles.pressed]}
       >
-        <AppText variant="bodyMedium" style={styles.icon}>
-          {icon}
-        </AppText>
+        <View style={[styles.iconWrap, destructive && styles.iconWrapDestructive]}>
+          <AccountMenuIcon name={icon} color={iconColor} size={18} />
+        </View>
+
         <AppText
           variant="bodyMedium"
           style={[styles.label, destructive && styles.destructiveLabel]}
         >
           {label}
         </AppText>
+
         {!destructive ? (
-          <AppText variant="bodyMedium" color="textMuted" style={styles.chevron}>
-            ›
-          </AppText>
+          <ChevronForwardIcon color={colors.textMuted} size={18} />
         ) : null}
       </Pressable>
       {showDivider ? <View style={styles.divider} /> : null}
@@ -56,11 +60,16 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.9,
   },
-  icon: {
-    width: 24,
-    textAlign: 'center',
-    fontSize: 18,
-    lineHeight: 22,
+  iconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconWrapDestructive: {
+    backgroundColor: colors.errorBg,
   },
   label: {
     flex: 1,
@@ -70,13 +79,9 @@ const styles = StyleSheet.create({
     color: colors.error,
     fontWeight: '600',
   },
-  chevron: {
-    fontSize: 22,
-    lineHeight: 24,
-  },
   divider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.borderStrong,
-    marginLeft: 36,
+    marginLeft: 44,
   },
 });

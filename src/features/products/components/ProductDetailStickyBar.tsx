@@ -48,14 +48,9 @@ export function ProductDetailStickyBar({
         {isLoading ? (
           <ActivityIndicator color={theme.pillSelectedText} />
         ) : (
-          <View style={styles.ctaContent}>
-            <AppText variant="bodyMedium" style={{ color: theme.pillSelectedText }}>
-              🛍
-            </AppText>
-            <AppText variant="button" style={{ color: theme.pillSelectedText }}>
-              {buttonLabel}
-            </AppText>
-          </View>
+          <AppText variant="button" style={{ color: theme.pillSelectedText }}>
+            {buttonLabel}
+          </AppText>
         )}
       </Pressable>
     </View>
@@ -75,11 +70,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
-  },
-  ctaContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
   },
   ctaDisabled: {
     opacity: 0.55,

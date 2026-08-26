@@ -58,10 +58,23 @@ export function ProductDetailHeader({
 
   return (
     <View style={styles.container}>
-      <View style={styles.titleRow}>
-        <AppText variant="h2" style={[styles.title, { color: theme.textPrimary }]} numberOfLines={3}>
-          {productName}
-        </AppText>
+      <AppText variant="h2" style={[styles.title, { color: theme.textPrimary }]}>
+        {productName}
+      </AppText>
+
+      <AppText variant="caption" style={{ color: theme.textMuted }}>
+        {stockLabel}
+      </AppText>
+
+      <View style={styles.priceRow}>
+        <ProductPrice
+          price={unitPrice}
+          compareAtPrice={compareAtPrice}
+          discountPercent={discountPercent}
+          size="lg"
+          layout="marketplace"
+          style={styles.priceBlock}
+        />
 
         {showQuantityStepper && onDecrement && onIncrement ? (
           <ProductDetailCompactStepper
@@ -70,21 +83,10 @@ export function ProductDetailHeader({
             disabled={quantityDisabled}
             onDecrement={onDecrement}
             onIncrement={onIncrement}
+            style={styles.stepper}
           />
         ) : null}
       </View>
-
-      <AppText variant="caption" style={{ color: theme.textMuted }}>
-        {stockLabel}
-      </AppText>
-
-      <ProductPrice
-        price={unitPrice}
-        compareAtPrice={compareAtPrice}
-        discountPercent={discountPercent}
-        size="lg"
-        layout="marketplace"
-      />
 
       {showRating ? (
         <View style={styles.ratingRow} accessibilityRole="text">
@@ -105,16 +107,22 @@ const styles = StyleSheet.create({
   container: {
     gap: spacing.sm,
   },
-  titleRow: {
+  title: {
+    fontSize: 22,
+    lineHeight: 28,
+  },
+  priceRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.md,
   },
-  title: {
+  priceBlock: {
     flex: 1,
-    fontSize: 22,
-    lineHeight: 28,
+    minWidth: 0,
+  },
+  stepper: {
+    flexShrink: 0,
   },
   ratingRow: {
     flexDirection: 'row',

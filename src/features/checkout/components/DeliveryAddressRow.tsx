@@ -12,6 +12,7 @@ export interface DeliveryAddressRowProps {
   onEdit?: () => void;
   onDelete?: () => void;
   showActions?: boolean;
+  variant?: 'list' | 'card';
 }
 
 export function DeliveryAddressRow({
@@ -21,12 +22,14 @@ export function DeliveryAddressRow({
   onEdit,
   onDelete,
   showActions = true,
+  variant = 'list',
 }: DeliveryAddressRowProps) {
   const fullName = [address.firstName, address.lastName].filter(Boolean).join(' ').trim() || 'Address';
   const canModify = showActions && !address.isDefault;
+  const isCard = variant === 'card';
 
   return (
-    <View style={styles.addressRow}>
+    <View style={[styles.addressRow, isCard && styles.addressRowCard, isCard && selected && styles.addressRowCardSelected]}>
       <Pressable
         accessibilityRole="button"
         onPress={onSelect}
@@ -44,7 +47,7 @@ export function DeliveryAddressRow({
               </AppText>
             </View>
           ) : null}
-          {selected ? (
+          {!isCard && selected ? (
             <View style={styles.selectedBadge}>
               <AppText variant="caption" style={styles.selectedBadgeText}>
                 Selected for delivery
@@ -54,7 +57,7 @@ export function DeliveryAddressRow({
           <AppText variant="bodyMedium" style={styles.addressName}>
             {fullName}
           </AppText>
-          <AppText variant="bodySmall" color="textSecondary">
+          <AppText variant="bodySmall" color="textSecondary" style={isCard ? styles.addressLine : undefined}>
             {formatDeliveryAddressLine(address)}
           </AppText>
         </View>
@@ -88,6 +91,20 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.borderStrong,
+  },
+  addressRowCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.large,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderBottomWidth: 1,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  addressRowCardSelected: {
+    borderColor: colors.primary,
+    borderWidth: 2,
+    backgroundColor: colors.primarySoft,
   },
   addressMain: {
     flexDirection: 'row',
@@ -142,6 +159,10 @@ const styles = StyleSheet.create({
   addressName: {
     color: colors.textPrimary,
     fontWeight: '700',
+  },
+  addressLine: {
+    color: colors.textSecondary,
+    lineHeight: 20,
   },
   rowActions: {
     flexDirection: 'row',

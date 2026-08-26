@@ -21,15 +21,7 @@ export function navigateToHomeTab(navigation: Nav) {
 
 
 export function navigateToBrowseTab(navigation: Nav) {
-
-  navigation.navigate('MainTabs', {
-
-    screen: 'MarketplaceTab',
-
-    params: { segment: 'category' },
-
-  });
-
+  navigateToHomeTab(navigation);
 }
 
 

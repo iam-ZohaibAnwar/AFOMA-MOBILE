@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '../../../components/ui/AppText';
-import { colors, radius, spacing } from '../../../design-system';
+import { colors, spacing } from '../../../design-system';
 import type { ShopTab } from '../hooks/useShopScreen';
 
 const TABS: Array<{ id: ShopTab; label: string }> = [
@@ -13,35 +13,29 @@ const TABS: Array<{ id: ShopTab; label: string }> = [
 export interface ShopTabBarProps {
   activeTab: ShopTab;
   onTabChange: (tab: ShopTab) => void;
-  productCount?: number;
-  reviewCount?: number;
 }
 
-export function ShopTabBar({
-  activeTab,
-  onTabChange,
-  productCount,
-  reviewCount,
-}: ShopTabBarProps) {
+export function ShopTabBar({ activeTab, onTabChange }: ShopTabBarProps) {
   return (
     <View style={styles.container}>
       {TABS.map((tab) => {
         const isActive = tab.id === activeTab;
-        const count =
-          tab.id === 'products' ? productCount : tab.id === 'reviews' ? reviewCount : undefined;
 
         return (
           <Pressable
             key={tab.id}
-            accessibilityRole="button"
+            accessibilityRole="tab"
             accessibilityState={{ selected: isActive }}
             onPress={() => onTabChange(tab.id)}
-            style={[styles.tab, isActive && styles.tabActive]}
+            style={styles.tab}
           >
-            <AppText variant="label" style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
+            <AppText
+              variant="bodyMedium"
+              style={[styles.tabLabel, isActive && styles.tabLabelActive]}
+            >
               {tab.label}
-              {typeof count === 'number' ? ` (${count})` : ''}
             </AppText>
+            {isActive ? <View style={styles.indicator} /> : <View style={styles.indicatorSpacer} />}
           </Pressable>
         );
       })}
@@ -52,29 +46,41 @@ export function ShopTabBar({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.borderStrong,
     backgroundColor: colors.background,
+    marginTop: spacing.md,
   },
   tab: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.sm,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceSecondary,
-  },
-  tabActive: {
-    backgroundColor: colors.primary,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
   },
   tabLabel: {
-    color: colors.textSecondary,
+    color: colors.textMuted,
     fontWeight: '600',
+    paddingBottom: spacing.sm,
   },
   tabLabelActive: {
-    color: colors.surface,
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  indicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: spacing.sm,
+    right: spacing.sm,
+    height: 3,
+    borderTopLeftRadius: 3,
+    borderTopRightRadius: 3,
+    backgroundColor: colors.primary,
+  },
+  indicatorSpacer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 3,
   },
 });

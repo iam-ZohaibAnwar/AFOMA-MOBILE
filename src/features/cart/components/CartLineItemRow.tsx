@@ -9,6 +9,7 @@ import {
 
 import { QuantityStepper } from '../../../components/ecommerce/QuantityStepper';
 import { AppText } from '../../../components/ui/AppText';
+import { DeleteIcon } from '../../../components/ui/DeleteIcon';
 import { colors, radius, spacing } from '../../../design-system';
 import type { CartLineItem } from '../../../services/types/cart';
 import { getCartLineAttributes } from '../utils/cartUtils';
@@ -28,6 +29,7 @@ export interface CartLineItemRowProps {
   onToggleSelect?: (itemId: string) => void;
   onRemove?: (itemId: string) => void;
   onQuantityChange?: (itemId: string, nextQuantity: number) => void;
+  onEditVariations?: (itemId: string) => void;
   isRemoving?: boolean;
   isUpdating?: boolean;
   showRemove?: boolean;
@@ -51,6 +53,7 @@ export function CartLineItemRow({
   onToggleSelect,
   onRemove,
   onQuantityChange,
+  onEditVariations,
   isRemoving,
   isUpdating,
   showRemove = false,
@@ -64,6 +67,7 @@ export function CartLineItemRow({
   const attributes = getCartLineAttributes(line);
   const maxQuantity = parseMaxQuantity(line.maxQuantity, product?.quantity);
   const isDownloadable = product?.productType === 'Downloadable';
+  const isCustomizable = product?.productType === 'Customizable';
   const isBusy = isRemoving || isUpdating;
 
   return (
@@ -106,6 +110,20 @@ export function CartLineItemRow({
                 {attributes}
               </AppText>
             ) : null}
+            {isCustomizable && onEditVariations ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Change product options"
+                disabled={isBusy}
+                onPress={() => onEditVariations(itemId)}
+                hitSlop={4}
+                style={({ pressed }) => [pressed && styles.pressed]}
+              >
+                <AppText variant="bodySmall" color="textLink">
+                  Change options
+                </AppText>
+              </Pressable>
+            ) : null}
           </View>
 
           <AppText variant="bodyMedium" style={styles.price}>
@@ -120,6 +138,7 @@ export function CartLineItemRow({
               min={1}
               max={Number.isFinite(maxQuantity) ? maxQuantity : undefined}
               disabled={isBusy}
+              size="compact"
               onDecrement={() => onQuantityChange?.(itemId, quantity - 1)}
               onIncrement={() => onQuantityChange?.(itemId, quantity + 1)}
               style={styles.stepper}
@@ -136,14 +155,13 @@ export function CartLineItemRow({
               accessibilityLabel="Remove item"
               disabled={isBusy}
               onPress={() => onRemove?.(itemId)}
+              hitSlop={8}
               style={({ pressed }) => [styles.removeButton, pressed && styles.pressed]}
             >
               {isRemoving ? (
                 <ActivityIndicator size="small" color={colors.textMuted} />
               ) : (
-                <AppText variant="bodySmall" color="textMuted">
-                  Remove
-                </AppText>
+                <DeleteIcon color={colors.textMuted} size={18} />
               )}
             </Pressable>
           ) : null}
@@ -223,12 +241,14 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   stepper: {
-    borderRadius: radius.pill,
+    borderWidth: 0,
     backgroundColor: colors.disabledBg,
   },
   removeButton: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   pressed: {
     opacity: 0.85,

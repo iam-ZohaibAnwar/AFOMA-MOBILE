@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { ChevronForwardIcon } from '../../../components/ui/ChevronForwardIcon';
 import { AppText } from '../../../components/ui/AppText';
 import { colors, radius, spacing } from '../../../design-system';
 import type { AuthUser } from '../../auth/types';
@@ -31,9 +32,7 @@ export function AccountProfileHeader({ user, onEditPress }: AccountProfileHeader
       </View>
 
       {onEditPress ? (
-        <AppText variant="bodyMedium" color="textMuted" style={styles.chevron}>
-          ›
-        </AppText>
+        <ChevronForwardIcon color={colors.textMuted} size={20} />
       ) : null}
     </>
   );
@@ -82,11 +81,6 @@ const styles = StyleSheet.create({
   info: {
     flex: 1,
     gap: 2,
-  },
-  chevron: {
-    fontSize: 24,
-    lineHeight: 28,
-    paddingHorizontal: spacing.xs,
   },
   pressed: {
     opacity: 0.94,

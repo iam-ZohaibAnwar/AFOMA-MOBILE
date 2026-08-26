@@ -22,6 +22,7 @@ export interface SelectFieldProps {
   placeholder?: string;
   error?: string;
   disabled?: boolean;
+  tone?: 'default' | 'surface';
   containerStyle?: StyleProp<ViewStyle>;
   modalTitle?: string;
 }
@@ -34,11 +35,13 @@ export function SelectField({
   placeholder = 'Select',
   error,
   disabled = false,
+  tone = 'default',
   containerStyle,
   modalTitle,
 }: SelectFieldProps) {
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
+  const isSurfaceTone = tone === 'surface';
 
   const selectedLabel = useMemo(
     () => options.find((option) => option.value === value)?.label ?? '',
@@ -50,13 +53,18 @@ export function SelectField({
   return (
     <>
       <View style={[styles.container, containerStyle]}>
-        {label ? <AppText variant="label">{label}</AppText> : null}
+        {label ? (
+          <AppText variant="label" style={isSurfaceTone ? styles.labelSurface : undefined}>
+            {label}
+          </AppText>
+        ) : null}
         <Pressable
           accessibilityRole="button"
           disabled={disabled}
           onPress={() => setOpen(true)}
           style={({ pressed }) => [
             styles.trigger,
+            isSurfaceTone && styles.triggerSurface,
             error ? styles.triggerError : null,
             disabled ? styles.triggerDisabled : null,
             pressed && !disabled ? styles.pressed : null,
@@ -66,7 +74,7 @@ export function SelectField({
             variant="body"
             color={displayValue ? 'textPrimary' : 'textSubtle'}
             numberOfLines={1}
-            style={styles.triggerText}
+            style={[styles.triggerText, isSurfaceTone && styles.triggerTextSurface]}
           >
             {displayValue || placeholder}
           </AppText>
@@ -146,14 +154,18 @@ const styles = StyleSheet.create({
   container: {
     gap: spacing.sm,
   },
+  labelSurface: {
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
   trigger: {
     minHeight: 48,
     borderWidth: 1,
-    borderColor: colors.borderStrong,
+    borderColor: colors.borderForm,
     borderRadius: radius.small,
     backgroundColor: colors.background,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -161,6 +173,14 @@ const styles = StyleSheet.create({
   },
   triggerText: {
     flex: 1,
+  },
+  triggerSurface: {
+    backgroundColor: colors.surface,
+    borderColor: colors.borderForm,
+  },
+  triggerTextSurface: {
+    color: colors.textPrimary,
+    fontWeight: '500',
   },
   triggerError: {
     borderColor: colors.error,

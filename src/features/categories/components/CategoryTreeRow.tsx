@@ -11,6 +11,7 @@ export interface CategoryTreeRowProps {
   showChevron?: boolean;
   isLast?: boolean;
   onPress: () => void;
+  onChevronPress?: () => void;
 }
 
 const DEPTH_INDENT = 24;
@@ -23,37 +24,52 @@ export function CategoryTreeRow({
   showChevron = true,
   isLast = false,
   onPress,
+  onChevronPress,
 }: CategoryTreeRowProps) {
+  const handleChevronPress = onChevronPress ?? onPress;
+
   return (
     <View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Browse ${label}`}
-        accessibilityState={{ expanded }}
-        onPress={onPress}
-        style={({ pressed }) => [
+      <View
+        style={[
           styles.row,
           { paddingLeft: spacing.lg + depth * DEPTH_INDENT },
-          pressed && styles.pressed,
         ]}
       >
-        <View style={styles.labelWrap}>
-          <AppText variant="bodyMedium" style={styles.label} numberOfLines={2}>
-            {label}
-          </AppText>
-          {meta ? (
-            <AppText variant="bodySmall" color="textMuted" style={styles.meta}>
-              {meta}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Browse ${label}`}
+          accessibilityState={{ expanded }}
+          onPress={onPress}
+          style={({ pressed }) => [styles.labelPressable, pressed && styles.pressed]}
+        >
+          <View style={styles.labelWrap}>
+            <AppText variant="bodyMedium" style={styles.label} numberOfLines={2}>
+              {label}
             </AppText>
-          ) : null}
-        </View>
+            {meta ? (
+              <AppText variant="bodySmall" color="textMuted" style={styles.meta}>
+                {meta}
+              </AppText>
+            ) : null}
+          </View>
+        </Pressable>
 
         {showChevron ? (
-          <AppText variant="bodyMedium" color="textMuted" style={styles.chevron}>
-            {expanded ? '⌄' : '›'}
-          </AppText>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={expanded ? `Collapse ${label}` : `Expand ${label}`}
+            accessibilityState={{ expanded }}
+            onPress={handleChevronPress}
+            hitSlop={8}
+            style={({ pressed }) => [styles.chevronButton, pressed && styles.pressed]}
+          >
+            <AppText variant="bodyMedium" color="textMuted" style={styles.chevron}>
+              {expanded ? '⌃' : '⌄'}
+            </AppText>
+          </Pressable>
         ) : null}
-      </Pressable>
+      </View>
       {!isLast ? <View style={styles.divider} /> : null}
     </View>
   );
@@ -63,16 +79,24 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
     minHeight: 52,
-    paddingRight: spacing.lg,
-    paddingVertical: spacing.sm,
+    paddingRight: spacing.sm,
     backgroundColor: colors.surface,
   },
-  labelWrap: {
+  labelPressable: {
     flex: 1,
+    minHeight: 52,
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+  },
+  labelWrap: {
     gap: 2,
+  },
+  chevronButton: {
+    width: 44,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   label: {
     color: colors.textPrimary,

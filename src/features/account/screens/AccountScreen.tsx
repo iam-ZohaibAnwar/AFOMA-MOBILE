@@ -6,6 +6,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { navigateToSellerScreen } from '../../../app/navigation/sellerNavigation';
+import type { SellerStackParamList } from '../../../app/navigation/sellerTypes';
 import { navigateToAdminScreen } from '../../../features/admin/navigation/adminNavigation';
 import { colors, spacing } from '../../../design-system';
 import { useAuth } from '../../auth/hooks/useAuth';
@@ -46,8 +47,11 @@ export function AccountScreen(_props: Props) {
   const { profile, isLoading: isProfileLoading } = useSellerProfile(isSeller ? sellerId : undefined);
   const showSellerSetupCard = isSeller && Boolean(profile) && !isProfileLoading;
 
-  const goSeller = (screen: Parameters<typeof navigateToSellerScreen>[1]) => {
-    navigateToSellerScreen(rootNavigation, screen);
+  const goSeller = <S extends keyof SellerStackParamList>(
+    screen: S,
+    params?: SellerStackParamList[S],
+  ) => {
+    navigateToSellerScreen(rootNavigation, screen, params);
   };
 
   const handleContinueSellerSetup = () => {
@@ -84,16 +88,16 @@ export function AccountScreen(_props: Props) {
 
       <AccountMenuSection title="Personal">
         <AccountMenuRow
-          icon="👤"
+          icon="account-details"
           label={isSeller ? 'Personal information' : 'Account details'}
           onPress={handlePersonalInfoPress}
         />
-        <AccountMenuRow icon="📦" label="My orders" onPress={() => stackNavigation.navigate('Orders')} />
+        <AccountMenuRow icon="orders" label="My orders" onPress={() => stackNavigation.navigate('Orders')} />
         {!isSeller ? (
-          <AccountMenuRow icon="📍" label="Addresses" onPress={() => stackNavigation.navigate('AddressBook')} />
+          <AccountMenuRow icon="addresses" label="Addresses" onPress={() => stackNavigation.navigate('AddressBook')} />
         ) : null}
         <AccountMenuRow
-          icon="💰"
+          icon="referral-earnings"
           label="Referral earnings"
           onPress={() => stackNavigation.navigate('ReferralEarnings')}
           showDivider={false}
@@ -110,16 +114,16 @@ export function AccountScreen(_props: Props) {
           ) : null}
 
           <AccountMenuSection title="Seller">
-            <AccountMenuRow icon="🏪" label="Shop profile" onPress={() => goSeller('SellerShopProfile')} />
-            <AccountMenuRow icon="▣" label="Dashboard" onPress={() => goSeller('SellerDashboard')} />
-            <AccountMenuRow icon="▦" label="Products" onPress={() => goSeller('SellerProducts')} />
-            <AccountMenuRow icon="📦" label="Orders" onPress={() => goSeller('SellerOrders')} />
-            <AccountMenuRow icon="🚚" label="Shipping" onPress={() => goSeller('SellerShippingConfig')} />
-            <AccountMenuRow icon="⚙" label="Shop settings" onPress={() => goSeller('SellerShopSettings')} />
-            <AccountMenuRow icon="💰" label="Seller earnings" onPress={() => goSeller('SellerEarnings', {})} />
-            <AccountMenuRow icon="🎟" label="Coupons" onPress={() => goSeller('SellerCoupons')} />
-            <AccountMenuRow icon="🏷" label="Custom attributes" onPress={() => goSeller('SellerAttributes')} />
-            <AccountMenuRow icon="⭐" label="Reviews" onPress={() => goSeller('SellerReviews')} showDivider={false} />
+            <AccountMenuRow icon="shop-profile" label="Shop profile" onPress={() => goSeller('SellerShopProfile')} />
+            <AccountMenuRow icon="dashboard" label="Dashboard" onPress={() => goSeller('SellerDashboard')} />
+            <AccountMenuRow icon="products" label="Products" onPress={() => goSeller('SellerProducts')} />
+            <AccountMenuRow icon="seller-orders" label="Orders" onPress={() => goSeller('SellerOrders')} />
+            <AccountMenuRow icon="shipping" label="Shipping" onPress={() => goSeller('SellerShippingConfig')} />
+            <AccountMenuRow icon="shop-settings" label="Shop settings" onPress={() => goSeller('SellerShopSettings')} />
+            <AccountMenuRow icon="seller-earnings" label="Seller earnings" onPress={() => goSeller('SellerEarnings', {})} />
+            <AccountMenuRow icon="coupons" label="Coupons" onPress={() => goSeller('SellerCoupons')} />
+            <AccountMenuRow icon="attributes" label="Custom attributes" onPress={() => goSeller('SellerAttributes')} />
+            <AccountMenuRow icon="reviews" label="Reviews" onPress={() => goSeller('SellerReviews')} showDivider={false} />
           </AccountMenuSection>
         </View>
       ) : null}
@@ -127,42 +131,42 @@ export function AccountScreen(_props: Props) {
       {isAdmin ? (
         <AccountMenuSection title="Admin">
           <AccountMenuRow
-            icon="▣"
+            icon="admin-dashboard"
             label="Dashboard"
             onPress={() => navigateToAdminScreen(rootNavigation, 'AdminDashboard')}
           />
           <AccountMenuRow
-            icon="🏪"
+            icon="seller-management"
             label="Seller management"
             onPress={() => navigateToAdminScreen(rootNavigation, 'AdminSellerManagement')}
           />
           <AccountMenuRow
-            icon="📦"
+            icon="order-management"
             label="Order management"
             onPress={() => navigateToAdminScreen(rootNavigation, 'AdminOrderManagement')}
           />
           <AccountMenuRow
-            icon="▦"
+            icon="product-management"
             label="Product management"
             onPress={() => navigateToAdminScreen(rootNavigation, 'AdminProductManagement')}
           />
           <AccountMenuRow
-            icon="🏷"
+            icon="global-attributes"
             label="Global attributes"
             onPress={() => navigateToAdminScreen(rootNavigation, 'AdminGlobalAttributes')}
           />
           <AccountMenuRow
-            icon="⭐"
+            icon="admin-reviews"
             label="Reviews"
             onPress={() => navigateToAdminScreen(rootNavigation, 'AdminReviews')}
           />
           <AccountMenuRow
-            icon="🎟"
+            icon="admin-coupons"
             label="Coupons"
             onPress={() => navigateToAdminScreen(rootNavigation, 'AdminCoupons')}
           />
           <AccountMenuRow
-            icon="⚙"
+            icon="admin-settings"
             label="Settings"
             onPress={() => navigateToAdminScreen(rootNavigation, 'AdminSettingsHub')}
             showDivider={Boolean(fullAccess)}
@@ -170,12 +174,12 @@ export function AccountScreen(_props: Props) {
           {fullAccess ? (
             <>
               <AccountMenuRow
-                icon="👥"
+                icon="user-management"
                 label="User management"
                 onPress={() => navigateToAdminScreen(rootNavigation, 'AdminUserManagement')}
               />
               <AccountMenuRow
-                icon="💸"
+                icon="commission"
                 label="Commission"
                 onPress={() => navigateToAdminScreen(rootNavigation, 'AdminCommission')}
                 showDivider={false}
@@ -187,17 +191,17 @@ export function AccountScreen(_props: Props) {
 
       <AccountMenuSection title="Preferences">
         <AccountMenuRow
-          icon="◫"
+          icon="notifications"
           label="Notifications"
           onPress={() => showComingSoon('Notifications')}
         />
         <AccountMenuRow
-          icon="?"
+          icon="help"
           label="Help & support"
           onPress={() => showComingSoon('Help and support')}
         />
         <AccountMenuRow
-          icon="📄"
+          icon="terms"
           label="Terms & Conditions"
           onPress={() => stackNavigation.navigate('TermsConditions')}
           showDivider={false}
@@ -206,7 +210,7 @@ export function AccountScreen(_props: Props) {
 
       <View style={styles.logoutPanel}>
         <AccountMenuRow
-          icon="⎋"
+          icon="logout"
           label="Log out"
           onPress={() => void logout()}
           showDivider={false}

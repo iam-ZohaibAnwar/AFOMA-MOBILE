@@ -11,7 +11,7 @@ import { TabBarIcon, type TabIconName } from './TabBarIcon';
 
 const TAB_BAR_HEIGHT = 56;
 
-type MarketplaceSegment = 'home' | 'category';
+type MarketplaceSegment = 'home';
 
 interface MarketplaceTabItem {
   key: string;
@@ -23,22 +23,9 @@ interface MarketplaceTabItem {
 
 const TAB_ITEMS: MarketplaceTabItem[] = [
   { key: 'home', label: 'Home', icon: 'home', routeName: 'MarketplaceTab', segment: 'home' },
-  {
-    key: 'category',
-    label: 'Category',
-    icon: 'browse',
-    routeName: 'MarketplaceTab',
-    segment: 'category',
-  },
   { key: 'cart', label: 'Cart', icon: 'cart', routeName: 'CartTab' },
   { key: 'account', label: 'Account', icon: 'account', routeName: 'AccountTab' },
 ];
-
-function getMarketplaceSegment(
-  params: MainTabParamList['MarketplaceTab'],
-): MarketplaceSegment {
-  return params?.segment === 'category' ? 'category' : 'home';
-}
 
 export function MarketplaceTabBarWithCartBadge({
   state,
@@ -49,10 +36,6 @@ export function MarketplaceTabBarWithCartBadge({
   const { isAuthenticated, isLoading } = useAuth();
   const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 8 : 0);
   const activeRoute = state.routes[state.index];
-  const marketplaceRoute = state.routes.find((route) => route.name === 'MarketplaceTab');
-  const marketplaceSegment = getMarketplaceSegment(
-    marketplaceRoute?.params as MainTabParamList['MarketplaceTab'],
-  );
 
   if (activeRoute.name === 'CartTab') {
     return null;
@@ -71,7 +54,7 @@ export function MarketplaceTabBarWithCartBadge({
       {TAB_ITEMS.map((item) => {
         const isMarketplaceItem = item.routeName === 'MarketplaceTab';
         const isFocused = isMarketplaceItem
-          ? activeRoute.name === 'MarketplaceTab' && marketplaceSegment === item.segment
+          ? activeRoute.name === 'MarketplaceTab'
           : activeRoute.name === item.routeName;
 
         const color = isFocused ? colors.primary : colors.textMuted;

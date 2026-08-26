@@ -5,7 +5,18 @@ export function getCategoryRouteId(category: Category): string | undefined {
 }
 
 export function getCategoryDisplayName(category: Category): string {
-  return category.name?.trim() || category.slug || 'Category';
+  const extended = category as Category & {
+    SubCategoryName?: string;
+    ChildCategoryName?: string;
+  };
+
+  return (
+    category.name?.trim() ||
+    extended.SubCategoryName?.trim() ||
+    extended.ChildCategoryName?.trim() ||
+    category.slug ||
+    'Category'
+  );
 }
 
 export function getNavigableCategories(categories: Category[]): Category[] {

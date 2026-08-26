@@ -125,7 +125,9 @@ export function useCartShipping({
       return;
     }
 
-    const signature = selectedOptions.map((option) => `${option.sellerId}:${option.id}`).join('|');
+    const signature = selectedOptions
+      .map((option) => `${option.sellerId}:${option.id}:${option.rate}`)
+      .join('|');
     if (signature === lastAppliedSignature.current) {
       return;
     }
@@ -253,7 +255,7 @@ export function useCartShipping({
     !shippingContext.needsDeliveryDetails &&
     !isLoading &&
     !error &&
-    !isCartShippingPending(cart, resolvedShippingCad);
+    !isCartShippingPending(cart, selectedOptions);
 
   return {
     shippingAddress,

@@ -46,3 +46,7 @@ yarn-error.*
 .expo/
 .expo-export-test/
 .expo-export-test2/
+
+# iOS signing credentials
+credentials/
+credentials.json

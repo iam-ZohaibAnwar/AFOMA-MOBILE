@@ -13,27 +13,31 @@ import { colors, radius, spacing, typography } from '../../design-system';
 export interface AppInputProps extends TextInputProps {
   label?: string;
   error?: string;
+  tone?: 'default' | 'surface';
   containerStyle?: StyleProp<ViewStyle>;
 }
 
 export function AppInput({
   label,
   error,
+  tone = 'default',
   containerStyle,
   style,
   editable = true,
   ...inputProps
 }: AppInputProps) {
   const hasError = Boolean(error);
+  const isSurfaceTone = tone === 'surface';
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {label ? <Text style={styles.label}>{label}</Text> : null}
+      {label ? <Text style={[styles.label, isSurfaceTone && styles.labelSurface]}>{label}</Text> : null}
       <TextInput
         placeholderTextColor={colors.textSubtle}
         editable={editable}
         style={[
           styles.input,
+          isSurfaceTone && styles.inputSurface,
           hasError && styles.inputError,
           !editable && styles.inputDisabled,
           style,
@@ -52,16 +56,26 @@ const styles = StyleSheet.create({
   label: {
     ...typography.label,
   },
+  labelSurface: {
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
   input: {
     ...typography.body,
     color: colors.textPrimary,
     backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: colors.borderStrong,
+    borderColor: colors.borderForm,
     borderRadius: radius.small,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingVertical: 14,
     minHeight: 48,
+  },
+  inputSurface: {
+    backgroundColor: colors.surface,
+    borderColor: colors.borderForm,
+    color: colors.textPrimary,
+    fontWeight: '500',
   },
   inputError: {
     borderColor: colors.error,
@@ -76,3 +90,4 @@ const styles = StyleSheet.create({
     color: colors.error,
   },
 });
+

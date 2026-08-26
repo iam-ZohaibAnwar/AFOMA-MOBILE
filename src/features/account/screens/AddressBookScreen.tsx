@@ -9,9 +9,6 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import type { CompositeNavigationProp } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -37,18 +34,12 @@ import { validateSavedAddressForm } from '../../checkout/utils/deliveryAddressDi
 
 type Props = NativeStackScreenProps<ShoppingStackParamList, 'AddressBook'>;
 
-type AddressBookNavigationProp = CompositeNavigationProp<
-  NativeStackNavigationProp<ShoppingStackParamList, 'AddressBook'>,
-  NativeStackNavigationProp<ShoppingStackParamList>
->;
-
 type ScreenMode = 'list' | 'form';
 
 const ADDRESS_BOOK_RETURN_TO = authReturnTo.addressBook();
 
 export function AddressBookScreen(_props: Props) {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<AddressBookNavigationProp>();
   const { isAuthorized } = useRequireAuth(ADDRESS_BOOK_RETURN_TO);
   const { user } = useAuth();
   const authUserId = resolveAuthUserId(user);
@@ -179,11 +170,12 @@ export function AddressBookScreen(_props: Props) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <AppCard variant="muted">
-            <AppText variant="bodyMedium" style={styles.sectionTitle}>
+          <AppCard variant="flat">
+            <AppText variant="label" style={styles.sectionTitle}>
               {editingAddress ? 'Edit address' : 'New address'}
             </AppText>
             <SavedAddressForm
+              tone="surface"
               value={formValues}
               errors={formErrors}
               onChange={handleFormChange}
@@ -240,13 +232,12 @@ export function AddressBookScreen(_props: Props) {
           </AppCard>
         ) : null}
 
-        <AppCard variant="muted">
-          <AppText variant="bodyMedium" style={styles.sectionTitle}>
+        <View style={styles.section}>
+          <AppText variant="label" style={styles.sectionTitle}>
             Saved addresses
           </AppText>
           <AppText variant="bodySmall" color="textSecondary" style={styles.sectionCopy}>
-            Your default address comes from your account profile. Additional addresses are saved
-            for checkout delivery.
+            Choose a delivery address for checkout. Your profile address is included as the default.
           </AppText>
 
           {!authUserId ? (
@@ -267,6 +258,7 @@ export function AddressBookScreen(_props: Props) {
                   key={`${address.id}-${address._id ?? 'default'}`}
                   address={address}
                   selected={selectedAddressId === address._id}
+                  variant="card"
                   onSelect={() => void handleSelectAddress(address)}
                   onEdit={address.isDefault ? undefined : () => openEditForm(address)}
                   onDelete={address.isDefault ? undefined : () => handleDelete(address)}
@@ -284,22 +276,11 @@ export function AddressBookScreen(_props: Props) {
           ) : null}
 
           <Pressable accessibilityRole="button" onPress={openCreateForm} style={styles.addAddressButton}>
-            <AppText variant="bodyMedium" color="textLink">
+            <AppText variant="bodyMedium" color="textLink" style={styles.addAddressLabel}>
               + Add a new address
             </AppText>
           </Pressable>
-        </AppCard>
-
-        <AppCard variant="flat">
-          <AppText variant="bodySmall" color="textSecondary" style={styles.defaultHelpCopy}>
-            To update your default/profile address, edit your account details.
-          </AppText>
-          <AppButton
-            label="Edit account details"
-            variant="outline"
-            onPress={() => navigation.navigate('AccountDetails')}
-          />
-        </AppCard>
+        </View>
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
@@ -336,18 +317,21 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     backgroundColor: colors.background,
   },
+  section: {
+    gap: spacing.sm,
+  },
   sectionTitle: {
     color: colors.textPrimary,
     fontWeight: '700',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    paddingHorizontal: spacing.xs,
     marginBottom: spacing.sm,
   },
   sectionCopy: {
     lineHeight: 20,
-    marginBottom: spacing.md,
-  },
-  defaultHelpCopy: {
-    lineHeight: 20,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.xs,
   },
   loadingState: {
     alignItems: 'center',
@@ -355,10 +339,14 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xl,
   },
   addressList: {
-    gap: spacing.xs,
+    gap: spacing.md,
   },
   addAddressButton: {
     paddingTop: spacing.md,
+    paddingHorizontal: spacing.xs,
+  },
+  addAddressLabel: {
+    fontWeight: '600',
   },
   emptyCopy: {
     textAlign: 'center',
