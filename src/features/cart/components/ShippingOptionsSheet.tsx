@@ -17,7 +17,6 @@ import type {
   CheckoutShippingOption,
   SellerShippingOptionsGroup,
 } from '../../checkout/hooks/useCheckoutShippingRates';
-import { formatProductPrice } from '../../products/utils/productDisplay';
 
 export interface ShippingOptionsSheetProps {
   visible: boolean;
@@ -60,9 +59,6 @@ function ShippingOptionRow({
       <View style={styles.optionContent}>
         <AppText variant="bodyMedium" style={styles.optionLabel}>
           {option.label}
-        </AppText>
-        <AppText variant="bodySmall" color="textSecondary">
-          {formatProductPrice(option.rate)}
         </AppText>
       </View>
     </Pressable>
@@ -156,6 +152,12 @@ export function ShippingOptionsSheet({
             </View>
           ) : (
             <>
+              {hasMultipleSellers ? (
+                <AppText variant="bodySmall" color="textSecondary" style={styles.helperText}>
+                  All items ship to one address. Choose a carrier for each seller below.
+                </AppText>
+              ) : null}
+
               <ScrollView
                 style={[styles.scrollArea, { maxHeight: scrollMaxHeight }]}
                 contentContainerStyle={styles.listContent}
@@ -252,6 +254,9 @@ const styles = StyleSheet.create({
   messageBox: {
     gap: spacing.md,
     paddingVertical: spacing.lg,
+  },
+  helperText: {
+    lineHeight: 20,
   },
   scrollArea: {
     flexGrow: 0,

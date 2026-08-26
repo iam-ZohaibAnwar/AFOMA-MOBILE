@@ -10,7 +10,9 @@ import { TermsConditionsScreen } from '../../features/legal/screens/TermsConditi
 import { CheckoutScreen } from '../../features/checkout/screens/CheckoutScreen';
 import { PaymentScreen } from '../../features/checkout/screens/PaymentScreen';
 import { ChildCategoriesScreen } from '../../features/categories/screens/ChildCategoriesScreen';
+import { ChildCategoryScreen } from '../../features/categories/screens/ChildCategoryScreen';
 import { SubCategoriesScreen } from '../../features/categories/screens/SubCategoriesScreen';
+import { SubCategoryScreen } from '../../features/categories/screens/SubCategoryScreen';
 import { OrderDetailScreen } from '../../features/orders/screens/OrderDetailScreen';
 import { OrdersScreen } from '../../features/orders/screens/OrdersScreen';
 import { ProductDetailScreen } from '../../features/products/screens/ProductDetailScreen';
@@ -43,7 +45,21 @@ export function ShoppingNavigator() {
         name="SubCategories"
         component={SubCategoriesScreen}
         options={({ route }) => ({
-          title: route.params.categoryName ?? 'Browse',
+          title: route.params.categoryName ?? 'Category',
+        })}
+      />
+      <Stack.Screen
+        name="SubCategory"
+        component={SubCategoryScreen}
+        options={({ route }) => ({
+          title: route.params.subCategoryName ?? 'Subcategory',
+        })}
+      />
+      <Stack.Screen
+        name="ChildCategory"
+        component={ChildCategoryScreen}
+        options={({ route }) => ({
+          title: route.params.childCategoryName ?? 'Category',
         })}
       />
       <Stack.Screen

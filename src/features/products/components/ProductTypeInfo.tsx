@@ -31,7 +31,7 @@ export function ProductTypeInfo({ product }: ProductTypeInfoProps) {
   if (product.productType === 'Customizable') {
     return (
       <View style={styles.container}>
-        <AppBadge label="Customizable" variant="neutral" />
+        <AppBadge label="Customizable" variant="primary" />
         <AppText variant="bodySmall" color="textMuted">
           Select all options before adding to cart.
         </AppText>

@@ -41,7 +41,7 @@ export function LoginHeroArt() {
 
 const styles = StyleSheet.create({
   panel: {
-    marginTop: spacing['4xl'],
+    marginTop: spacing.lg,
     borderRadius: radius.xl,
     backgroundColor: colors.surfaceSecondary,
     borderWidth: 1,

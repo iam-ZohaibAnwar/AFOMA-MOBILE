@@ -342,6 +342,7 @@ export function CartScreen(_props: Props) {
               isLoading={cartShipping.isLoading}
               error={cartShipping.error}
               selectedOptions={cartShipping.selectedOptions}
+              selectedShippingCost={cartShipping.selectedShippingCost}
               hasMultipleSellers={cartShipping.hasMultipleSellers}
               onOpenDeliveryDetails={cartShipping.openDeliveryDetails}
               onOpenShippingOptions={cartShipping.openShippingOptions}

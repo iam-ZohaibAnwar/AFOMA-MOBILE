@@ -115,6 +115,7 @@ export function ProductGallery({
                     styles.dot,
                     {
                       backgroundColor: isActive ? colors.primary : colors.borderStrong,
+                      borderWidth: 0,
                       opacity: isActive ? 1 : 0.55,
                       width: isActive ? 18 : 8,
                     },
@@ -154,7 +155,7 @@ const styles = StyleSheet.create({
   expandBadge: {
     position: 'absolute',
     right: spacing.md,
-    bottom: spacing.xl + 28,
+    bottom: spacing.lg,
     minHeight: layout.minTouchTarget - 8,
     borderRadius: 999,
     paddingHorizontal: spacing.md,
@@ -170,7 +171,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: spacing.xl + 8,
+    bottom: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

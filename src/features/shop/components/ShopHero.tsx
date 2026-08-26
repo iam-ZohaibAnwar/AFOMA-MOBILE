@@ -1,7 +1,9 @@
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HeaderBackButton } from '../../../components/ui/HeaderBackButton';
 import { AppText } from '../../../components/ui/AppText';
+import { Skeleton } from '../../../components/ecommerce';
 import { colors, radius, spacing } from '../../../design-system';
 import type { Seller } from '../../../services/types/seller';
 import {
@@ -16,7 +18,10 @@ export interface ShopHeroProps {
   productCount?: number;
   averageRating?: number;
   reviewCount?: number;
+  isReviewsLoading?: boolean;
+  isProductsLoading?: boolean;
   onBack?: () => void;
+  onReadMoreAbout?: () => void;
 }
 
 export function ShopHero({
@@ -24,14 +29,17 @@ export function ShopHero({
   productCount = 0,
   averageRating,
   reviewCount = 0,
+  isReviewsLoading = false,
+  isProductsLoading = false,
   onBack,
+  onReadMoreAbout,
 }: ShopHeroProps) {
   const insets = useSafeAreaInsets();
+  const [isDescriptionTruncated, setIsDescriptionTruncated] = useState(false);
   const bannerUrl = getSellerBannerUrl(seller);
   const avatarUrl = getSellerAvatarUrl(seller);
   const title = getSellerStoreTitle(seller);
   const hasReviews = Boolean(averageRating && reviewCount > 0);
-  const showVerified = Boolean(seller._id);
 
   return (
     <View style={styles.container}>
@@ -41,6 +49,10 @@ export function ShopHero({
         ) : (
           <View style={styles.backPlaceholder} />
         )}
+        <AppText variant="bodyMedium" style={styles.topBarTitle} numberOfLines={1}>
+          {title}
+        </AppText>
+        <View style={styles.topBarSpacer} />
       </View>
 
       <View style={styles.bannerWrap}>
@@ -64,21 +76,14 @@ export function ShopHero({
       </View>
 
       <View style={styles.info}>
-        <View style={styles.titleRow}>
-          <AppText variant="h3" style={styles.title} numberOfLines={2}>
-            {title}
-          </AppText>
-          {showVerified ? (
-            <View style={styles.verifiedBadge} accessibilityLabel="Verified seller">
-              <AppText variant="caption" style={styles.verifiedGlyph}>
-                ✓
-              </AppText>
-            </View>
-          ) : null}
-        </View>
+        <AppText variant="h3" style={styles.title} numberOfLines={2}>
+          {title}
+        </AppText>
 
         <View style={styles.statsRow}>
-          {hasReviews ? (
+          {isReviewsLoading ? (
+            <Skeleton variant="text" height={14} width={120} />
+          ) : hasReviews ? (
             <AppText variant="bodySmall" color="textSecondary">
               <Text style={styles.starGlyph}>★ </Text>
               {averageRating?.toFixed(1)} ({reviewCount} review{reviewCount === 1 ? '' : 's'})
@@ -93,15 +98,42 @@ export function ShopHero({
             ·
           </AppText>
 
-          <AppText variant="bodySmall" color="textSecondary">
-            {productCount} product{productCount === 1 ? '' : 's'}
-          </AppText>
+          {isProductsLoading ? (
+            <Skeleton variant="text" height={14} width={80} />
+          ) : (
+            <AppText variant="bodySmall" color="textSecondary">
+              {productCount} product{productCount === 1 ? '' : 's'}
+            </AppText>
+          )}
         </View>
 
         {seller.storeDesc ? (
-          <AppText variant="bodySmall" color="textSecondary" style={styles.description}>
-            {seller.storeDesc}
-          </AppText>
+          <View style={styles.descriptionBlock}>
+            <AppText
+              variant="bodySmall"
+              color="textSecondary"
+              style={styles.description}
+              numberOfLines={3}
+              onTextLayout={(event) => {
+                setIsDescriptionTruncated(event.nativeEvent.lines.length >= 3);
+              }}
+            >
+              {seller.storeDesc}
+            </AppText>
+            {isDescriptionTruncated && onReadMoreAbout ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Read full shop description in About"
+                onPress={onReadMoreAbout}
+                hitSlop={8}
+                style={({ pressed }) => [pressed && styles.pressed]}
+              >
+                <AppText variant="bodySmall" style={styles.readMore}>
+                  Read more
+                </AppText>
+              </Pressable>
+            ) : null}
+          </View>
         ) : null}
       </View>
     </View>
@@ -115,9 +147,20 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
     backgroundColor: colors.background,
+    gap: spacing.sm,
+  },
+  topBarTitle: {
+    flex: 1,
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  topBarSpacer: {
+    width: 40,
   },
   backPlaceholder: {
     width: 44,
@@ -162,30 +205,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     gap: spacing.sm,
   },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-  },
   title: {
-    flex: 1,
     color: colors.textPrimary,
     fontWeight: '700',
-  },
-  verifiedBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primarySoft,
-    marginTop: 2,
-  },
-  verifiedGlyph: {
-    color: colors.primary,
-    fontWeight: '700',
-    fontSize: 11,
-    lineHeight: 14,
   },
   statsRow: {
     flexDirection: 'row',
@@ -200,8 +222,18 @@ const styles = StyleSheet.create({
     color: colors.warning,
     fontWeight: '700',
   },
+  descriptionBlock: {
+    gap: spacing.xs,
+    paddingTop: spacing.xs,
+  },
   description: {
     lineHeight: 20,
-    paddingTop: spacing.xs,
+  },
+  readMore: {
+    color: colors.textLink,
+    fontWeight: '600',
+  },
+  pressed: {
+    opacity: 0.88,
   },
 });

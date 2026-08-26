@@ -27,7 +27,7 @@ export function RegistrationAgreeField({
       >
         <View style={[styles.checkbox, value && styles.checkboxSelected]}>
           {value ? (
-            <AppText variant="caption" color="textInverse" style={styles.checkmark}>
+            <AppText variant="caption" style={styles.checkmark}>
               ✓
             </AppText>
           ) : null}
@@ -73,6 +73,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   checkmark: {
+    color: colors.textInverse,
     fontWeight: '700',
     lineHeight: 14,
   },

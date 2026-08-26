@@ -1,7 +1,8 @@
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
+import { SelectField } from '../../../components/forms/SelectField';
 import { AppText } from '../../../components/ui/AppText';
-import { layout, radius, spacing } from '../../../design-system';
+import { radius, spacing } from '../../../design-system';
 import type { PdpTheme } from '../../../design-system/pdpTheme';
 import { isColorAttributeName, resolveColorSwatch } from '../utils/colorSwatches';
 import { normalizeVariationAttributeValue } from '../utils/productVariations';
@@ -47,20 +48,20 @@ export function ProductVariationSelectors({
               </AppText>
               {isSizeAttribute ? (
                 <Pressable accessibilityRole="button" onPress={handleSizeGuidePress}>
-                  <AppText variant="bodySmall" color="textLink">
+                  <AppText variant="bodySmall" style={{ color: theme.textPrimary }}>
                     Size guide
                   </AppText>
                 </Pressable>
               ) : null}
             </View>
 
-            <View style={styles.optionRow}>
-              {options.map((option) => {
-                const normalizedOption = normalizeVariationAttributeValue(option);
-                const isSelected = selectedValue === normalizedOption;
-                const isAvailable = isOptionAvailable?.(attributeName, option) ?? true;
+            {isColorAttribute ? (
+              <View style={styles.optionRow}>
+                {options.map((option) => {
+                  const normalizedOption = normalizeVariationAttributeValue(option);
+                  const isSelected = selectedValue === normalizedOption;
+                  const isAvailable = isOptionAvailable?.(attributeName, option) ?? true;
 
-                if (isColorAttribute) {
                   return (
                     <Pressable
                       key={`${attributeName}-${option}`}
@@ -97,44 +98,25 @@ export function ProductVariationSelectors({
                       </View>
                     </Pressable>
                   );
+                })}
+              </View>
+            ) : (
+              <SelectField
+                value={selectedValue}
+                options={options.map((option) => ({
+                  label: option,
+                  value: normalizeVariationAttributeValue(option),
+                }))}
+                onChange={(value) => onSelectAttribute(attributeName, value)}
+                placeholder={`Select ${attributeName}`}
+                modalTitle={attributeName}
+                tone="surface"
+                selectionAccent="navy"
+                isOptionDisabled={(option) =>
+                  !(isOptionAvailable?.(attributeName, option.value) ?? true)
                 }
-
-                return (
-                  <Pressable
-                    key={`${attributeName}-${option}`}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: isSelected, disabled: !isAvailable }}
-                    accessibilityLabel={`Select ${attributeName} ${option}`}
-                    disabled={!isAvailable}
-                    onPress={() => onSelectAttribute(attributeName, option)}
-                    style={({ pressed }) => [
-                      styles.optionChip,
-                      {
-                        borderColor: isSelected ? theme.pillSelectedBg : theme.pillBorder,
-                        backgroundColor: isSelected ? theme.pillSelectedBg : theme.pillUnselectedBg,
-                      },
-                      !isAvailable && styles.optionChipUnavailable,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <AppText
-                      variant="label"
-                      style={{
-                        color: isSelected
-                          ? theme.pillSelectedText
-                          : isAvailable
-                            ? theme.pillText
-                            : theme.pillDisabledText,
-                        textDecorationLine: isAvailable ? 'none' : 'line-through',
-                      }}
-                      numberOfLines={1}
-                    >
-                      {option}
-                    </AppText>
-                  </Pressable>
-                );
-              })}
-            </View>
+              />
+            )}
           </View>
         );
       })}
@@ -159,19 +141,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
-  },
-  optionChip: {
-    minWidth: 44,
-    minHeight: layout.minTouchTarget - 8,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.medium,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  optionChipUnavailable: {
-    backgroundColor: 'transparent',
   },
   swatchOuter: {
     width: 36,

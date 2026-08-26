@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { AppText } from '../../../components/ui/AppText';
-import { colors, layout, radius, spacing } from '../../../design-system';
+import { colors, radius } from '../../../design-system';
 
 export interface ProductDetailCompactStepperProps {
   value: number;
@@ -19,12 +19,14 @@ function StepperButton({
   onPress,
   disabled,
   filled,
+  decrement,
 }: {
   label: string;
   accessibilityLabel: string;
   onPress: () => void;
   disabled: boolean;
   filled?: boolean;
+  decrement?: boolean;
 }) {
   return (
     <Pressable
@@ -41,8 +43,12 @@ function StepperButton({
       ]}
     >
       <AppText
-        variant="bodyMedium"
-        style={[styles.buttonLabel, filled ? styles.buttonLabelFilled : undefined]}
+        variant="bodySmall"
+        style={[
+          styles.buttonLabel,
+          filled ? styles.buttonLabelFilled : undefined,
+          decrement && !disabled && styles.buttonLabelDecrement,
+        ]}
       >
         {label}
       </AppText>
@@ -69,8 +75,9 @@ export function ProductDetailCompactStepper({
         accessibilityLabel="Decrease quantity"
         onPress={onDecrement}
         disabled={disabled || atMin}
+        decrement
       />
-      <AppText variant="bodyMedium" style={styles.value}>
+      <AppText variant="bodySmall" style={styles.value}>
         {value}
       </AppText>
       <StepperButton
@@ -84,18 +91,21 @@ export function ProductDetailCompactStepper({
   );
 }
 
+const STEPPER_BUTTON_SIZE = 28;
+const STEPPER_PADDING = 3;
+
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: radius.pill,
     backgroundColor: colors.disabledBg,
-    padding: spacing.xs,
-    gap: spacing.xs,
+    padding: STEPPER_PADDING,
+    gap: STEPPER_PADDING,
   },
   button: {
-    width: 32,
-    height: 32,
+    width: STEPPER_BUTTON_SIZE,
+    height: STEPPER_BUTTON_SIZE,
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
@@ -110,16 +120,19 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   buttonLabel: {
-    fontSize: 18,
-    lineHeight: 22,
+    fontSize: 16,
+    lineHeight: 18,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   buttonLabelFilled: {
     color: colors.textInverse,
   },
+  buttonLabelDecrement: {
+    color: colors.error,
+  },
   value: {
-    minWidth: layout.minTouchTarget - 12,
+    minWidth: 24,
     textAlign: 'center',
     fontWeight: '700',
     color: colors.textPrimary,

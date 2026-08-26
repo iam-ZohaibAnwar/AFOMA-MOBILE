@@ -102,6 +102,8 @@ export function useCartShipping({
     shippingContext.identity,
     shippingContext.canFetchRates,
     userInfo.country,
+    userInfo.currencyRate ?? 1,
+    userInfo.currency ?? 'CAD',
   );
 
   const persistCartShipping = useCallback(

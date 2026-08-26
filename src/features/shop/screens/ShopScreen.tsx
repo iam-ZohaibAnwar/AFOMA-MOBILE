@@ -1,5 +1,5 @@
-import { useCallback, useLayoutEffect, useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { AppButton } from '../../../components/ui/AppButton';
@@ -15,7 +15,7 @@ import { ShopAboutSection } from '../components/ShopAboutSection';
 import { ShopHero } from '../components/ShopHero';
 import { ShopReviewsList } from '../components/ShopReviewsList';
 import { ShopTabBar } from '../components/ShopTabBar';
-import { useShopScreen } from '../hooks/useShopScreen';
+import { useShopScreen, type ShopTab } from '../hooks/useShopScreen';
 
 type Props = NativeStackScreenProps<ShoppingStackParamList, 'Shop'>;
 
@@ -25,6 +25,7 @@ export function ShopScreen({ route, navigation }: Props) {
     seller,
     products,
     reviews,
+    isReviewsLoading,
     activeTab,
     setActiveTab,
     isRefreshing,
@@ -37,6 +38,10 @@ export function ShopScreen({ route, navigation }: Props) {
     loadMoreProducts,
   } = useShopScreen(slug);
 
+  const productsListRef = useRef<FlatList<Product>>(null);
+  const contentScrollRef = useRef<ScrollView>(null);
+  const pausedScrollRef = useRef<ScrollView>(null);
+
   const hasRealSeller = Boolean(seller._id);
 
   useLayoutEffect(() => {
@@ -44,6 +49,43 @@ export function ShopScreen({ route, navigation }: Props) {
       headerShown: false,
     });
   }, [navigation]);
+
+  const scrollActiveTabToTop = useCallback((tab: ShopTab) => {
+    requestAnimationFrame(() => {
+      if (tab === 'products') {
+        productsListRef.current?.scrollToOffset({ offset: 0, animated: false });
+        pausedScrollRef.current?.scrollTo({ y: 0, animated: false });
+        return;
+      }
+
+      contentScrollRef.current?.scrollTo({ y: 0, animated: false });
+    });
+  }, []);
+
+  const handleTabChange = useCallback(
+    (tab: ShopTab) => {
+      if (tab === activeTab) {
+        scrollActiveTabToTop(tab);
+        return;
+      }
+
+      setActiveTab(tab);
+    },
+    [activeTab, scrollActiveTabToTop, setActiveTab],
+  );
+
+  const handleReadMoreAbout = useCallback(() => {
+    if (activeTab === 'about') {
+      scrollActiveTabToTop('about');
+      return;
+    }
+
+    setActiveTab('about');
+  }, [activeTab, scrollActiveTabToTop, setActiveTab]);
+
+  useEffect(() => {
+    scrollActiveTabToTop(activeTab);
+  }, [activeTab, scrollActiveTabToTop]);
 
   const handleProductPress = useCallback(
     (product: Product) => {
@@ -74,17 +116,24 @@ export function ShopScreen({ route, navigation }: Props) {
           productCount={products.length}
           averageRating={averageRating}
           reviewCount={reviews.length}
+          isReviewsLoading={isReviewsLoading}
+          isProductsLoading={isRefreshing && products.length === 0}
           onBack={() => navigation.goBack()}
+          onReadMoreAbout={handleReadMoreAbout}
         />
 
-        <ShopTabBar activeTab={activeTab} onTabChange={setActiveTab} />
+        <ShopTabBar activeTab={activeTab} onTabChange={handleTabChange} />
       </View>
     ),
     [
       activeTab,
       averageRating,
       error,
+      handleReadMoreAbout,
+      handleTabChange,
       hasRealSeller,
+      isReviewsLoading,
+      isRefreshing,
       navigation,
       products.length,
       retry,
@@ -114,7 +163,11 @@ export function ShopScreen({ route, navigation }: Props) {
       <View style={styles.container}>
         <FadeInContent style={styles.content}>
           {isPaused ? (
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+            <ScrollView
+              ref={pausedScrollRef}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.scrollContent}
+            >
               {shopHeader}
               <EmptyState
                 title="Shop on pause"
@@ -124,15 +177,15 @@ export function ShopScreen({ route, navigation }: Props) {
             </ScrollView>
           ) : (
             <ProductGrid
+              listRef={productsListRef}
               products={products}
               onProductPress={handleProductPress}
-              onCartPress={handleProductPress}
               isLoading={isRefreshing && products.length === 0}
               emptyMessage="No products added yet."
               ListHeaderComponent={shopHeader}
               edgeToEdgeHeader
               sectionTitle="All products"
-              cardLayout="shop"
+              cardLayout="marketplace"
               showSeller={false}
               ListFooterComponent={
                 hasMore ? (
@@ -158,9 +211,19 @@ export function ShopScreen({ route, navigation }: Props) {
   return (
     <View style={styles.container}>
       <FadeInContent style={styles.content}>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          ref={contentScrollRef}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
           {shopHeader}
-          {activeTab === 'reviews' ? <ShopReviewsList reviews={reviews} /> : null}
+          {activeTab === 'reviews' ? (
+            <ShopReviewsList
+              reviews={reviews}
+              averageRating={averageRating}
+              isLoading={isReviewsLoading}
+            />
+          ) : null}
           {activeTab === 'about' ? <ShopAboutSection seller={seller} /> : null}
         </ScrollView>
       </FadeInContent>

@@ -360,8 +360,8 @@ export function dismissAuthFlow(navigation: NavLike) {
   navigateToReturnTo(root, authReturnTo.homeTab());
 }
 
-/** Dismiss auth and always open the marketplace home tab (guest browsing). */
-export function continueShoppingAsGuest(navigation: NavLike) {
+/** Dismiss the auth modal and navigate to a main tab destination. */
+export function dismissAuthAndOpenTab(navigation: NavLike, returnTo: AuthReturnTo) {
   const root = getRootNavigation(navigation);
 
   if (root.canGoBack()) {
@@ -369,8 +369,13 @@ export function continueShoppingAsGuest(navigation: NavLike) {
   }
 
   requestAnimationFrame(() => {
-    navigateToReturnTo(root, authReturnTo.homeTab());
+    navigateToReturnTo(root, returnTo);
   });
+}
+
+/** Dismiss auth and always open the marketplace home tab (guest browsing). */
+export function continueShoppingAsGuest(navigation: NavLike) {
+  dismissAuthAndOpenTab(navigation, authReturnTo.homeTab());
 }
 
 export function completeAuthNavigation(navigation: NavLike, returnTo?: AuthReturnTo) {

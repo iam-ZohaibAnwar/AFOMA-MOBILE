@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   close: {
-    color: '#1F628E',
+    color: colors.brandBlue,
   },
   webview: {
     flex: 1,

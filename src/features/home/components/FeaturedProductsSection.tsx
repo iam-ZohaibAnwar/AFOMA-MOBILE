@@ -104,8 +104,10 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    alignItems: 'stretch',
   },
   cardWrap: {
+    alignSelf: 'stretch',
     marginBottom: 0,
   },
   skeletonCard: {

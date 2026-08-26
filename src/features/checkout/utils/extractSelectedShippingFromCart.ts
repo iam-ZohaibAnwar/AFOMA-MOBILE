@@ -1,6 +1,7 @@
 import type { CartLineItem, CartMap } from '../../../services/types/cart';
 import type { ShippingRateOption } from '../../../services/types/shipping';
 import type { CheckoutShippingOption } from '../hooks/useCheckoutShippingRates';
+import { getProductSellerId, getProductSellerName } from './cartShipping';
 import { getShippingOptionId, normalizeShippingRate } from './formatShippingOption';
 
 interface CartShippingService {
@@ -26,9 +27,7 @@ function readShippingOptions(value: unknown): ShippingRateOption[] {
 }
 
 function getSellerName(line: CartLineItem): string {
-  const seller = line.productData?.seller;
-  const fullName = [seller?.firstName, seller?.lastName].filter(Boolean).join(' ').trim();
-  return fullName || 'Seller';
+  return getProductSellerName(line.productData?.seller);
 }
 
 export function extractSelectedShippingFromCart(cart: CartMap): CheckoutShippingOption[] {
@@ -36,7 +35,7 @@ export function extractSelectedShippingFromCart(cart: CartMap): CheckoutShipping
   const seenSellers = new Set<string>();
 
   for (const line of Object.values(cart)) {
-    const sellerId = line.productData?.seller?._id;
+    const sellerId = getProductSellerId(line.productData?.seller);
 
     if (!sellerId || line.productData?.productType === 'Downloadable' || seenSellers.has(sellerId)) {
       continue;

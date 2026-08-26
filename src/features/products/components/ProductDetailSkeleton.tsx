@@ -3,9 +3,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Skeleton } from '../../../components/ecommerce';
 import { colors, radius, spacing } from '../../../design-system';
+import { getProductDetailStickyBarInset } from './ProductDetailStickyBar';
 
 export function ProductDetailSkeleton() {
   const insets = useSafeAreaInsets();
+  const stickyBarInset = getProductDetailStickyBarInset(insets.bottom);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -19,7 +21,7 @@ export function ProductDetailSkeleton() {
 
       <Skeleton variant="rect" height={360} style={styles.heroImage} />
 
-      <View style={styles.sheet}>
+      <View style={[styles.sheet, { paddingBottom: stickyBarInset }]}>
         <Skeleton variant="text" height={28} style={styles.titleLine} />
         <Skeleton variant="text" width="55%" height={16} />
         <View style={styles.priceRow}>
@@ -33,7 +35,7 @@ export function ProductDetailSkeleton() {
         <Skeleton variant="text" width="80%" height={14} />
       </View>
 
-      <View style={[styles.stickyBar, { paddingBottom: insets.bottom + spacing.md }]}>
+      <View style={[styles.stickyBar, { paddingBottom: insets.bottom + spacing.sm }]}>
         <Skeleton variant="rect" height={52} style={styles.cta} />
       </View>
     </View>
@@ -44,6 +46,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+    position: 'relative',
   },
   navRow: {
     flexDirection: 'row',
@@ -85,11 +88,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.medium,
   },
   stickyBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    backgroundColor: colors.surface,
+    paddingTop: spacing.sm,
+    backgroundColor: 'transparent',
   },
   cta: {
     borderRadius: radius.pill,

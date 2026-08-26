@@ -39,14 +39,31 @@ export function navigateToCategoryProductListing(
   navigation: ShoppingNavigation,
   params: CategoryListingParams,
 ): void {
-  navigation.navigate('ProductListing', {
+  if (params.childCategoryId && params.subCategoryId) {
+    navigation.navigate('ChildCategory', {
+      categoryId: params.categoryId,
+      subCategoryId: params.subCategoryId,
+      childCategoryId: params.childCategoryId,
+      categoryName: params.categoryName,
+      subCategoryName: params.subCategoryName,
+      childCategoryName: params.childCategoryName,
+    });
+    return;
+  }
+
+  if (params.subCategoryId) {
+    navigation.navigate('SubCategory', {
+      categoryId: params.categoryId,
+      subCategoryId: params.subCategoryId,
+      categoryName: params.categoryName,
+      subCategoryName: params.subCategoryName,
+    });
+    return;
+  }
+
+  navigation.navigate('SubCategories', {
     categoryId: params.categoryId,
-    subCategoryId: params.subCategoryId,
-    childCategoryId: params.childCategoryId,
     categoryName: params.categoryName,
-    subCategoryName: params.subCategoryName,
-    childCategoryName: params.childCategoryName,
-    title: getCategoryListingTitle(params),
   });
 }
 
@@ -71,23 +88,16 @@ export async function resolveCategoryDestination(
 export function navigateFromCategory(
   navigation: ShoppingNavigation,
   category: Category,
-  destination: CategoryListingDestination,
+  _destination: CategoryListingDestination,
 ): void {
   const categoryId = getCategoryRouteId(category);
   if (!categoryId) {
     return;
   }
 
-  const categoryName = getCategoryDisplayName(category);
-
-  if (destination === 'productListing') {
-    navigateToCategoryProductListing(navigation, { categoryId, categoryName });
-    return;
-  }
-
   navigation.navigate('SubCategories', {
     categoryId,
-    categoryName,
+    categoryName: getCategoryDisplayName(category),
   });
 }
 
@@ -106,7 +116,7 @@ export function navigateFromSubCategorySectionChild(
     return;
   }
 
-  navigateToCategoryProductListing(navigation, {
+  navigation.navigate('ChildCategory', {
     categoryId: params.categoryId,
     categoryName: params.categoryName,
     subCategoryId,
@@ -129,7 +139,7 @@ export function navigateFromSubCategorySection(
     return;
   }
 
-  navigateToCategoryProductListing(navigation, {
+  navigation.navigate('SubCategory', {
     categoryId: params.categoryId,
     categoryName: params.categoryName,
     subCategoryId,

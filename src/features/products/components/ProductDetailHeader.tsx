@@ -66,27 +66,24 @@ export function ProductDetailHeader({
         {stockLabel}
       </AppText>
 
-      <View style={styles.priceRow}>
-        <ProductPrice
-          price={unitPrice}
-          compareAtPrice={compareAtPrice}
-          discountPercent={discountPercent}
-          size="lg"
-          layout="marketplace"
-          style={styles.priceBlock}
-        />
-
-        {showQuantityStepper && onDecrement && onIncrement ? (
-          <ProductDetailCompactStepper
-            value={quantity}
-            max={maxQuantity}
-            disabled={quantityDisabled}
-            onDecrement={onDecrement}
-            onIncrement={onIncrement}
-            style={styles.stepper}
-          />
-        ) : null}
-      </View>
+      <ProductPrice
+        price={unitPrice}
+        compareAtPrice={compareAtPrice}
+        discountPercent={discountPercent}
+        size="lg"
+        layout="marketplace"
+        trailing={
+          showQuantityStepper && onDecrement && onIncrement ? (
+            <ProductDetailCompactStepper
+              value={quantity}
+              max={maxQuantity}
+              disabled={quantityDisabled}
+              onDecrement={onDecrement}
+              onIncrement={onIncrement}
+            />
+          ) : undefined
+        }
+      />
 
       {showRating ? (
         <View style={styles.ratingRow} accessibilityRole="text">
@@ -110,19 +107,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     lineHeight: 28,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  priceBlock: {
-    flex: 1,
-    minWidth: 0,
-  },
-  stepper: {
-    flexShrink: 0,
   },
   ratingRow: {
     flexDirection: 'row',

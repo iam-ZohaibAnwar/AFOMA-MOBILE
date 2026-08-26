@@ -6,6 +6,8 @@ import {
   getProductReviews,
 } from '../../../services/api/reviewsApi';
 
+import type { Review } from '../../../services/types/review';
+
 function normalizeAverageRating(data: Record<string, unknown>): number | undefined {
   const candidates = [data.avgValue, data.avgRating, data.averageRating, data.rating];
 
@@ -22,12 +24,14 @@ function normalizeAverageRating(data: Record<string, unknown>): number | undefin
 export function useProductReviews(productId?: string) {
   const [averageRating, setAverageRating] = useState<number | undefined>();
   const [reviewCount, setReviewCount] = useState(0);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoading, setIsLoading] = useState(Boolean(productId));
 
   const loadReviews = useCallback(async () => {
     if (!productId) {
       setAverageRating(undefined);
       setReviewCount(0);
+      setReviews([]);
       setIsLoading(false);
       return;
     }
@@ -40,11 +44,15 @@ export function useProductReviews(productId?: string) {
         getProductReviews(productId),
       ]);
 
+      const normalizedReviews = Array.isArray(reviewsResponse) ? reviewsResponse : [];
+
       setAverageRating(normalizeAverageRating(averageResponse));
-      setReviewCount(Array.isArray(reviewsResponse) ? reviewsResponse.length : 0);
+      setReviews(normalizedReviews);
+      setReviewCount(normalizedReviews.filter((review) => !review.isReply).length);
     } catch (err) {
       setAverageRating(undefined);
       setReviewCount(0);
+      setReviews([]);
       if (__DEV__) {
         console.warn(getErrorMessage(err, 'Failed to load product reviews'));
       }
@@ -60,6 +68,7 @@ export function useProductReviews(productId?: string) {
   return {
     averageRating,
     reviewCount,
+    reviews,
     isLoading,
     retry: loadReviews,
   };

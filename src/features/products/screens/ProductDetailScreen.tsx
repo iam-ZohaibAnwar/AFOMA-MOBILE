@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useState, useCallback } from 'react';
+import { useLayoutEffect, useMemo, useState, useCallback, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -8,10 +8,10 @@ import {
   View,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FadeInContent } from '../../../components/motion';
 import { usePricing } from '../../../app/providers/PricingProvider';
-import { ProductDeliveryBanner } from '../components/ProductDeliveryBanner';
 
 import { AppText } from '../../../components/ui/AppText';
 
@@ -36,31 +36,39 @@ import { buildAddToCartInputFromPdp } from '../../cart/utils/cartLineMerge';
 import { getErrorMessage } from '../../../services/api/errors';
 
 import type { ShoppingStackParamList } from '../../../app/navigation/types';
+import type { Product } from '../../../services/types/product';
 
-import { ProductDescriptionSection } from '../components/ProductDescriptionSection';
+import { ProductAccordion } from '../components/ProductAccordion';
+import { ProductDetailDescriptionContent } from '../components/ProductDetailDescriptionContent';
+import { ProductDetailPolicyContent } from '../components/ProductDetailPolicyContent';
+import { ProductDetailReviewsContent } from '../components/ProductDetailReviewsContent';
+import { ProductDetailReviewsHeaderMeta } from '../components/ProductDetailReviewsHeaderMeta';
 
 import { ProductDetailHeader } from '../components/ProductDetailHeader';
 
 import { ProductDetailNavBar } from '../components/ProductDetailNavBar';
 
-import { ProductDetailStickyBar } from '../components/ProductDetailStickyBar';
+import { ProductDetailStickyBar, getProductDetailStickyBarInset } from '../components/ProductDetailStickyBar';
 
 import { ProductGallery } from '../components/ProductGallery';
 
 import { ProductSellerSection } from '../components/ProductSellerSection';
-import { ProductSellerPolicySection } from '../components/ProductSellerPolicySection';
 
 import { ProductTypeInfo } from '../components/ProductTypeInfo';
 
 import { ProductVariationSelectors } from '../components/ProductVariationSelectors';
 
+import { SuggestedProductsSection } from '../components/SuggestedProductsSection';
+
 import { useProductDetail } from '../hooks/useProductDetail';
+
+import { useProductDetailRecommendations } from '../hooks/useProductDetailRecommendations';
 
 import { useProductDetailVariations } from '../hooks/useProductDetailVariations';
 
 import { useProductReviews } from '../hooks/useProductReviews';
 
-import { getDeliveryEstimateMessage, getProductGalleryImages } from '../utils/productGallery';
+import { getProductGalleryImages } from '../utils/productGallery';
 import { getProductShareUrl } from '../utils/productShare';
 import { promptProductShare } from '../utils/shareProduct';
 
@@ -93,10 +101,7 @@ type FeedbackType = 'success' | 'error';
 
 
 
-const CONTENT_SHEET_OVERLAP = 28;
-
-const STICKY_BAR_SPACE = 88;
-
+const CONTENT_SHEET_GAP = spacing.lg;
 const CONTENT_SHEET_RADIUS = 28;
 
 
@@ -104,6 +109,8 @@ const CONTENT_SHEET_RADIUS = 28;
 export function ProductDetailScreen({ route, navigation }: Props) {
 
   const { productId, slug } = route.params;
+  const insets = useSafeAreaInsets();
+  const stickyBarInset = getProductDetailStickyBarInset(insets.bottom);
 
   const theme = usePdpTheme();
 
@@ -116,11 +123,14 @@ export function ProductDetailScreen({ route, navigation }: Props) {
 
   const { product, isRefreshing, error, retry } = useProductDetail(productId, slug);
 
+  const { sellerProducts, relatedProducts, recentlyViewedProducts } =
+    useProductDetailRecommendations(product);
+
   const variationState = useProductDetailVariations(product);
 
   const productRouteId = product ? getProductRouteId(product) : undefined;
 
-  const { averageRating, reviewCount } = useProductReviews(productRouteId);
+  const { averageRating, reviewCount, reviews, isLoading: isReviewsLoading } = useProductReviews(productRouteId);
 
 
 
@@ -148,12 +158,8 @@ export function ProductDetailScreen({ route, navigation }: Props) {
 
 
 
-  const deliveryMessage = product ? getDeliveryEstimateMessage(product) : null;
-
   const selectedPrice = product
-
     ? getProductPriceForSelection(product, variationState.selectedAttributes)
-
     : undefined;
 
   const compareAtPrice = product
@@ -163,12 +169,91 @@ export function ProductDetailScreen({ route, navigation }: Props) {
     : undefined;
 
   const discountPercent = product ? getProductDiscountPercent(product) : undefined;
+  const productDescription = product ? getProductDescription(product) : '';
 
   const sellerName = product ? getSellerDisplayName(product) : undefined;
   const sellerStoreSlug = product?.seller?.storeSlug?.trim();
   const sellerLogoUrl = product?.seller?.storeLogo || product?.seller?.userProfile;
   const sellerStorePolicy = product ? getSellerStorePolicy(product) : undefined;
   const showSellerPolicies = hasSellerStorePolicy(sellerStorePolicy);
+
+  const accordionSections = useMemo(() => {
+    const sections: Array<{
+      key: string;
+      title: string;
+      content: ReactNode;
+      renderHeaderMeta?: (expanded: boolean) => ReactNode | null;
+    }> = [];
+
+    if (sellerName) {
+      sections.push({
+        key: 'shop',
+        title: 'Shop',
+        content: (
+          <ProductSellerSection
+            embedded
+            sellerName={sellerName}
+            sellerLogoUrl={sellerLogoUrl}
+            onPress={
+              sellerStoreSlug ? () => navigateToShop(navigation, sellerStoreSlug) : undefined
+            }
+          />
+        ),
+      });
+    }
+
+    sections.push({
+      key: 'product-details',
+      title: 'Product Details',
+      content: (
+        <ProductDetailDescriptionContent description={productDescription} theme={theme} />
+      ),
+    });
+
+    sections.push({
+      key: 'reviews',
+      title: 'Customer Reviews',
+      renderHeaderMeta: (expanded) =>
+        expanded ? (
+          <ProductDetailReviewsHeaderMeta
+            averageRating={averageRating}
+            reviewCount={reviewCount}
+            theme={theme}
+          />
+        ) : null,
+      content: (
+        <ProductDetailReviewsContent
+          reviews={reviews}
+          reviewCount={reviewCount}
+          isLoading={isReviewsLoading}
+          theme={theme}
+        />
+      ),
+    });
+
+    if (showSellerPolicies && sellerStorePolicy) {
+      sections.push({
+        key: 'cancel-policies',
+        title: 'Cancel Policies',
+        content: <ProductDetailPolicyContent policy={sellerStorePolicy} theme={theme} />,
+      });
+    }
+
+    return sections;
+  }, [
+    averageRating,
+    isReviewsLoading,
+    navigation,
+    productDescription,
+    reviewCount,
+    reviews,
+    sellerLogoUrl,
+    sellerName,
+    sellerStorePolicy,
+    sellerStoreSlug,
+    showSellerPolicies,
+    theme,
+  ]);
 
 
 
@@ -189,7 +274,20 @@ export function ProductDetailScreen({ route, navigation }: Props) {
     });
   }, [product]);
 
+  const handleRecommendationPress = useCallback(
+    (item: Product) => {
+      const nextProductId = getProductRouteId(item);
+      if (!nextProductId) {
+        return;
+      }
 
+      navigation.push('ProductDetail', {
+        productId: nextProductId,
+        slug: item.slug,
+      });
+    },
+    [navigation],
+  );
 
   const handleAddToCart = async () => {
 
@@ -345,7 +443,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
 
         <Pressable style={styles.retryButton} onPress={() => void retry()}>
 
-          <AppText variant="button" color="textInverse">
+          <AppText variant="button" color="textPrimary">
 
             Try again
 
@@ -355,7 +453,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
 
         <Pressable onPress={() => navigation.goBack()}>
 
-          <AppText variant="bodyMedium" color="textLink">
+          <AppText variant="bodyMedium" color="textPrimary">
 
             Go back
 
@@ -424,11 +522,9 @@ export function ProductDetailScreen({ route, navigation }: Props) {
 
 
       <ScrollView
-
-        contentContainerStyle={[styles.container, { paddingBottom: STICKY_BAR_SPACE + spacing.xl }]}
-
+        style={styles.scroll}
+        contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
-
       >
 
         <ProductGallery
@@ -443,7 +539,15 @@ export function ProductDetailScreen({ route, navigation }: Props) {
 
 
 
-        <View style={[styles.contentSheet, { backgroundColor: theme.surface }]}>
+        <View
+          style={[
+            styles.contentSheet,
+            {
+              backgroundColor: theme.surface,
+              paddingBottom: stickyBarInset + spacing.md,
+            },
+          ]}
+        >
 
           <ProductDetailHeader
 
@@ -505,61 +609,35 @@ export function ProductDetailScreen({ route, navigation }: Props) {
 
           {product ? <ProductTypeInfo product={product} /> : null}
 
+          {accordionSections.map((section) => (
+            <ProductAccordion
+              key={section.key}
+              title={section.title}
+              theme={theme}
+              renderHeaderMeta={section.renderHeaderMeta}
+            >
+              {section.content}
+            </ProductAccordion>
+          ))}
 
-
-          <ProductDescriptionSection description={product ? getProductDescription(product) : ''} />
-
-
-
-          {sellerName ? (
-            <ProductSellerSection
-              sellerName={sellerName}
-              sellerLogoUrl={sellerLogoUrl}
-              onPress={
-                sellerStoreSlug
-                  ? () => navigateToShop(navigation, sellerStoreSlug)
-                  : undefined
-              }
-            />
-          ) : null}
-
-          {showSellerPolicies && sellerStorePolicy ? (
-            <ProductSellerPolicySection policy={sellerStorePolicy} theme={theme} />
-          ) : null}
-
-          {deliveryMessage ? <ProductDeliveryBanner message={deliveryMessage} theme={theme} /> : null}
-
-
-
-          <View style={[styles.reviewsSection, { borderTopColor: theme.border }]}>
-
-            <AppText variant="label" style={{ color: theme.textPrimary }}>
-
-              Reviews
-
-            </AppText>
-
-            {averageRating && reviewCount > 0 ? (
-
-              <AppText variant="body" style={{ color: theme.textSecondary }}>
-
-                Average rating {averageRating.toFixed(1)} from {reviewCount} review
-
-                {reviewCount === 1 ? '' : 's'}.
-
-              </AppText>
-
-            ) : (
-
-              <AppText variant="body" style={{ color: theme.textSecondary }}>
-
-                No reviews yet for this product.
-
-              </AppText>
-
-            )}
-
-          </View>
+          <SuggestedProductsSection
+            embedded
+            title="More From This Seller"
+            products={sellerProducts}
+            onProductPress={handleRecommendationPress}
+          />
+          <SuggestedProductsSection
+            embedded
+            title="You May Also Like"
+            products={relatedProducts}
+            onProductPress={handleRecommendationPress}
+          />
+          <SuggestedProductsSection
+            embedded
+            title="Recently Viewed"
+            products={recentlyViewedProducts}
+            onProductPress={handleRecommendationPress}
+          />
 
         </View>
 
@@ -609,7 +687,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
 
             <Pressable onPress={() => navigateToCartTab(navigation)}>
 
-              <AppText variant="bodyMedium" color="textLink">
+              <AppText variant="bodyMedium" color="textPrimary">
 
                 View cart
 
@@ -656,40 +734,25 @@ const styles = StyleSheet.create({
   },
   screenInner: {
     flex: 1,
+    position: 'relative',
+  },
+
+  scroll: {
+    flex: 1,
   },
 
   container: {
-
     flexGrow: 1,
-
   },
 
   contentSheet: {
-
-    marginTop: -CONTENT_SHEET_OVERLAP,
-
+    marginTop: CONTENT_SHEET_GAP,
     borderTopLeftRadius: CONTENT_SHEET_RADIUS,
-
     borderTopRightRadius: CONTENT_SHEET_RADIUS,
-
     paddingHorizontal: spacing.lg,
-
     paddingTop: spacing.xl,
-
-    paddingBottom: spacing.lg,
-
     gap: spacing.lg,
-
-  },
-
-  reviewsSection: {
-
-    gap: spacing.sm,
-
-    paddingTop: spacing.sm,
-
-    borderTopWidth: StyleSheet.hairlineWidth,
-
+    flexGrow: 1,
   },
 
   feedbackToast: {
@@ -736,20 +799,17 @@ const styles = StyleSheet.create({
   },
 
   refreshBannerAction: {
-    color: colors.textLink,
+    color: colors.textPrimary,
     fontWeight: '600',
   },
 
   retryButton: {
-
     borderRadius: 8,
-
     paddingVertical: spacing.sm,
-
     paddingHorizontal: spacing.lg,
-
-    backgroundColor: colors.primary,
-
+    backgroundColor: colors.surfaceWhite,
+    borderWidth: 1,
+    borderColor: colors.borderForm,
   },
 
 });

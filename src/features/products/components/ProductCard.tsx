@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ProductPrice } from '../../../components/ecommerce/ProductPrice';
 import { colors, radius, shadows } from '../../../design-system';
@@ -25,14 +25,15 @@ export function ProductCard({ product, onPress, variant = 'default' }: ProductCa
   const isElevated = variant === 'elevated';
 
   return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.card,
-        isElevated && styles.cardElevated,
-        pressed && styles.cardPressed,
-      ]}
-      onPress={() => onPress(product)}
-    >
+    <View style={styles.cardHost}>
+      <Pressable
+        style={({ pressed }) => [
+          styles.card,
+          isElevated && styles.cardElevated,
+          pressed && styles.cardPressed,
+        ]}
+        onPress={() => onPress(product)}
+      >
       <View style={[styles.imageWrap, isElevated && styles.imageWrapElevated]}>
         {showImage ? (
           <Image
@@ -52,19 +53,26 @@ export function ProductCard({ product, onPress, variant = 'default' }: ProductCa
         <Text style={[styles.name, isElevated && styles.nameElevated]} numberOfLines={2}>
           {getProductDisplayName(product)}
         </Text>
-        <ProductPrice
-          price={getProductPrice(product)}
-          compareAtPrice={getProductCompareAtPrice(product)}
-          discountPercent={getProductDiscountPercent(product)}
-          size="sm"
-          layout="marketplace"
-        />
+        <View style={styles.priceWrap}>
+          <ProductPrice
+            price={getProductPrice(product)}
+            compareAtPrice={getProductCompareAtPrice(product)}
+            discountPercent={getProductDiscountPercent(product)}
+            size="sm"
+            layout="marketplace"
+          />
+        </View>
       </View>
-    </Pressable>
+      </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  cardHost: {
+    flex: 1,
+    alignSelf: 'stretch',
+  },
   card: {
     flex: 1,
     borderRadius: radius.large,
@@ -104,10 +112,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   content: {
+    flex: 1,
     paddingHorizontal: 12,
     paddingTop: 10,
     paddingBottom: 12,
     gap: 6,
+  },
+  priceWrap: {
+    marginTop: 'auto',
   },
   name: {
     fontSize: 14,

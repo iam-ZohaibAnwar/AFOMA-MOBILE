@@ -117,12 +117,24 @@ export async function getRelatedProducts(
   categoryOrProductId: string,
   params: PaginationParams = {},
 ): Promise<Product[]> {
+  const page = await getRelatedProductsPage(categoryOrProductId, params);
+  return page.products;
+}
+
+export async function getRelatedProductsPage(
+  categoryOrProductId: string,
+  params: PaginationParams = {},
+): Promise<SellerProductsPage> {
   const data = await apiGet<ProductsListResponse | Product[]>(
     `/products/search/related/${encodeURIComponent(categoryOrProductId)}`,
     { params },
     'Failed to load related products',
   );
-  return normalizeProductList(data);
+
+  return {
+    products: normalizeProductList(data),
+    pagination: Array.isArray(data) ? undefined : data.pagination,
+  };
 }
 
 export async function getProductsByCategory(categoryId: string): Promise<Product[]> {

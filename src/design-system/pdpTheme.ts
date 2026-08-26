@@ -64,7 +64,7 @@ const lightTheme: PdpTheme = {
   pillText: lightColors.textPrimary,
   pillDisabledText: lightColors.disabledText,
   swatchBorder: lightColors.borderForm,
-  swatchSelectedRing: lightColors.primary,
+  swatchSelectedRing: lightColors.textPrimary,
   stickyBarBg: lightColors.surface,
   stickyBarBorder: lightColors.border,
   imageCounterBg: lightColors.overlay,

@@ -52,6 +52,10 @@ export function useShopScreen(slug: string) {
   const [seller, setSeller] = useState<Seller>(initialState.seller);
   const [rawProducts, setRawProducts] = useState<Product[]>(initialState.products);
   const [reviews, setReviews] = useState<Review[]>(initialState.reviews);
+  const [isReviewsLoading, setIsReviewsLoading] = useState(() => {
+    const cached = getShopCache(slug);
+    return !(cached?.seller?._id && cached.reviews !== undefined);
+  });
   const [activeTab, setActiveTab] = useState<ShopTab>('products');
   const [isRefreshing, setIsRefreshing] = useState(initialState.isRefreshing);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -82,6 +86,8 @@ export function useShopScreen(slug: string) {
       areSameProducts(current, nextState.products) ? current : nextState.products,
     );
     setReviews((current) => (current === nextState.reviews ? current : nextState.reviews));
+    const cachedShop = getShopCache(slug);
+    setIsReviewsLoading(!(cachedShop?.seller?._id && cachedShop.reviews !== undefined));
     setActiveTab('products');
     setError(null);
     setHasMore(false);
@@ -161,18 +167,31 @@ export function useShopScreen(slug: string) {
         return;
       }
 
-      const reviewsResult = await getSellerReviewsList(sellerId);
-      setReviews(reviewsResult.reviews);
+      setIsReviewsLoading(true);
+      try {
+        const reviewsResult = await getSellerReviewsList(sellerId);
+        if (activeSlugRef.current !== requestSlug) {
+          return;
+        }
 
-      setShopCache(requestSlug, {
-        seller: sellerData,
-        products: nextProducts,
-        reviews: reviewsResult.reviews,
-      });
+        setReviews(reviewsResult.reviews);
+
+        setShopCache(requestSlug, {
+          seller: sellerData,
+          products: nextProducts,
+          reviews: reviewsResult.reviews,
+        });
+      } finally {
+        if (activeSlugRef.current === requestSlug) {
+          setIsReviewsLoading(false);
+        }
+      }
     } catch (err) {
       if (activeSlugRef.current !== requestSlug) {
         return;
       }
+
+      setIsReviewsLoading(false);
 
       if (!hasExistingData) {
         setError(getErrorMessage(err, 'Failed to load shop'));
@@ -216,6 +235,7 @@ export function useShopScreen(slug: string) {
     seller,
     products,
     reviews,
+    isReviewsLoading,
     activeTab,
     setActiveTab,
     isRefreshing,

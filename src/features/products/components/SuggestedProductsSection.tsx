@@ -9,12 +9,15 @@ interface SuggestedProductsSectionProps {
   title: string;
   products: Product[];
   onProductPress: (product: Product) => void;
+  /** Removes outer horizontal padding when nested inside another padded container. */
+  embedded?: boolean;
 }
 
 export function SuggestedProductsSection({
   title,
   products,
   onProductPress,
+  embedded = false,
 }: SuggestedProductsSectionProps) {
   if (products.length === 0) {
     return null;
@@ -26,7 +29,7 @@ export function SuggestedProductsSection({
   }
 
   return (
-    <View style={styles.section}>
+    <View style={[styles.section, embedded ? styles.sectionEmbedded : null]}>
       <AppText variant="h3" style={styles.title}>
         {title}
       </AppText>
@@ -57,14 +60,21 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxl,
     gap: spacing.md,
   },
+  sectionEmbedded: {
+    paddingHorizontal: 0,
+    paddingTop: spacing.lg,
+    paddingBottom: 0,
+  },
   title: {
     marginBottom: spacing.xs,
   },
   row: {
     flexDirection: 'row',
+    alignItems: 'stretch',
     gap: spacing.md,
   },
   cardWrap: {
     flex: 1,
+    alignSelf: 'stretch',
   },
 });

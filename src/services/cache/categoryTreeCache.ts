@@ -16,6 +16,8 @@ type RawCategory = Category & {
   SubCategoryName?: string;
   ChildCategoryName?: string;
   parentCategory?: string | { _id?: string };
+  parent?: string | { _id?: string };
+  SubCategory?: string | { _id?: string };
 };
 
 let parentCategories: Category[] = [];
@@ -43,17 +45,20 @@ function normalizeCategory(raw: RawCategory): Category {
   };
 }
 
-function getParentCategoryId(raw: RawCategory): string | undefined {
-  const parent = raw.parentCategory;
-  if (!parent) {
+function getLinkedParentId(raw: RawCategory, forChildCategory = false): string | undefined {
+  const link = forChildCategory
+    ? raw.SubCategory ?? raw.parentCategory ?? raw.parent
+    : raw.parent ?? raw.parentCategory;
+
+  if (!link) {
     return undefined;
   }
 
-  if (typeof parent === 'string') {
-    return parent;
+  if (typeof link === 'string') {
+    return link;
   }
 
-  return parent._id;
+  return link._id;
 }
 
 function buildSectionsForParent(parentId: string): SubCategoryBrowserSection[] {
@@ -92,7 +97,7 @@ async function loadCategoryTree(): Promise<void> {
   sectionsByParentId = new Map();
 
   for (const raw of normalizeArray(subCategoriesRaw)) {
-    const parentId = getParentCategoryId(raw);
+    const parentId = getLinkedParentId(raw);
     const subCategory = normalizeCategory(raw);
     const subCategoryId = getCategoryRouteId(subCategory);
 
@@ -106,7 +111,7 @@ async function loadCategoryTree(): Promise<void> {
   }
 
   for (const raw of normalizeArray(childCategoriesRaw)) {
-    const subCategoryId = getParentCategoryId(raw);
+    const subCategoryId = getLinkedParentId(raw, true);
     const childCategory = normalizeCategory(raw);
     const childCategoryId = getCategoryRouteId(childCategory);
 

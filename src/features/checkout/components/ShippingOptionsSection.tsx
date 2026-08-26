@@ -1,6 +1,5 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { formatProductPrice } from '../../products/utils/productDisplay';
 import type { SellerShippingOptionsGroup } from '../hooks/useCheckoutShippingRates';
 
 interface ShippingOptionsSectionProps {
@@ -58,6 +57,11 @@ export function ShippingOptionsSection({
 
   return (
     <View style={styles.optionsList}>
+      {hasMultipleSellers ? (
+        <Text style={styles.helperText}>
+          All items ship to one address. Choose a carrier for each seller below.
+        </Text>
+      ) : null}
       {groups.map((group) => (
         <View key={group.sellerId} style={styles.groupWrap}>
           {hasMultipleSellers ? (
@@ -78,7 +82,6 @@ export function ShippingOptionsSection({
                   </View>
                   <Text style={styles.optionLabel}>{option.label}</Text>
                 </View>
-                <Text style={styles.optionPrice}>{formatProductPrice(option.rate)}</Text>
               </Pressable>
             );
           })}
@@ -142,12 +145,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#172554',
     lineHeight: 20,
-  },
-  optionPrice: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#EA580C',
-    marginLeft: 28,
   },
   helperText: {
     fontSize: 14,

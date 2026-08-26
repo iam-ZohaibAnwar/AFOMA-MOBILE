@@ -40,7 +40,7 @@ export function ProductDescriptionSection({ description }: ProductDescriptionSec
           onPress={() => setExpanded((current) => !current)}
           style={({ pressed }) => [styles.readMoreButton, pressed && styles.pressed]}
         >
-          <AppText variant="bodyMedium" color="textLink">
+          <AppText variant="bodyMedium" color="textPrimary">
             {expanded ? 'Show less' : 'Read more'}
           </AppText>
         </Pressable>

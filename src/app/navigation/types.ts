@@ -32,6 +32,20 @@ export type ShoppingStackParamList = {
     categoryId: string;
     categoryName?: string;
   };
+  SubCategory: {
+    categoryId: string;
+    subCategoryId: string;
+    categoryName?: string;
+    subCategoryName?: string;
+  };
+  ChildCategory: {
+    categoryId: string;
+    subCategoryId: string;
+    childCategoryId: string;
+    categoryName?: string;
+    subCategoryName?: string;
+    childCategoryName?: string;
+  };
   ChildCategories: {
     categoryId: string;
     subCategoryId: string;

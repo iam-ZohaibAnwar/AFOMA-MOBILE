@@ -2,8 +2,13 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '../../../components/ui/AppText';
-import { layout, radius, shadows, spacing } from '../../../design-system';
+import { layout, radius, spacing, withSafeAreaBottom } from '../../../design-system';
 import type { PdpTheme } from '../../../design-system/pdpTheme';
+
+/** Reserve scroll space so content clears the overlay Add to Cart button. */
+export function getProductDetailStickyBarInset(bottomInset = 0): number {
+  return spacing.sm + layout.minTouchTarget + 6 + spacing.sm + bottomInset;
+}
 
 export interface ProductDetailStickyBarProps {
   theme: PdpTheme;
@@ -27,11 +32,8 @@ export function ProductDetailStickyBar({
       style={[
         styles.container,
         {
-          backgroundColor: theme.stickyBarBg,
-          borderTopColor: theme.stickyBarBorder,
-          paddingBottom: Math.max(insets.bottom, spacing.md),
+          paddingBottom: withSafeAreaBottom(spacing.sm, insets.bottom),
         },
-        shadows.card,
       ]}
     >
       <Pressable
@@ -40,7 +42,9 @@ export function ProductDetailStickyBar({
         onPress={onAddToCart}
         style={({ pressed }) => [
           styles.cta,
-          { backgroundColor: theme.pillSelectedBg },
+          {
+            backgroundColor: theme.pillSelectedBg,
+          },
           (disabled || isLoading) && styles.ctaDisabled,
           pressed && !disabled && !isLoading && styles.pressed,
         ]}
@@ -59,9 +63,13 @@ export function ProductDetailStickyBar({
 
 const styles = StyleSheet.create({
   container: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: spacing.sm,
+    backgroundColor: 'transparent',
   },
   cta: {
     width: '100%',

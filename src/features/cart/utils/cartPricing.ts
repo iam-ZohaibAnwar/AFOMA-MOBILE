@@ -3,6 +3,7 @@ import { calculateSurcharge } from '../../../services/pricing/pricingUtils';
 import type { CartLineItem, CartMap } from '../../../services/types/cart';
 import type { VariationAttributeSelection } from '../../products/utils/productVariations';
 import { getCartUnitPriceCad } from '../../products/utils/productDisplay';
+import { getProductSellerId } from '../../checkout/utils/cartShipping';
 
 function resolveBuyerCountry(userInfo: UserPricingInfo, override?: string): string {
   if (override?.trim()) {
@@ -77,7 +78,7 @@ export function groupCartLinesBySeller(cart: CartMap): Map<string, CartLineItem[
   const groups = new Map<string, CartLineItem[]>();
 
   for (const line of Object.values(cart)) {
-    const sellerId = line.productData?.seller?._id;
+    const sellerId = getProductSellerId(line.productData?.seller);
     if (!sellerId) {
       continue;
     }
@@ -118,7 +119,7 @@ export function getCartLineDisplayAmount(
   cart: CartMap,
   userInfo: UserPricingInfo,
 ): number {
-  const sellerId = line.productData?.seller?._id;
+  const sellerId = getProductSellerId(line.productData?.seller);
   if (!sellerId) {
     const rate = parseFloat(String(userInfo.currencyRate ?? 1)) || 1;
     return parseFloat(((line.totalAmount ?? 0) * rate).toFixed(2));

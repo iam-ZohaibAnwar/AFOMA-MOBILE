@@ -2,7 +2,7 @@ import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-na
 
 import { colors, radius, spacing, typography } from '../../design-system';
 
-type AppBadgeVariant = 'primary' | 'success' | 'warning' | 'neutral';
+type AppBadgeVariant = 'primary' | 'navy' | 'white' | 'success' | 'warning' | 'neutral';
 
 export interface AppBadgeProps {
   label: string;
@@ -34,6 +34,20 @@ const styles = StyleSheet.create({
   },
   label_primary: {
     color: colors.textInverse,
+  },
+  variant_navy: {
+    backgroundColor: colors.textPrimary,
+  },
+  label_navy: {
+    color: colors.textInverse,
+  },
+  variant_white: {
+    backgroundColor: colors.surfaceWhite,
+    borderWidth: 1,
+    borderColor: colors.textPrimary,
+  },
+  label_white: {
+    color: colors.textPrimary,
   },
   variant_success: {
     backgroundColor: colors.successSoft,

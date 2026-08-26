@@ -84,7 +84,7 @@ export function HomeProductSection({
           {visibleProducts.map((product, index) => (
             <View
               key={getProductRouteId(product) ?? `product-${index}`}
-              style={{ width: gridCardWidth }}
+              style={[styles.cardWrap, { width: gridCardWidth }]}
             >
               <ProductCard
                 product={product}
@@ -136,7 +136,7 @@ export function HomeProductSection({
         {visibleProducts.map((product, index) => (
           <View
             key={getProductRouteId(product) ?? `product-${index}`}
-            style={{ width: gridCardWidth }}
+            style={[styles.cardWrap, { width: gridCardWidth }]}
           >
             <ProductCard
               product={product}
@@ -159,8 +159,12 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    alignItems: 'stretch',
     gap: spacing.md,
     paddingHorizontal: screenPaddingHorizontal,
+  },
+  cardWrap: {
+    alignSelf: 'stretch',
   },
   horizontalContent: {
     paddingHorizontal: screenPaddingHorizontal,

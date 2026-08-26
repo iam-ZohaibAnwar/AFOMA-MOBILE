@@ -24,14 +24,13 @@ export function ChildCategoriesScreen({ route, navigation }: Props) {
 
     const childCategoryName = getCategoryDisplayName(childCategory);
 
-    navigation.navigate('ProductListing', {
+    navigation.navigate('ChildCategory', {
       categoryId,
       subCategoryId,
       childCategoryId,
       categoryName,
       subCategoryName,
       childCategoryName,
-      title: childCategoryName,
     });
   };
 

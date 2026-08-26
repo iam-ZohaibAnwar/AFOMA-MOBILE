@@ -1,31 +1,65 @@
-import { Image, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { AppCard } from '../../../components/ui/AppCard';
 import { AppText } from '../../../components/ui/AppText';
-import { EmptyState, Rating } from '../../../components/ecommerce';
-import { colors, spacing } from '../../../design-system';
+import { EmptyState, Skeleton } from '../../../components/ecommerce';
+import { colors, radius, spacing } from '../../../design-system';
 import type { Review } from '../../../services/types/review';
+import {
+  getAverageReviewRating,
+  getBuyerReviews,
+  getReviewStarBreakdown,
+} from '../utils/shopReviewsDisplay';
+import { ShopReviewCard } from './ShopReviewCard';
+import { ShopReviewsBreakdown } from './ShopReviewsBreakdown';
+import { ShopReviewsSummary } from './ShopReviewsSummary';
 
 export interface ShopReviewsListProps {
   reviews: Review[];
+  averageRating?: number;
+  isLoading?: boolean;
 }
 
-function getReviewerName(review: Review): string {
-  const user = review.UserId;
-  const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
-  return fullName || 'Verified buyer';
+function ShopReviewsSkeleton() {
+  return (
+    <View style={styles.content}>
+      <View style={styles.summarySkeleton}>
+        <Skeleton variant="text" height={40} width={72} />
+        <Skeleton variant="text" height={16} width={120} />
+        <Skeleton variant="text" height={12} width={160} />
+      </View>
+
+      <View style={styles.breakdownSkeleton}>
+        {Array.from({ length: 5 }).map((_, index) => (
+          <Skeleton key={`breakdown-${index}`} variant="rect" height={8} style={styles.breakdownBar} />
+        ))}
+      </View>
+
+      {Array.from({ length: 2 }).map((_, index) => (
+        <View key={`review-skeleton-${index}`} style={styles.reviewSkeleton}>
+          <View style={styles.reviewHeaderSkeleton}>
+            <Skeleton variant="circle" width={44} height={44} />
+            <View style={styles.reviewMetaSkeleton}>
+              <Skeleton variant="text" height={16} width="70%" />
+              <Skeleton variant="text" height={12} width="50%" />
+            </View>
+          </View>
+          <Skeleton variant="text" height={14} width="90%" />
+          <Skeleton variant="text" height={12} width="100%" />
+          <Skeleton variant="text" height={12} width="88%" />
+        </View>
+      ))}
+    </View>
+  );
 }
 
-function getReviewText(review: Review): string {
-  return review.comment?.trim() || review.heading?.trim() || 'Great product and smooth shopping experience.';
-}
+export function ShopReviewsList({ reviews, averageRating, isLoading = false }: ShopReviewsListProps) {
+  if (isLoading) {
+    return <ShopReviewsSkeleton />;
+  }
 
-function getProductImage(review: Review): string | undefined {
-  return review.productId?.images?.[0]?.imageUrl;
-}
+  const buyerReviews = getBuyerReviews(reviews);
 
-export function ShopReviewsList({ reviews }: ShopReviewsListProps) {
-  if (reviews.length === 0) {
+  if (buyerReviews.length === 0) {
     return (
       <EmptyState
         title="No reviews yet"
@@ -35,34 +69,23 @@ export function ShopReviewsList({ reviews }: ShopReviewsListProps) {
     );
   }
 
+  const resolvedAverage = averageRating ?? getAverageReviewRating(buyerReviews) ?? 0;
+  const breakdown = getReviewStarBreakdown(buyerReviews);
+
   return (
     <View style={styles.content}>
-      {reviews.map((review, index) => (
-        <AppCard key={review._id ?? `review-${index}`} variant="elevated" style={styles.reviewCard}>
-          <View style={styles.reviewHeader}>
-            {getProductImage(review) ? (
-              <Image source={{ uri: getProductImage(review) }} style={styles.productImage} />
-            ) : (
-              <View style={styles.productImagePlaceholder} />
-            )}
+      <AppText variant="h3" style={styles.sectionTitle}>
+        Customer Reviews
+      </AppText>
 
-            <View style={styles.reviewMeta}>
-              <AppText variant="bodyMedium" style={styles.productName} numberOfLines={2}>
-                {review.productId?.productName ?? 'Product review'}
-              </AppText>
-              <Rating value={review.avgRating ?? review.value ?? 5} size="sm" />
-            </View>
-          </View>
+      <ShopReviewsSummary averageRating={resolvedAverage} reviewCount={buyerReviews.length} />
+      <ShopReviewsBreakdown rows={breakdown} />
 
-          <AppText variant="bodySmall" color="textSecondary" style={styles.reviewText}>
-            {getReviewText(review)}
-          </AppText>
-
-          <AppText variant="caption" color="textMuted">
-            — {getReviewerName(review)}
-          </AppText>
-        </AppCard>
-      ))}
+      <View style={styles.reviewList}>
+        {buyerReviews.map((review, index) => (
+          <ShopReviewCard key={review._id ?? `review-${index}`} review={review} />
+        ))}
+      </View>
     </View>
   );
 }
@@ -70,41 +93,53 @@ export function ShopReviewsList({ reviews }: ShopReviewsListProps) {
 const styles = StyleSheet.create({
   content: {
     padding: spacing.lg,
+    gap: spacing.lg,
+  },
+  sectionTitle: {
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  reviewList: {
     gap: spacing.md,
   },
   emptyState: {
     marginTop: spacing.xl,
   },
-  reviewCard: {
-    gap: spacing.md,
+  summarySkeleton: {
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.xl,
+    borderRadius: radius.large,
     backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
-  reviewHeader: {
+  breakdownSkeleton: {
+    gap: spacing.md,
+    padding: spacing.lg,
+    borderRadius: radius.large,
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  breakdownBar: {
+    borderRadius: radius.pill,
+  },
+  reviewSkeleton: {
+    gap: spacing.md,
+    padding: spacing.lg,
+    borderRadius: radius.large,
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  reviewHeaderSkeleton: {
     flexDirection: 'row',
     gap: spacing.md,
     alignItems: 'center',
   },
-  productImage: {
-    width: 56,
-    height: 56,
-    borderRadius: 8,
-    backgroundColor: colors.surfaceSecondary,
-  },
-  productImagePlaceholder: {
-    width: 56,
-    height: 56,
-    borderRadius: 8,
-    backgroundColor: colors.surfaceSecondary,
-  },
-  reviewMeta: {
+  reviewMetaSkeleton: {
     flex: 1,
     gap: spacing.xs,
-  },
-  productName: {
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  reviewText: {
-    lineHeight: 20,
   },
 });

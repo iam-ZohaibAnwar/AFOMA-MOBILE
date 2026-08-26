@@ -13,6 +13,7 @@ import {
 import { buildSellerCartPayload, groupCartBySeller } from '../utils/cartShipping';
 import { resolveAddressRegionCodes } from '../utils/resolveAddressRegionCodes';
 import {
+  applyShippingRateCurrency,
   formatShippingOptionLabel,
   getShippingOptionId,
   normalizeShippingRate,
@@ -49,6 +50,8 @@ export function useCheckoutShippingRates(
   identity: CheckoutIdentity | null,
   canFetchRates: boolean,
   pricingCountry?: string,
+  currencyRate = 1,
+  currency = 'CAD',
 ) {
   const [groups, setGroups] = useState<SellerShippingOptionsGroup[]>([]);
   const [selectedOptionBySeller, setSelectedOptionBySeller] = useState<Record<string, string>>({});
@@ -126,14 +129,18 @@ export function useCheckoutShippingRates(
 
         const options = (response.rateObj ?? [])
           .filter((option) => option?.service_id != null)
-          .map((option) => ({
-            id: getShippingOptionId(sellerGroup.sellerId, option),
-            sellerId: sellerGroup.sellerId,
-            sellerName: sellerGroup.sellerName,
-            option,
-            label: formatShippingOptionLabel(option),
-            rate: normalizeShippingRate(option),
-          }));
+          .map((option) => {
+            const pricedOption = applyShippingRateCurrency(option, currencyRate, currency);
+
+            return {
+              id: getShippingOptionId(sellerGroup.sellerId, pricedOption),
+              sellerId: sellerGroup.sellerId,
+              sellerName: sellerGroup.sellerName,
+              option: pricedOption,
+              label: formatShippingOptionLabel(pricedOption),
+              rate: normalizeShippingRate(pricedOption),
+            };
+          });
 
         if (options.length > 0) {
           nextGroups.push({
@@ -171,7 +178,7 @@ export function useCheckoutShippingRates(
     } finally {
       setIsLoading(false);
     }
-  }, [address, canFetchRates, identity, pricingCountry]);
+  }, [address, canFetchRates, currency, currencyRate, identity, pricingCountry]);
 
   useEffect(() => {
     if (requestKey === 'disabled') {

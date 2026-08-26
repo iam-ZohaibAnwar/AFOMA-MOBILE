@@ -1,3 +1,4 @@
+import { type ReactNode } from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { useDisplayCurrency } from '../../app/providers/PricingProvider';
@@ -9,7 +10,11 @@ import {
 type ProductPriceSize = 'sm' | 'md' | 'lg';
 type ProductPriceLayout = 'inline' | 'marketplace';
 
-const MARKETPLACE_COMPARE_ROW_HEIGHT = 18;
+const MARKETPLACE_META_ROW_MIN_HEIGHT: Record<ProductPriceSize, number> = {
+  sm: 14,
+  md: 15,
+  lg: 16,
+};
 
 export interface ProductPriceProps {
   price?: number;
@@ -17,6 +22,8 @@ export interface ProductPriceProps {
   discountPercent?: number;
   size?: ProductPriceSize;
   layout?: ProductPriceLayout;
+  /** Renders beside the sale price on the marketplace layout's top row. */
+  trailing?: ReactNode;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -26,6 +33,7 @@ export function ProductPrice({
   discountPercent,
   size = 'md',
   layout = 'inline',
+  trailing,
   style,
 }: ProductPriceProps) {
   const currency = useDisplayCurrency();
@@ -43,35 +51,44 @@ export function ProductPrice({
   if (layout === 'marketplace') {
     return (
       <View style={[styles.marketplaceBlock, style]}>
-        <Text style={[styles.price, styles[`price_${size}`], styles.marketplaceSalePrice]}>
-          {formatProductPrice(price, currency)}
-        </Text>
-        <View style={styles.marketplaceCompareRow}>
+        <View style={styles.marketplaceSaleRow}>
+          <Text
+            style={[styles.price, styles[`price_${size}`], styles.marketplaceSalePrice]}
+            numberOfLines={1}
+          >
+            {formatProductPrice(price, currency)}
+          </Text>
+          {trailing ? <View style={styles.marketplaceTrailing}>{trailing}</View> : null}
+        </View>
+        <View
+          style={[
+            styles.marketplaceMetaRow,
+            { minHeight: MARKETPLACE_META_ROW_MIN_HEIGHT[size] },
+          ]}
+        >
           {hasDiscount ? (
-            <>
-              <Text
-                style={[
-                  styles.compareAt,
-                  styles[`compareAt_${size}`],
-                  styles.marketplaceCompareAt,
-                ]}
-                numberOfLines={1}
-              >
-                {formatProductPrice(compareAtPrice, currency)}
-              </Text>
-              {showPercent ? (
-                <Text
-                  style={[
-                    styles.discount,
-                    styles[`discount_${size}`],
-                    styles.marketplaceDiscount,
-                  ]}
-                  numberOfLines={1}
-                >
-                  -{Math.round(discountPercent)}%
-                </Text>
-              ) : null}
-            </>
+            <Text
+              style={[
+                styles.compareAt,
+                styles.marketplaceCompareAtInline,
+                styles[`marketplaceCompareAtInline_${size}`],
+              ]}
+              numberOfLines={1}
+            >
+              {formatProductPrice(compareAtPrice, currency)}
+            </Text>
+          ) : null}
+          {showPercent ? (
+            <Text
+              style={[
+                styles.discount,
+                styles.marketplaceDiscountInline,
+                styles[`marketplaceDiscountInline_${size}`],
+              ]}
+              numberOfLines={1}
+            >
+              -{Math.round(discountPercent)}%
+            </Text>
           ) : null}
         </View>
       </View>
@@ -148,24 +165,59 @@ const styles = StyleSheet.create({
   },
   marketplaceBlock: {
     width: '100%',
-    gap: 2,
   },
-  marketplaceSalePrice: {
-    color: colors.price,
-  },
-  marketplaceCompareRow: {
+  marketplaceSaleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    minHeight: MARKETPLACE_COMPARE_ROW_HEIGHT,
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    minHeight: 20,
   },
-  marketplaceCompareAt: {
+  marketplaceMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'nowrap',
+    columnGap: 4,
+  },
+  marketplaceSalePrice: {
+    flexShrink: 0,
+    color: colors.price,
+  },
+  marketplaceTrailing: {
+    flexShrink: 0,
+  },
+  marketplaceCompareAtInline: {
     flexShrink: 1,
     color: colors.priceStrike,
+    textDecorationLine: 'line-through',
   },
-  marketplaceDiscount: {
+  marketplaceCompareAtInline_sm: {
+    fontSize: 10,
+    lineHeight: 13,
+  },
+  marketplaceCompareAtInline_md: {
+    fontSize: 11,
+    lineHeight: 14,
+  },
+  marketplaceCompareAtInline_lg: {
+    fontSize: 12,
+    lineHeight: 15,
+  },
+  marketplaceDiscountInline: {
     flexShrink: 0,
     fontWeight: '700',
     color: colors.priceSale,
+  },
+  marketplaceDiscountInline_sm: {
+    fontSize: 10,
+    lineHeight: 13,
+  },
+  marketplaceDiscountInline_md: {
+    fontSize: 11,
+    lineHeight: 14,
+  },
+  marketplaceDiscountInline_lg: {
+    fontSize: 12,
+    lineHeight: 15,
   },
 });

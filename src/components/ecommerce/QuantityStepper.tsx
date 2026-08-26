@@ -36,6 +36,7 @@ export function QuantityStepper({
         onPress={onDecrement}
         disabled={disabled || atMin}
         compact={isCompact}
+        decrement
       />
       <AppText variant="bodyMedium" style={[styles.value, isCompact && styles.valueCompact]}>
         {value}
@@ -46,6 +47,7 @@ export function QuantityStepper({
         onPress={onIncrement}
         disabled={disabled || atMax}
         compact={isCompact}
+        filled
       />
     </View>
   );
@@ -57,12 +59,16 @@ function StepperButton({
   onPress,
   disabled,
   compact,
+  filled,
+  decrement,
 }: {
   label: string;
   accessibilityLabel: string;
   onPress: () => void;
   disabled: boolean;
   compact: boolean;
+  filled?: boolean;
+  decrement?: boolean;
 }) {
   return (
     <Pressable
@@ -74,14 +80,22 @@ function StepperButton({
       style={({ pressed }) => [
         styles.button,
         compact && styles.buttonCompact,
+        compact && filled && styles.buttonCompactFilled,
         disabled && styles.buttonDisabled,
         pressed && !disabled && styles.buttonPressed,
       ]}
     >
       <AppText
         variant="bodyMedium"
-        color={disabled ? 'disabledText' : 'primary'}
-        style={[styles.buttonLabel, compact && styles.buttonLabelCompact]}
+        style={[
+          styles.buttonLabel,
+          compact && styles.buttonLabelCompact,
+          compact && filled && !disabled && styles.buttonLabelFilled,
+          compact && decrement && !disabled && styles.buttonLabelDecrement,
+          !compact && decrement && !disabled && styles.buttonLabelDecrement,
+          !compact && !decrement && !disabled && styles.buttonLabelDefault,
+          disabled && styles.buttonLabelDisabled,
+        ]}
       >
         {label}
       </AppText>
@@ -118,6 +132,10 @@ const styles = StyleSheet.create({
     minHeight: 28,
     paddingHorizontal: spacing.xs,
     backgroundColor: colors.surface,
+    borderRadius: radius.pill,
+  },
+  buttonCompactFilled: {
+    backgroundColor: colors.primary,
   },
   buttonDisabled: {
     backgroundColor: colors.disabledBg,
@@ -133,11 +151,25 @@ const styles = StyleSheet.create({
   buttonLabelCompact: {
     fontSize: 14,
     lineHeight: 18,
+    color: colors.textPrimary,
+  },
+  buttonLabelFilled: {
+    color: colors.textInverse,
+  },
+  buttonLabelDecrement: {
+    color: colors.error,
+  },
+  buttonLabelDefault: {
+    color: colors.primary,
+  },
+  buttonLabelDisabled: {
+    color: colors.disabledText,
   },
   value: {
     minWidth: 40,
     textAlign: 'center',
     paddingHorizontal: spacing.sm,
+    color: colors.textPrimary,
   },
   valueCompact: {
     minWidth: 24,

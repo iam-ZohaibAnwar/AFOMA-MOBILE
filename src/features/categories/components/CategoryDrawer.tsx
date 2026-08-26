@@ -7,7 +7,9 @@ import {
   StyleSheet,
   useWindowDimensions,
   View,
-} from 'react-native';import { useSafeAreaInsets } from 'react-native-safe-area-context';
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { ErrorState } from '../../../components/ecommerce';
@@ -25,7 +27,6 @@ import {
 import {
   navigateFromSubCategorySection,
   navigateFromSubCategorySectionChild,
-  navigateToCategoryProductListing,
 } from '../utils/subCategoryNavigation';
 import { CategoryTreeRow } from './CategoryTreeRow';
 
@@ -53,6 +54,7 @@ export function CategoryDrawer({ visible, onClose, navigation }: CategoryDrawerP
 
   const { sections, error: sectionsError, retry: retrySections } =
     useSubCategoryBrowserSections(expandedParentId ?? '', Boolean(expandedParentId));
+
   useEffect(() => {
     if (!visible) {
       setExpandedParentId(null);
@@ -175,9 +177,7 @@ export function CategoryDrawer({ visible, onClose, navigation }: CategoryDrawerP
               hitSlop={8}
               style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
             >
-              <AppText variant="bodyMedium" color="textSecondary">
-                ✕
-              </AppText>
+              <Ionicons name="close" size={22} color={colors.textSecondary} />
             </Pressable>
           </View>
 
@@ -198,7 +198,8 @@ export function CategoryDrawer({ visible, onClose, navigation }: CategoryDrawerP
                 </Pressable>
               ) : null}
 
-              {navigableCategories.map((category, index) => {                const categoryId = getCategoryRouteId(category);
+              {navigableCategories.map((category, index) => {
+                const categoryId = getCategoryRouteId(category);
                 if (!categoryId) {
                   return null;
                 }
@@ -229,22 +230,6 @@ export function CategoryDrawer({ visible, onClose, navigation }: CategoryDrawerP
                               Retry
                             </AppText>
                           </Pressable>
-                        ) : null}
-
-                        {!sectionsError && visibleSections.length === 0 ? (                          <CategoryTreeRow
-                            label={`Shop all ${categoryName}`}
-                            depth={1}
-                            showChevron={false}
-                            onPress={() =>
-                              closeAndRun(() => {
-                                navigateToCategoryProductListing(navigation, {
-                                  categoryId,
-                                  categoryName,
-                                });
-                              })
-                            }
-                            isLast
-                          />
                         ) : null}
 
                         {visibleSections.map((section, sectionIndex) => {
@@ -364,12 +349,13 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
   subTree: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
   },
   stateWrap: {
     padding: spacing.lg,
   },
-  refreshBanner: {    flexDirection: 'row',
+  refreshBanner: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
@@ -385,6 +371,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   pressed: {
-    opacity: 0.88,
+    opacity: 0.92,
+    backgroundColor: colors.border,
   },
 });

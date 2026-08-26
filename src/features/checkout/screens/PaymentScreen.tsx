@@ -339,7 +339,7 @@ export function PaymentScreen(_props: Props) {
   if (!isAuthorized) {
     return (
       <View style={[styles.centeredState, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color="#1F628E" />
+        <ActivityIndicator size="large" color={colors.brandBlue} />
       </View>
     );
   }
@@ -347,7 +347,7 @@ export function PaymentScreen(_props: Props) {
   if (isLoading) {
     return (
       <View style={[styles.centeredState, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color="#1F628E" />
+        <ActivityIndicator size="large" color={colors.brandBlue} />
         <AppText variant="bodySmall" color="textMuted">
           Loading payment...
         </AppText>

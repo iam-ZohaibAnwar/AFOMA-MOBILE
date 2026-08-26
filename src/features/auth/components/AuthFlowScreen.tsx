@@ -11,6 +11,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText } from '../../../components/ui/AppText';
 import { HeaderBackButton } from '../../../components/ui/HeaderBackButton';
 import { colors, spacing } from '../../../design-system';
+import { AuthFooterTabBar, type AuthFooterTabName } from './AuthFooterTabBar';
+import { useAuthFooterTabBarInset } from './authFooterTabBarLayout';
 
 export interface AuthFlowScreenProps {
   title: string;
@@ -19,6 +21,7 @@ export interface AuthFlowScreenProps {
   backAccessibilityLabel?: string;
   children: ReactNode;
   footer?: ReactNode;
+  activeFooterTab?: AuthFooterTabName;
 }
 
 export function AuthFlowScreen({
@@ -28,39 +31,48 @@ export function AuthFlowScreen({
   backAccessibilityLabel = 'Go back',
   children,
   footer,
+  activeFooterTab = 'account',
 }: AuthFlowScreenProps) {
   const insets = useSafeAreaInsets();
+  const footerTabBarInset = useAuthFooterTabBarInset();
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.xl },
-        ]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+    <View style={styles.flex}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.topBar}>
-          <HeaderBackButton onPress={onBack} accessibilityLabel={backAccessibilityLabel} />
-        </View>
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            {
+              paddingTop: insets.top + spacing.lg,
+              paddingBottom: footerTabBarInset + spacing.lg,
+            },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.topBar}>
+            <HeaderBackButton onPress={onBack} accessibilityLabel={backAccessibilityLabel} />
+          </View>
 
-        <AppText variant="h1" style={styles.title}>
-          {title}
-        </AppText>
-        {subtitle ? (
-          <AppText variant="body" color="textSecondary" style={styles.subtitle}>
-            {subtitle}
+          <AppText variant="h1" style={styles.title}>
+            {title}
           </AppText>
-        ) : null}
+          {subtitle ? (
+            <AppText variant="body" color="textSecondary" style={styles.subtitle}>
+              {subtitle}
+            </AppText>
+          ) : null}
 
-        <View style={styles.body}>{children}</View>
-        {footer ? <View style={styles.footer}>{footer}</View> : null}
-      </ScrollView>
-    </KeyboardAvoidingView>
+          <View style={styles.body}>{children}</View>
+          {footer ? <View style={styles.footer}>{footer}</View> : null}
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      <AuthFooterTabBar activeTab={activeFooterTab} />
+    </View>
   );
 }
 

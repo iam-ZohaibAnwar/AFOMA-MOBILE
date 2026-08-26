@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: radius.pill,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.sm,

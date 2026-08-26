@@ -18,3 +18,18 @@ export function normalizeShippingRate(option: ShippingRateOption): number {
   const rate = typeof option.rate === 'number' ? option.rate : 0;
   return Number.isFinite(rate) ? rate : 0;
 }
+
+/** Web cart multiplies API rates by buyer currencyRate before storing selections. */
+export function applyShippingRateCurrency(
+  option: ShippingRateOption,
+  currencyRate = 1,
+  currency = 'CAD',
+): ShippingRateOption {
+  const convertedRate = parseFloat((normalizeShippingRate(option) * (currencyRate || 1)).toFixed(2));
+
+  return {
+    ...option,
+    rate: convertedRate,
+    currency,
+  };
+}

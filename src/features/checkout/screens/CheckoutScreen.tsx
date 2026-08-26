@@ -19,6 +19,7 @@ import { useRequireAuth } from '../../auth/hooks/useRequireAuth';
 import { authReturnTo } from '../../auth/utils/authNavigation';
 import { resolveAuthUserId } from '../../auth/utils/resolveAuthUserId';
 import { usePricing } from '../../../app/providers/PricingProvider';
+import { colors } from '../../../design-system';
 import { CartLineItemRow } from '../../cart/components/CartLineItemRow';
 import { useCart } from '../../cart/hooks/useCart';
 import { useAppliedCoupon } from '../../cart/hooks/useAppliedCoupon';
@@ -90,7 +91,15 @@ export function CheckoutScreen(_props: Props) {
     isLoading: isShippingLoading,
     error: shippingError,
     retry: retryShipping,
-  } = useCheckoutShippingRates(cart, shippingAddress, checkoutIdentity, canFetchRates, userInfo.country);
+  } = useCheckoutShippingRates(
+    cart,
+    shippingAddress,
+    checkoutIdentity,
+    canFetchRates,
+    userInfo.country,
+    userInfo.currencyRate ?? 1,
+    userInfo.currency ?? 'CAD',
+  );
 
   const payPalCheckout = usePayPalCheckout();
   const {
@@ -471,7 +480,7 @@ const styles = StyleSheet.create({
   signInLinkText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1F628E',
+    color: colors.brandBlue,
   },
   sectionBox: {
     padding: 16,

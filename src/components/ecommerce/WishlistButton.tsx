@@ -38,8 +38,7 @@ export function WishlistButton({
     >
       <AppText
         variant="bodyMedium"
-        color={isActive ? 'textInverse' : 'primary'}
-        style={styles.icon}
+        style={[styles.icon, isActive ? styles.iconActive : styles.iconInactive]}
       >
         {isActive ? '♥' : '♡'}
       </AppText>
@@ -78,5 +77,11 @@ const styles = StyleSheet.create({
   icon: {
     fontSize: 16,
     lineHeight: 18,
+  },
+  iconActive: {
+    color: colors.textInverse,
+  },
+  iconInactive: {
+    color: colors.textPrimary,
   },
 });

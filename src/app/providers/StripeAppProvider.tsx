@@ -1,4 +1,5 @@
-import { Platform, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { Platform } from 'react-native';
 import { StripeProvider } from '@stripe/stripe-react-native';
 
 import { env } from '../config/env';

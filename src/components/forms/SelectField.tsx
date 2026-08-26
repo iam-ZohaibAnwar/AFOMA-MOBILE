@@ -25,6 +25,9 @@ export interface SelectFieldProps {
   tone?: 'default' | 'surface';
   containerStyle?: StyleProp<ViewStyle>;
   modalTitle?: string;
+  isOptionDisabled?: (option: SelectOption) => boolean;
+  /** `primary` = teal links/CTA tint; `navy` = web PDP attribute picker (`text-blue-950`). */
+  selectionAccent?: 'primary' | 'navy';
 }
 
 export function SelectField({
@@ -38,10 +41,13 @@ export function SelectField({
   tone = 'default',
   containerStyle,
   modalTitle,
+  isOptionDisabled,
+  selectionAccent = 'primary',
 }: SelectFieldProps) {
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
   const isSurfaceTone = tone === 'surface';
+  const useNavySelection = selectionAccent === 'navy';
 
   const selectedLabel = useMemo(
     () => options.find((option) => option.value === value)?.label ?? '',
@@ -111,25 +117,39 @@ export function SelectField({
             contentContainerStyle={styles.optionsList}
             renderItem={({ item }) => {
               const selected = item.value === value;
+              const optionDisabled = isOptionDisabled?.(item) ?? false;
 
               return (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityState={{ selected }}
+                  accessibilityState={{ selected, disabled: optionDisabled }}
+                  disabled={optionDisabled}
                   onPress={() => {
                     onChange(item.value);
                     setOpen(false);
                   }}
                   style={({ pressed }) => [
                     styles.optionRow,
-                    selected && styles.optionRowSelected,
-                    pressed && styles.pressed,
+                    selected && (useNavySelection ? styles.optionRowSelectedNavy : styles.optionRowSelected),
+                    optionDisabled && styles.optionRowDisabled,
+                    pressed && !optionDisabled && styles.pressed,
                   ]}
                 >
                   <AppText
                     variant="body"
-                    color={selected ? 'textLink' : 'textPrimary'}
-                    style={selected ? styles.optionLabelSelected : undefined}
+                    color={
+                      optionDisabled
+                        ? 'textSubtle'
+                        : selected
+                          ? useNavySelection
+                            ? 'textPrimary'
+                            : 'textLink'
+                          : 'textPrimary'
+                    }
+                    style={[
+                      selected && !optionDisabled ? styles.optionLabelSelected : undefined,
+                      optionDisabled ? styles.optionLabelDisabled : undefined,
+                    ]}
                   >
                     {item.label}
                   </AppText>
@@ -232,8 +252,21 @@ const styles = StyleSheet.create({
     borderRadius: radius.small,
     borderBottomColor: 'transparent',
   },
+  optionRowSelectedNavy: {
+    backgroundColor: colors.disabledBg,
+    marginHorizontal: -spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.small,
+    borderBottomColor: 'transparent',
+  },
   optionLabelSelected: {
     fontWeight: '600',
+  },
+  optionRowDisabled: {
+    opacity: 0.55,
+  },
+  optionLabelDisabled: {
+    textDecorationLine: 'line-through',
   },
   emptyState: {
     paddingVertical: spacing.xl,

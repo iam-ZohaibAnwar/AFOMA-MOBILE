@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: layout.minTouchTarget,
     borderRadius: radius.pill,
-    backgroundColor: colors.disabledBg,
+    backgroundColor: colors.surfaceGrey,
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
   },

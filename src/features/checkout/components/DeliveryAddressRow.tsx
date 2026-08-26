@@ -136,24 +136,24 @@ const styles = StyleSheet.create({
   },
   defaultBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: colors.primary,
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-  },
-  defaultBadgeText: {
-    color: colors.surface,
-    fontWeight: '700',
-  },
-  selectedBadge: {
-    alignSelf: 'flex-start',
     backgroundColor: colors.primarySoft,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
   },
+  defaultBadgeText: {
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  selectedBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primary,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+  },
   selectedBadgeText: {
-    color: colors.primary,
+    color: colors.textInverse,
     fontWeight: '600',
   },
   addressName: {

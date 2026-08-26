@@ -17,5 +17,23 @@ export function getSelectedShippingOptions(
 }
 
 export function formatShippingOptionSummary(option: CheckoutShippingOption): string {
-  return `${option.label} · ${formatProductPrice(option.rate)}`;
+  return option.label;
+}
+
+/** One buyer-facing shipping summary — web shows a single order shipping total. */
+export function formatConsolidatedShippingSummary(
+  selectedOptions: CheckoutShippingOption[],
+  totalCost: number,
+): string {
+  if (selectedOptions.length === 0) {
+    return '';
+  }
+
+  const totalLabel = formatProductPrice(totalCost);
+
+  if (selectedOptions.length === 1) {
+    return selectedOptions[0].label;
+  }
+
+  return `Shipping to one address · ${totalLabel}`;
 }

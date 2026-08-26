@@ -1,7 +1,10 @@
 import { Platform, StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { AppText } from '../../../components/ui/AppText';
 import { colors, layout, radius, spacing } from '../../../design-system';
+
+const ICON_SIZE = 20;
 
 export interface LoginEmailFieldProps extends Omit<TextInputProps, 'style'> {
   label?: string;
@@ -29,10 +32,10 @@ export function LoginEmailField({
         {label}
       </AppText>
 
-      <View style={[styles.inputWrap, error && styles.inputWrapError]} importantForAutofill="no">
-        <AppText variant="bodyMedium" color="primary" style={styles.icon} importantForAutofill="no">
-          ✉
-        </AppText>
+      <View style={[styles.inputWrap, error && styles.inputWrapError]}>
+        <View style={styles.iconWrap}>
+          <Ionicons name="mail-outline" size={ICON_SIZE} color={colors.primary} />
+        </View>
         <TextInput
           placeholder="Enter your email address"
           placeholderTextColor={colors.textSubtle}
@@ -65,7 +68,6 @@ const styles = StyleSheet.create({
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
     minHeight: layout.minTouchTarget,
     paddingHorizontal: spacing.lg,
     borderRadius: radius.large,
@@ -77,19 +79,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.errorBg,
     borderColor: colors.errorBorder,
   },
-  icon: {
-    width: 22,
-    textAlign: 'center',
-    fontSize: 17,
-    lineHeight: Platform.OS === 'android' ? 20 : 18,
-    ...(Platform.OS === 'android' ? { includeFontPadding: false } : null),
+  iconWrap: {
+    width: ICON_SIZE,
+    height: ICON_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
   },
   input: {
     flex: 1,
     fontSize: 16,
     lineHeight: 20,
     color: colors.textPrimary,
-    paddingVertical: Platform.OS === 'android' ? 0 : spacing.sm,
-    minHeight: Platform.OS === 'android' ? 44 : undefined,
+    paddingVertical: Platform.OS === 'android' ? 10 : spacing.sm,
+    ...(Platform.OS === 'android' ? { includeFontPadding: false, textAlignVertical: 'center' } : null),
   },
 });

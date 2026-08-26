@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ChevronForwardIcon } from '../../../components/ui/ChevronForwardIcon';
 import { AppText } from '../../../components/ui/AppText';
-import { colors, radius, spacing } from '../../../design-system';
+import { colors, spacing } from '../../../design-system';
 import { AccountMenuIcon, type AccountMenuIconName } from './AccountMenuIcon';
 
 export interface AccountMenuRowProps {
@@ -20,7 +20,7 @@ export function AccountMenuRow({
   showDivider = true,
   destructive = false,
 }: AccountMenuRowProps) {
-  const iconColor = destructive ? colors.error : colors.primary;
+  const iconColor = destructive ? colors.error : colors.textPrimary;
 
   return (
     <>
@@ -29,8 +29,8 @@ export function AccountMenuRow({
         onPress={onPress}
         style={({ pressed }) => [styles.row, pressed && styles.pressed]}
       >
-        <View style={[styles.iconWrap, destructive && styles.iconWrapDestructive]}>
-          <AccountMenuIcon name={icon} color={iconColor} size={18} />
+        <View style={styles.iconWrap}>
+          <AccountMenuIcon name={icon} color={iconColor} size={20} />
         </View>
 
         <AppText
@@ -61,15 +61,9 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   iconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.pill,
-    backgroundColor: colors.primarySoft,
+    width: 24,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  iconWrapDestructive: {
-    backgroundColor: colors.errorBg,
   },
   label: {
     flex: 1,
@@ -82,6 +76,6 @@ const styles = StyleSheet.create({
   divider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.borderStrong,
-    marginLeft: 44,
+    marginLeft: 36,
   },
 });

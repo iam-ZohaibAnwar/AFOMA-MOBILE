@@ -3,6 +3,7 @@ import type {
   CheckoutShippingOption,
   SellerShippingOptionsGroup,
 } from '../../checkout/hooks/useCheckoutShippingRates';
+import { getProductSellerId } from '../../checkout/utils/cartShipping';
 
 function buildShippingService(option: CheckoutShippingOption): CartLineItem['shippingService'] {
   return {
@@ -24,7 +25,7 @@ export function applyShippingSelectionsToCart(
   const nextCart: CartMap = {};
 
   for (const [itemId, line] of Object.entries(cart)) {
-    const sellerId = line.productData?.seller?._id;
+    const sellerId = getProductSellerId(line.productData?.seller);
     const isDownloadable = line.productData?.productType === 'Downloadable';
 
     if (!sellerId || isDownloadable) {
@@ -63,7 +64,7 @@ export function getCartShippingTotal(cart: CartMap): number {
   const sellerRates = new Map<string, number>();
 
   for (const line of Object.values(cart)) {
-    const sellerId = line.productData?.seller?._id;
+    const sellerId = getProductSellerId(line.productData?.seller);
     if (!sellerId || line.productData?.productType === 'Downloadable') {
       continue;
     }

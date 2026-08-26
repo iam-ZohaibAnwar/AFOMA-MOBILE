@@ -20,6 +20,8 @@ import type { AuthStackParamList, RootStackParamList } from '../../../app/naviga
 import { colors, spacing } from '../../../design-system';
 import { getErrorMessage } from '../../../services/api/errors';
 import { AuthErrorText, OtpInput } from '../components/AuthForm';
+import { AuthFooterTabBar } from '../components/AuthFooterTabBar';
+import { useAuthFooterTabBarInset } from '../components/authFooterTabBarLayout';
 import { OtpVerificationHeroIcon } from '../components/OtpVerificationHeroIcon';
 import { useAuth } from '../hooks/useAuth';
 import { useOtpResendCooldown } from '../hooks/useOtpResendCooldown';
@@ -32,6 +34,7 @@ export function OtpVerificationScreen({ navigation, route }: Props) {
   const { requestOtp, verifyOtp } = useAuth();
   const rootNavigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
+  const footerTabBarInset = useAuthFooterTabBarInset();
 
   const [otpToken, setOtpToken] = useState(initialOtpToken);
   const [otp, setOtp] = useState('');
@@ -91,24 +94,28 @@ export function OtpVerificationScreen({ navigation, route }: Props) {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <HeaderBackButton onPress={() => navigation.goBack()} />
-        <AppText variant="h3" style={styles.headerTitle}>
-          Verification
-        </AppText>
-        <View style={styles.headerSpacer} />
-      </View>
-      <View style={styles.headerDivider} />
-
-      <ScrollView
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+    <View style={styles.flex}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
+        <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
+          <HeaderBackButton onPress={() => navigation.goBack()} />
+          <AppText variant="h3" style={styles.headerTitle}>
+            Verification
+          </AppText>
+          <View style={styles.headerSpacer} />
+        </View>
+        <View style={styles.headerDivider} />
+
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: footerTabBarInset + spacing.lg },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
         <View style={styles.heroIconWrap}>
           <OtpVerificationHeroIcon />
         </View>
@@ -167,7 +174,10 @@ export function OtpVerificationScreen({ navigation, route }: Props) {
           )}
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+
+      <AuthFooterTabBar activeTab="account" />
+    </View>
   );
 }
 
@@ -199,7 +209,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xl,
-    paddingBottom: spacing.xxl,
     alignItems: 'center',
   },
   heroIconWrap: {

@@ -1,6 +1,7 @@
 import type { CartMap } from '../../../services/types/cart';
 import type { CheckoutShippingOption } from '../../checkout/hooks/useCheckoutShippingRates';
 import { extractSelectedShippingFromCart } from '../../checkout/utils/extractSelectedShippingFromCart';
+import { getProductSellerId } from '../../checkout/utils/cartShipping';
 import { cartHasShippableItems } from '../../checkout/utils/buildCheckoutOrderPayload';
 import { getCartShippingTotal } from './applyShippingToCart';
 
@@ -8,7 +9,7 @@ function getShippableSellerIds(cart: CartMap): Set<string> {
   const sellerIds = new Set<string>();
 
   for (const line of Object.values(cart)) {
-    const sellerId = line.productData?.seller?._id;
+    const sellerId = getProductSellerId(line.productData?.seller);
     if (sellerId && line.productData?.productType !== 'Downloadable') {
       sellerIds.add(sellerId);
     }
