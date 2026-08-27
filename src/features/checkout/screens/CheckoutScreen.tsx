@@ -22,6 +22,7 @@ import { usePricing } from '../../../app/providers/PricingProvider';
 import { colors } from '../../../design-system';
 import { CartLineItemRow } from '../../cart/components/CartLineItemRow';
 import { useCart } from '../../cart/hooks/useCart';
+import { useClearCartOnSuccessfulCheckout } from '../../cart/hooks/useClearCartOnSuccessfulCheckout';
 import { useAppliedCoupon } from '../../cart/hooks/useAppliedCoupon';
 import { PayPalProcessingOverlay } from '../components/PayPalProcessingOverlay';
 import { ShippingAddressForm } from '../components/ShippingAddressForm';
@@ -114,11 +115,9 @@ export function CheckoutScreen(_props: Props) {
     startPayPalCheckout,
     continuePayPalCheckout,
   } = payPalCheckout;
-  const showPayPalProcessing =
-    payPalCheckout.isPayPalCapturing === true || payPalCheckout.isPayPalBrowserPending === true;
-  const payPalProcessingMessage = payPalCheckout.isPayPalCapturing
-    ? 'Processing your PayPal payment...'
-    : 'Complete PayPal, then close the browser to return here.';
+  const showProcessingOverlay = payPalCheckout.isPayPalCapturing === true;
+
+  useClearCartOnSuccessfulCheckout(captureResult, cart, authUserId);
 
   const shippingAmount = canFetchRates ? selectedShippingCost : 0;
   const total = Math.max(0, subTotal + shippingAmount - discountAmount);
@@ -152,7 +151,12 @@ export function CheckoutScreen(_props: Props) {
       total,
     ],
   );
-  const paymentError = getPayPalCheckoutErrorMessage(orderError, captureError, checkoutNotice);
+  const paymentError = getPayPalCheckoutErrorMessage(
+    orderError,
+    captureError,
+    checkoutNotice,
+    Boolean(captureResult),
+  );
   const requiresShippingSelection = cartHasShippableItems(cart);
 
   const handlePlaceOrderPress = async () => {
@@ -245,7 +249,7 @@ export function CheckoutScreen(_props: Props) {
     );
   }
 
-  if (entries.length === 0) {
+  if (entries.length === 0 && !captureResult && !createdOrderId) {
     return (
       <View style={styles.centeredState}>
         <Text style={styles.title}>Nothing to checkout</Text>
@@ -265,8 +269,7 @@ export function CheckoutScreen(_props: Props) {
       return (
         <>
           <PayPalProcessingOverlay
-            visible={showPayPalProcessing}
-            message={payPalProcessingMessage}
+            visible={showProcessingOverlay}
           />
           <View style={styles.centeredState}>
           <Text style={styles.paymentSuccessTitle}>Payment successful</Text>
@@ -292,8 +295,7 @@ export function CheckoutScreen(_props: Props) {
     return (
       <>
         <PayPalProcessingOverlay
-          visible={showPayPalProcessing}
-          message={payPalProcessingMessage}
+          visible={showProcessingOverlay}
         />
         <View style={styles.centeredState}>
         <Text style={styles.title}>Order placed</Text>
@@ -436,8 +438,7 @@ export function CheckoutScreen(_props: Props) {
         }
       />
       <PayPalProcessingOverlay
-        visible={showPayPalProcessing}
-        message={payPalProcessingMessage}
+        visible={showProcessingOverlay}
       />
     </KeyboardAvoidingView>
   );

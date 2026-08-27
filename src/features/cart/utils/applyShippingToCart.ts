@@ -60,6 +60,39 @@ export function applyShippingSelectionsToCart(
   return changed ? nextCart : cart;
 }
 
+/** Clear applied shipping so rates are recalculated after cart composition changes. */
+export function invalidateCartShipping(cart: CartMap): CartMap {
+  let changed = false;
+  const nextCart: CartMap = {};
+
+  for (const [itemId, line] of Object.entries(cart)) {
+    if (line.productData?.productType === 'Downloadable') {
+      nextCart[itemId] = line;
+      continue;
+    }
+
+    const hasAppliedShipping =
+      (line.shippingRate ?? 0) > 0 ||
+      Boolean(line.shippingService?.value) ||
+      (line.shippingOptions?.length ?? 0) > 0;
+
+    if (!hasAppliedShipping) {
+      nextCart[itemId] = line;
+      continue;
+    }
+
+    changed = true;
+    nextCart[itemId] = {
+      ...line,
+      shippingRate: 0,
+      shippingService: undefined,
+      shippingOptions: [],
+    };
+  }
+
+  return changed ? nextCart : cart;
+}
+
 export function getCartShippingTotal(cart: CartMap): number {
   const sellerRates = new Map<string, number>();
 

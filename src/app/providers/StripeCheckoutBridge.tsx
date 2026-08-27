@@ -9,7 +9,8 @@ export function StripeCheckoutBridge({ children }: { children: ReactNode }) {
   return (
     <StripeCheckoutContextProvider
       value={{
-        confirmPayment: stripe.confirmPayment,
+        initPaymentSheet: stripe.initPaymentSheet,
+        presentPaymentSheet: stripe.presentPaymentSheet,
         confirmPlatformPayPayment: stripe.confirmPlatformPayPayment,
         isPlatformPaySupported: stripe.isPlatformPaySupported,
       }}

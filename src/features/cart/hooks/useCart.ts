@@ -15,8 +15,14 @@ import {
   updateCartLineQuantity,
 } from '../utils/cartUtils';
 import { syncCartLinePrices } from '../utils/cartPricing';
+import { getCartShippingTotal, invalidateCartShipping } from '../utils/applyShippingToCart';
 import { getCartMemoryCache, setCartMemoryCache } from '../utils/cartMemoryCache';
 import { notifyCartChanged, subscribeCartRefresh } from '../utils/cartRefresh';
+
+const ZERO_SHIPPING_RATES = {
+  totalShippingRate: 0,
+  fetchedShippingRate: 0,
+} as const;
 
 export function useCart(userId?: string, userInfo?: UserPricingInfo) {
   const initialCache = getCartMemoryCache(userId);
@@ -49,16 +55,14 @@ export function useCart(userId?: string, userInfo?: UserPricingInfo) {
     if (!userId) {
       try {
         const guestCart = applyPricing(await loadGuestCart());
-        const cached = getCartMemoryCache(userId);
-        const nextTotalShipping = cached?.totalShippingRate ?? 0;
-        const nextFetchedShipping = cached?.fetchedShippingRate ?? 0;
+        const lineShippingTotal = getCartShippingTotal(guestCart);
         setCart(guestCart);
-        setTotalShippingRate(nextTotalShipping);
-        setFetchedShippingRate(nextFetchedShipping);
+        setTotalShippingRate(lineShippingTotal);
+        setFetchedShippingRate(lineShippingTotal);
         setCartMemoryCache(userId, {
           cart: guestCart,
-          totalShippingRate: nextTotalShipping,
-          fetchedShippingRate: nextFetchedShipping,
+          totalShippingRate: lineShippingTotal,
+          fetchedShippingRate: lineShippingTotal,
         });
       } catch (err) {
         if (!hasExistingItems) {
@@ -128,21 +132,19 @@ export function useCart(userId?: string, userInfo?: UserPricingInfo) {
       setError(null);
 
       try {
-        const nextCart = removeCartLine(cart, itemId);
+        const nextCart = invalidateCartShipping(removeCartLine(cart, itemId));
         if (userId) {
-          await persistCart(userId, nextCart, {
-            totalShippingRate,
-            fetchedShippingRate,
-          });
+          await persistCart(userId, nextCart, ZERO_SHIPPING_RATES);
         } else {
           await saveGuestCart(nextCart);
         }
         setCart(nextCart);
+        setTotalShippingRate(ZERO_SHIPPING_RATES.totalShippingRate);
+        setFetchedShippingRate(ZERO_SHIPPING_RATES.fetchedShippingRate);
         notifyCartChanged();
         setCartMemoryCache(userId, {
           cart: nextCart,
-          totalShippingRate,
-          fetchedShippingRate,
+          ...ZERO_SHIPPING_RATES,
         });
       } catch (err) {
         setError(getErrorMessage(err, 'Failed to remove item from cart'));
@@ -150,7 +152,7 @@ export function useCart(userId?: string, userInfo?: UserPricingInfo) {
         setRemovingItemId(null);
       }
     },
-    [cart, fetchedShippingRate, totalShippingRate, userId],
+    [cart, userId],
   );
 
   const updateQuantity = useCallback(
@@ -164,21 +166,19 @@ export function useCart(userId?: string, userInfo?: UserPricingInfo) {
       setError(null);
 
       try {
-        const nextCart = updateCartLineQuantity(cart, itemId, nextQuantity);
+        const nextCart = invalidateCartShipping(updateCartLineQuantity(cart, itemId, nextQuantity));
         if (userId) {
-          await persistCart(userId, nextCart, {
-            totalShippingRate,
-            fetchedShippingRate,
-          });
+          await persistCart(userId, nextCart, ZERO_SHIPPING_RATES);
         } else {
           await saveGuestCart(nextCart);
         }
         setCart(nextCart);
+        setTotalShippingRate(ZERO_SHIPPING_RATES.totalShippingRate);
+        setFetchedShippingRate(ZERO_SHIPPING_RATES.fetchedShippingRate);
         notifyCartChanged();
         setCartMemoryCache(userId, {
           cart: nextCart,
-          totalShippingRate,
-          fetchedShippingRate,
+          ...ZERO_SHIPPING_RATES,
         });
       } catch (err) {
         setError(getErrorMessage(err, 'Failed to update cart quantity'));
@@ -186,7 +186,7 @@ export function useCart(userId?: string, userInfo?: UserPricingInfo) {
         setUpdatingItemId(null);
       }
     },
-    [cart, fetchedShippingRate, removeItem, totalShippingRate, userId],
+    [cart, removeItem, userId],
   );
 
   const updateVariations = useCallback(
@@ -200,21 +200,21 @@ export function useCart(userId?: string, userInfo?: UserPricingInfo) {
       setError(null);
 
       try {
-        const nextCart = replaceCartLineVariations(cart, itemId, selectedVariations, userInfo);
+        const nextCart = invalidateCartShipping(
+          replaceCartLineVariations(cart, itemId, selectedVariations, userInfo),
+        );
         if (userId) {
-          await persistCart(userId, nextCart, {
-            totalShippingRate,
-            fetchedShippingRate,
-          });
+          await persistCart(userId, nextCart, ZERO_SHIPPING_RATES);
         } else {
           await saveGuestCart(nextCart);
         }
         setCart(nextCart);
+        setTotalShippingRate(ZERO_SHIPPING_RATES.totalShippingRate);
+        setFetchedShippingRate(ZERO_SHIPPING_RATES.fetchedShippingRate);
         notifyCartChanged();
         setCartMemoryCache(userId, {
           cart: nextCart,
-          totalShippingRate,
-          fetchedShippingRate,
+          ...ZERO_SHIPPING_RATES,
         });
       } catch (err) {
         setError(getErrorMessage(err, 'Failed to update product options'));
@@ -223,7 +223,7 @@ export function useCart(userId?: string, userInfo?: UserPricingInfo) {
         setUpdatingItemId(null);
       }
     },
-    [cart, fetchedShippingRate, totalShippingRate, userId, userInfo],
+    [cart, userId, userInfo],
   );
 
   const replaceCart = useCallback((nextCart: CartMap) => {

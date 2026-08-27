@@ -1,8 +1,16 @@
 import type { Product } from '../types/product';
+import type { OrderSummary } from '../types/order';
 import type { Review } from '../types/review';
 import type { Seller } from '../types/seller';
 import type { SellerProfile } from '../../features/seller/types/sellerProfile';
 import type { SubCategoryBrowserSection } from '../../features/categories/types/subCategoryBrowser';
+
+export interface OrdersListCacheEntry {
+  orders: OrderSummary[];
+  totalOrders: number;
+  totalPages: number;
+  currentPage: number;
+}
 
 export interface ShopCacheEntry {
   seller: Seller;
@@ -15,6 +23,21 @@ const productCache = new Map<string, Product>();
 const listingCache = new Map<string, Product[]>();
 const categorySectionsCache = new Map<string, SubCategoryBrowserSection[]>();
 const sellerProfileCache = new Map<string, SellerProfile>();
+const ordersListCache = new Map<string, OrdersListCacheEntry>();
+
+const ORDERS_LIST_CACHE_VERSION = 2;
+
+export function buildOrdersListCacheKey(userId: string, page: number): string {
+  return `${userId}:${page}:v${ORDERS_LIST_CACHE_VERSION}`;
+}
+
+export function getOrdersListCache(key: string): OrdersListCacheEntry | undefined {
+  return ordersListCache.get(key);
+}
+
+export function setOrdersListCache(key: string, entry: OrdersListCacheEntry): void {
+  ordersListCache.set(key, entry);
+}
 
 export function getShopCache(slug: string): ShopCacheEntry | undefined {
   return shopCache.get(slug);

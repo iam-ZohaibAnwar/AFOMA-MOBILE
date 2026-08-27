@@ -177,8 +177,14 @@ export function CartScreen(_props: Props) {
   );
 
   const shippingCad = useMemo(
-    () => resolveCartShippingCad(cart, totalShippingRate, fetchedShippingRate),
-    [cart, fetchedShippingRate, totalShippingRate],
+    () =>
+      resolveCartShippingCad(
+        cart,
+        totalShippingRate,
+        fetchedShippingRate,
+        cartShipping.selectedOptions,
+      ),
+    [cart, cartShipping.selectedOptions, fetchedShippingRate, totalShippingRate],
   );
   const shippingPending =
     cartShipping.shippingContext.needsDeliveryDetails ||

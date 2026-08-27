@@ -43,6 +43,10 @@ function isAppReturnHost(hostname: string): boolean {
   return hostname.toLowerCase() === 'afoma';
 }
 
+function isAppReturnUrl(url: string): boolean {
+  return url.trim().toLowerCase().startsWith('afoma://');
+}
+
 function readPayerId(parsed: URL): string | undefined {
   const payerId =
     parsed.searchParams.get('PayerID') ??
@@ -104,8 +108,23 @@ export function isPayPalApprovalCompleteUrl(url: string): boolean {
     return true;
   }
 
+  if (isAppReturnUrl(url) && readPayPalToken(parsed)) {
+    return true;
+  }
+
   if (isAppReturnHost(hostname) && readPayPalToken(parsed)) {
     return true;
+  }
+
+  if (isPayPalHost(hostname)) {
+    if (
+      path.includes('/webapps/hermes') ||
+      path.includes('/checkoutweb/return') ||
+      path.includes('/checkoutweb/approve') ||
+      path.includes('/signin/return')
+    ) {
+      return Boolean(readPayPalToken(parsed));
+    }
   }
 
   if (isMerchantHost(hostname)) {
@@ -113,7 +132,6 @@ export function isPayPalApprovalCompleteUrl(url: string): boolean {
       return true;
     }
 
-    // Token alone can appear before approval completes; wait for PayerID.
     return Boolean(readPayerId(parsed));
   }
 
@@ -133,7 +151,7 @@ export function isPayPalExternalReturnUrl(url: string): boolean {
     return false;
   }
 
-  return isAppReturnHost(hostname) || isMerchantHost(hostname);
+  return isAppReturnUrl(url) || isAppReturnHost(hostname) || isMerchantHost(hostname);
 }
 
 export interface PayPalReturnContext {

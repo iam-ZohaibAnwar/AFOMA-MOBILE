@@ -2,9 +2,8 @@ import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { SelectField } from '../../../components/forms/SelectField';
 import { AppText } from '../../../components/ui/AppText';
-import { radius, spacing } from '../../../design-system';
+import { spacing } from '../../../design-system';
 import type { PdpTheme } from '../../../design-system/pdpTheme';
-import { isColorAttributeName, resolveColorSwatch } from '../utils/colorSwatches';
 import { normalizeVariationAttributeValue } from '../utils/productVariations';
 
 export interface ProductVariationSelectorsProps {
@@ -37,7 +36,6 @@ export function ProductVariationSelectors({
       {attributeNames.map((attributeName) => {
         const options = attributeOptions[attributeName] ?? [];
         const selectedValue = normalizeVariationAttributeValue(selectedAttributes[attributeName]);
-        const isColorAttribute = isColorAttributeName(attributeName);
         const isSizeAttribute = attributeName.trim().toLowerCase().includes('size');
 
         return (
@@ -55,68 +53,21 @@ export function ProductVariationSelectors({
               ) : null}
             </View>
 
-            {isColorAttribute ? (
-              <View style={styles.optionRow}>
-                {options.map((option) => {
-                  const normalizedOption = normalizeVariationAttributeValue(option);
-                  const isSelected = selectedValue === normalizedOption;
-                  const isAvailable = isOptionAvailable?.(attributeName, option) ?? true;
-
-                  return (
-                    <Pressable
-                      key={`${attributeName}-${option}`}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: isSelected, disabled: !isAvailable }}
-                      accessibilityLabel={`Select ${attributeName} ${option}`}
-                      disabled={!isAvailable}
-                      onPress={() => onSelectAttribute(attributeName, option)}
-                      style={({ pressed }) => [pressed && styles.pressed]}
-                    >
-                      <View
-                        style={[
-                          styles.swatchOuter,
-                          {
-                            borderColor: isSelected ? theme.swatchSelectedRing : theme.swatchBorder,
-                          },
-                        ]}
-                      >
-                        <View
-                          style={[
-                            styles.swatch,
-                            {
-                              backgroundColor: resolveColorSwatch(option),
-                              opacity: isAvailable ? 1 : 0.35,
-                            },
-                          ]}
-                        >
-                          {isSelected ? (
-                            <AppText variant="caption" style={styles.swatchCheck}>
-                              ✓
-                            </AppText>
-                          ) : null}
-                        </View>
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            ) : (
-              <SelectField
-                value={selectedValue}
-                options={options.map((option) => ({
-                  label: option,
-                  value: normalizeVariationAttributeValue(option),
-                }))}
-                onChange={(value) => onSelectAttribute(attributeName, value)}
-                placeholder={`Select ${attributeName}`}
-                modalTitle={attributeName}
-                tone="surface"
-                selectionAccent="navy"
-                isOptionDisabled={(option) =>
-                  !(isOptionAvailable?.(attributeName, option.value) ?? true)
-                }
-              />
-            )}
+            <SelectField
+              value={selectedValue}
+              options={options.map((option) => ({
+                label: option,
+                value: normalizeVariationAttributeValue(option),
+              }))}
+              onChange={(value) => onSelectAttribute(attributeName, value)}
+              placeholder={`Select ${attributeName}`}
+              modalTitle={attributeName}
+              tone="surface"
+              selectionAccent="navy"
+              isOptionDisabled={(option) =>
+                !(isOptionAvailable?.(attributeName, option.value) ?? true)
+              }
+            />
           </View>
         );
       })}
@@ -136,34 +87,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.md,
-  },
-  optionRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  swatchOuter: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.pill,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  swatch: {
-    width: 28,
-    height: 28,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  swatchCheck: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 12,
-    lineHeight: 14,
-  },
-  pressed: {
-    opacity: 0.92,
   },
 });

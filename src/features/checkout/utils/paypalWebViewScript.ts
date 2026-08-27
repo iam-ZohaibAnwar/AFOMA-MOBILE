@@ -22,6 +22,10 @@ export const PAYPAL_WEBVIEW_INJECTED_JAVASCRIPT = `
     return /[?&](PayerID|payerID|payerId|paymentId)=/i.test(url);
   }
 
+  function isMerchantComplete(url) {
+    return /thank-you|payment-success|checkout\\/paypal/i.test(url);
+  }
+
   window.open = function (url) {
     if (url) {
       window.location.href = url;
@@ -32,7 +36,7 @@ export const PAYPAL_WEBVIEW_INJECTED_JAVASCRIPT = `
   function checkUrl() {
     try {
       var href = window.location.href;
-      if (hasApprovalParams(href)) {
+      if (hasApprovalParams(href) || isMerchantComplete(href)) {
         postComplete(href);
       }
     } catch (e) {}

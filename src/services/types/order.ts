@@ -1,3 +1,5 @@
+import type { CartLineItem } from './cart';
+
 /**
  * Order types from customer my-orders flows.
  * TODO: Verify full order document and line item schema.
@@ -10,6 +12,8 @@ export interface OrderSummary {
   subTotal?: number | string;
   totalShippingRate?: number | string;
   currency?: string;
+  /** Present on GET /orders/getOrders/ByUserId/{userId} list responses. */
+  cart?: CartLineItem[];
 }
 
 export interface CustomerOrdersListResponse {
@@ -47,7 +51,6 @@ export interface OrderBillingAddress {
 export interface OrderDetail extends OrderSummary {
   conversionRate?: number | string;
   serviceFees?: number | string;
-  cart?: import('./cart').CartLineItem[];
   userInfo?: OrderUserInfo;
   billing_address?: OrderBillingAddress;
 }

@@ -37,6 +37,13 @@ export function useCheckoutCapture() {
   const [captureError, setCaptureError] = useState<string | null>(null);
   const [captureResult, setCaptureResult] = useState<CheckoutCaptureResult | null>(null);
   const isSubmittingRef = useRef(false);
+  const captureResultRef = useRef<CheckoutCaptureResult | null>(null);
+
+  const rememberCaptureResult = useCallback((result: CheckoutCaptureResult) => {
+    captureResultRef.current = result;
+    setCaptureResult(result);
+    setCaptureError(null);
+  }, []);
 
   const captureCheckoutPayment = useCallback(
     async (
@@ -45,13 +52,24 @@ export function useCheckoutCapture() {
       paymentMethod: CheckoutPaymentMethod,
       createPayloadSnapshot?: CreateCheckoutOrderRequest | null,
     ) => {
-      if (isSubmittingRef.current) {
-        return null;
+      const existingResult = captureResultRef.current;
+      if (existingResult?.paymentOrderId === paymentOrderId) {
+        return existingResult;
+      }
+
+      while (isSubmittingRef.current) {
+        await sleep(200);
+        const completed = captureResultRef.current;
+        if (completed?.paymentOrderId === paymentOrderId) {
+          return completed;
+        }
       }
 
       isSubmittingRef.current = true;
       setIsCapturing(true);
-      setCaptureError(null);
+      if (!captureResultRef.current) {
+        setCaptureError(null);
+      }
 
       try {
         const payload = createPayloadSnapshot
@@ -78,18 +96,20 @@ export function useCheckoutCapture() {
           details: extractCaptureOrderDetails(response, paymentOrderId, paymentMethod),
         };
 
-        setCaptureResult(result);
+        rememberCaptureResult(result);
         return result;
       } catch (err) {
-        const message = getErrorMessage(err, 'Failed to complete payment');
-        setCaptureError(message);
-        return null;
+        if (!captureResultRef.current) {
+          const message = getErrorMessage(err, 'Failed to complete payment');
+          setCaptureError(message);
+        }
+        return captureResultRef.current;
       } finally {
         isSubmittingRef.current = false;
         setIsCapturing(false);
       }
     },
-    [],
+    [rememberCaptureResult],
   );
 
   const capturePayPalOrderWithRetry = useCallback(

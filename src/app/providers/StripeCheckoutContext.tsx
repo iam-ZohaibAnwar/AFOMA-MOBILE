@@ -2,15 +2,16 @@ import { createContext, useContext, type ReactNode } from 'react';
 import type { PaymentIntent, StripeError } from '@stripe/stripe-react-native';
 
 export interface StripeCheckoutActions {
-  confirmPayment: (
-    paymentIntentClientSecret: string,
-    params?: Parameters<
-      ReturnType<typeof import('@stripe/stripe-react-native').useStripe>['confirmPayment']
-    >[1],
-  ) => Promise<{
-    error?: StripeError;
-    paymentIntent?: PaymentIntent;
-  }>;
+  initPaymentSheet: (
+    params: Parameters<
+      ReturnType<typeof import('@stripe/stripe-react-native').useStripe>['initPaymentSheet']
+    >[0],
+  ) => ReturnType<
+    ReturnType<typeof import('@stripe/stripe-react-native').useStripe>['initPaymentSheet']
+  >;
+  presentPaymentSheet: () => ReturnType<
+    ReturnType<typeof import('@stripe/stripe-react-native').useStripe>['presentPaymentSheet']
+  >;
   confirmPlatformPayPayment: (
     clientSecret: string,
     params?: Parameters<

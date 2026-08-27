@@ -1,13 +1,21 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-import { colors } from '../../../design-system';
+import { AppBadge } from '../../../components/ui/AppBadge';
+import { AppText } from '../../../components/ui/AppText';
+import { ChevronForwardIcon } from '../../../components/ui/ChevronForwardIcon';
+import { colors, radius, spacing } from '../../../design-system';
 import type { OrderSummary } from '../../../services/types/order';
+import { formatOrderDisplayId, formatOrderTotal } from '../utils/orderDisplay';
 import {
-  formatOrderDate,
-  formatOrderDisplayId,
-  formatOrderStatus,
-  formatOrderTotal,
-} from '../utils/orderDisplay';
+  getOrderListAccessibilityLabel,
+  getOrderListPrimaryTitle,
+  getOrderListStatusBadgeVariant,
+  getOrderListStatusLabel,
+  getOrderListSubtitle,
+  getOrderListThumbnailUrl,
+} from '../utils/orderListDisplay';
 
 interface OrderListItemProps {
   order: OrderSummary;
@@ -16,91 +24,138 @@ interface OrderListItemProps {
 
 export function OrderListItem({ order, onPress }: OrderListItemProps) {
   const orderId = order._id;
+  const thumbnailUrl = getOrderListThumbnailUrl(order);
+  const [imageFailed, setImageFailed] = useState(false);
+  const showThumbnail = Boolean(thumbnailUrl) && !imageFailed;
+
+  const statusLabel = getOrderListStatusLabel(order.status);
+  const statusVariant = getOrderListStatusBadgeVariant(order.status);
+  const subtitle = getOrderListSubtitle(order);
+  const accessibilityLabel = getOrderListAccessibilityLabel(order);
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       disabled={!orderId}
       onPress={() => {
         if (orderId) {
           onPress(orderId);
         }
       }}
+      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
     >
-      <View style={styles.headerRow}>
-        <Text style={styles.orderIdLabel}>Order ID</Text>
-        <Text style={styles.orderIdValue}>{formatOrderDisplayId(orderId)}</Text>
+      <View style={styles.thumbnailWrap}>
+        {showThumbnail ? (
+          <Image
+            source={{ uri: thumbnailUrl }}
+            style={styles.thumbnail}
+            resizeMode="cover"
+            onError={() => setImageFailed(true)}
+          />
+        ) : (
+          <View style={styles.thumbnailPlaceholder}>
+            <Ionicons name="bag-outline" size={22} color={colors.textMuted} />
+          </View>
+        )}
       </View>
 
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Date</Text>
-        <Text style={styles.detailValue}>{formatOrderDate(order.createdAt)}</Text>
-      </View>
+      <View style={styles.content}>
+        <AppText variant="bodyMedium" style={styles.primaryTitle} numberOfLines={2}>
+          {getOrderListPrimaryTitle(order)}
+        </AppText>
 
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Total</Text>
-        <Text style={styles.detailValue}>{formatOrderTotal(order)}</Text>
-      </View>
+        <View style={styles.statusRow}>
+          <AppBadge label={statusLabel} variant={statusVariant} />
+        </View>
 
-      <View style={styles.detailRow}>
-        <Text style={styles.detailLabel}>Status</Text>
-        <Text style={styles.statusValue}>{formatOrderStatus(order.status)}</Text>
+        {subtitle ? (
+          <AppText variant="bodySmall" color="textSecondary" numberOfLines={1}>
+            {subtitle}
+          </AppText>
+        ) : null}
+
+        <View style={styles.footerRow}>
+          <AppText variant="caption" color="textMuted" numberOfLines={1} style={styles.orderId}>
+            Order {formatOrderDisplayId(orderId)}
+          </AppText>
+          <View style={styles.totalRow}>
+            <AppText variant="bodyMedium" style={styles.total}>
+              {formatOrderTotal(order)}
+            </AppText>
+            <ChevronForwardIcon color={colors.textMuted} size={18} />
+          </View>
+        </View>
       </View>
     </Pressable>
   );
 }
 
+const THUMBNAIL_SIZE = 64;
+
 const styles = StyleSheet.create({
   card: {
-    padding: 16,
-    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
     backgroundColor: colors.surface,
+    borderRadius: radius.large,
     borderWidth: 1,
-    borderColor: colors.border,
-    gap: 10,
+    borderColor: colors.borderStrong,
+    padding: spacing.md,
   },
   cardPressed: {
-    opacity: 0.85,
+    opacity: 0.88,
   },
-  headerRow: {
-    gap: 4,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+  thumbnailWrap: {
+    width: THUMBNAIL_SIZE,
+    height: THUMBNAIL_SIZE,
+    borderRadius: radius.medium,
+    overflow: 'hidden',
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  orderIdLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
-    textTransform: 'uppercase',
+  thumbnail: {
+    width: '100%',
+    height: '100%',
   },
-  orderIdValue: {
-    fontSize: 17,
+  thumbnailPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceWhite,
+  },
+  content: {
+    flex: 1,
+    gap: spacing.xs,
+    minWidth: 0,
+  },
+  primaryTitle: {
+    color: colors.textPrimary,
     fontWeight: '700',
-    color: '#172554',
   },
-  detailRow: {
+  statusRow: {
+    alignSelf: 'flex-start',
+  },
+  footerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: spacing.sm,
+    marginTop: spacing.xs,
   },
-  detailLabel: {
-    fontSize: 14,
-    color: '#64748B',
+  orderId: {
+    flex: 1,
   },
-  detailValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#172554',
-    textAlign: 'right',
-    flexShrink: 1,
+  totalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flexShrink: 0,
   },
-  statusValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#047857',
-    textAlign: 'right',
-    flexShrink: 1,
+  total: {
+    color: colors.textPrimary,
+    fontWeight: '700',
   },
 });

@@ -9,7 +9,14 @@ import {
   type PreparedCartLine,
 } from './cartLineMerge';
 import { notifyCartChanged } from './cartRefresh';
+import { invalidateCartShipping } from './applyShippingToCart';
 import { persistCart } from './cartUtils';
+import { setCartMemoryCache } from './cartMemoryCache';
+
+const ZERO_SHIPPING_RATES = {
+  totalShippingRate: 0,
+  fetchedShippingRate: 0,
+} as const;
 
 export { AddToCartValidationError } from './cartLineMerge';
 export type { PreparedCartLine } from './cartLineMerge';
@@ -29,16 +36,15 @@ export async function addProductToCart(
   options: AddToCartOptions = {},
 ): Promise<PreparedCartLine> {
   let currentCart = {};
-  let existingCartResponse;
 
   if (userId) {
-    existingCartResponse = await getCartByUserId(userId);
+    const existingCartResponse = await getCartByUserId(userId);
     currentCart = existingCartResponse.cart ?? {};
   } else {
     currentCart = await loadGuestCart();
   }
 
-  const { cart: nextCart, prepared } = mergeProductIntoCart(currentCart, {
+  const { cart: mergedCart, prepared } = mergeProductIntoCart(currentCart, {
     product,
     userInfo,
     quantity: options.quantity ?? 1,
@@ -48,15 +54,22 @@ export async function addProductToCart(
     mergeMode: options.mergeMode ?? 'increment',
   });
 
+  const nextCart = invalidateCartShipping(mergedCart);
+
   if (prepared.totalQuantity <= 0) {
     throw new AddToCartValidationError('Unable to add this item to your cart.');
   }
 
   if (userId) {
-    await persistCart(userId, nextCart, existingCartResponse);
+    await persistCart(userId, nextCart, ZERO_SHIPPING_RATES);
   } else {
     await saveGuestCart(nextCart);
   }
+
+  setCartMemoryCache(userId, {
+    cart: nextCart,
+    ...ZERO_SHIPPING_RATES,
+  });
 
   notifyCartChanged();
   return prepared;

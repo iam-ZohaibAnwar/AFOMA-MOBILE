@@ -110,7 +110,6 @@ export function ProductDetailScreen({ route, navigation }: Props) {
 
   const { productId, slug } = route.params;
   const insets = useSafeAreaInsets();
-  const stickyBarInset = getProductDetailStickyBarInset(insets.bottom);
 
   const theme = usePdpTheme();
 
@@ -495,7 +494,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
 
     addButtonDisabled || !variationState.showQuantityStepper || variationState.isDownloadable;
 
-
+  const stickyBarInset = getProductDetailStickyBarInset(insets.bottom, Boolean(feedback));
 
   return (
 
@@ -643,78 +642,24 @@ export function ProductDetailScreen({ route, navigation }: Props) {
 
       </ScrollView>
 
-
-
-      {feedback ? (
-
-        <View
-
-          style={[
-
-            styles.feedbackToast,
-
-            {
-
-              backgroundColor:
-
-                feedback.type === 'success' ? theme.deliveryBannerBg : theme.surfaceMuted,
-
-              borderColor: theme.border,
-
-            },
-
-          ]}
-
-        >
-
-          <AppText
-
-            variant="bodySmall"
-
-            style={{
-
-              color: feedback.type === 'success' ? theme.deliveryBannerText : theme.textPrimary,
-
-            }}
-
-          >
-
-            {feedback.message}
-
-          </AppText>
-
-          {feedback.type === 'success' ? (
-
-            <Pressable onPress={() => navigateToCartTab(navigation)}>
-
-              <AppText variant="bodyMedium" color="textPrimary">
-
-                View cart
-
-              </AppText>
-
-            </Pressable>
-
-          ) : null}
-
-        </View>
-
-      ) : null}
-
-
-
       <ProductDetailStickyBar
-
         theme={theme}
-
         buttonLabel={addButtonLabel}
-
         disabled={addButtonDisabled}
-
         isLoading={isAddingToCart}
-
         onAddToCart={() => void handleAddToCart()}
-
+        feedback={
+          feedback
+            ? {
+                type: feedback.type,
+                message: feedback.message,
+                onViewCart:
+                  feedback.type === 'success'
+                    ? () => navigateToCartTab(navigation)
+                    : undefined,
+              }
+            : null
+        }
       />
 
     </View>
@@ -753,22 +698,6 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
     gap: spacing.lg,
     flexGrow: 1,
-  },
-
-  feedbackToast: {
-
-    marginHorizontal: spacing.lg,
-
-    marginBottom: spacing.sm,
-
-    borderRadius: 12,
-
-    padding: spacing.md,
-
-    borderWidth: 1,
-
-    gap: spacing.sm,
-
   },
 
   centeredState: {

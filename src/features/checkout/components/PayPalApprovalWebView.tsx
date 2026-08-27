@@ -214,6 +214,12 @@ export function PayPalApprovalWebView({
 
     }
 
+    if (url.toLowerCase().startsWith('afoma://')) {
+
+      return finishWithComplete(url);
+
+    }
+
 
 
     if (isPayPalCheckoutUrl(url)) {

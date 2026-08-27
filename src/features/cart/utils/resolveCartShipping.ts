@@ -39,10 +39,19 @@ export function resolveCartShippingCad(
   cart: CartMap,
   totalShippingRate = 0,
   fetchedShippingRate = 0,
+  selectedOptions: CheckoutShippingOption[] = [],
 ): number {
-  const selectedOptions = extractSelectedShippingFromCart(cart);
+  if (isCartShippingPending(cart, selectedOptions)) {
+    return 0;
+  }
+
   if (selectedOptions.length > 0) {
     return selectedOptions.reduce((sum, option) => sum + option.rate, 0);
+  }
+
+  const selectedOptionsFromCart = extractSelectedShippingFromCart(cart);
+  if (selectedOptionsFromCart.length > 0) {
+    return selectedOptionsFromCart.reduce((sum, option) => sum + option.rate, 0);
   }
 
   const lineShippingTotal = getCartShippingTotal(cart);
@@ -50,7 +59,7 @@ export function resolveCartShippingCad(
     return lineShippingTotal;
   }
 
-  return fetchedShippingRate || totalShippingRate || 0;
+  return 0;
 }
 
 export function resolveCartShippingOptions(

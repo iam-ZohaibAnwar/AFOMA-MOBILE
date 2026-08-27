@@ -12,7 +12,10 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { isStripeNativeSupported } from '../../../app/utils/isStripeNativeSupported';
+import {
+  isStripeCardCheckoutSupported,
+  isStripePlatformPaySupported,
+} from '../../../app/utils/isStripeNativeSupported';
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppText } from '../../../components/ui/AppText';
 import { usePricing } from '../../../app/providers/PricingProvider';
@@ -23,6 +26,7 @@ import { useRequireAuth } from '../../auth/hooks/useRequireAuth';
 import { authReturnTo } from '../../auth/utils/authNavigation';
 import { resolveAuthUserId } from '../../auth/utils/resolveAuthUserId';
 import { useCart } from '../../cart/hooks/useCart';
+import { useClearCartOnSuccessfulCheckout } from '../../cart/hooks/useClearCartOnSuccessfulCheckout';
 import { useAppliedCoupon } from '../../cart/hooks/useAppliedCoupon';
 import { getCartLineDisplayAmount, getCartSubtotalCad } from '../../cart/utils/cartPricing';
 import { calculateCartTotals } from '../../cart/utils/cartTotals';
@@ -41,7 +45,6 @@ import type { PaymentMethodId } from '../components/PaymentMethodOption';
 import { PaymentMethodSheet } from '../components/PaymentMethodSheet';
 import { PaymentProductsSection } from '../components/PaymentProductsSection';
 import { PaymentScreenHeader } from '../components/PaymentScreenHeader';
-import { StripeCardPaymentSheet } from '../components/StripeCardPaymentSheet';
 import { usesKorapayCheckout } from '../constants/checkoutPaymentMethods';
 import { useCheckoutShippingAddress } from '../hooks/useCheckoutShippingAddress';
 import {
@@ -64,7 +67,7 @@ type PaymentNavigationProp = CompositeNavigationProp<
 
 const PAYMENT_RETURN_TO = authReturnTo.payment();
 
-export function PaymentScreen(_props: Props) {
+export function PaymentScreen({ route }: Props) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<PaymentNavigationProp>();
   const { user, isAuthenticated } = useAuth();
@@ -73,7 +76,8 @@ export function PaymentScreen(_props: Props) {
   const { userInfo } = usePricing();
   const currency = userInfo.currency ?? 'CAD';
   const currencyRate = userInfo.currencyRate ?? 1;
-  const stripeConfigured = isStripeNativeSupported();
+  const stripeConfigured = isStripeCardCheckoutSupported();
+  const applePayBuildReady = isStripePlatformPaySupported();
 
   const { cart, entries, isLoading, error, retry, totalShippingRate, fetchedShippingRate } =
     useCart(authUserId, userInfo);
@@ -90,7 +94,6 @@ export function PaymentScreen(_props: Props) {
     checkoutNotice,
     captureResult,
     korapaySession,
-    stripeCardSession,
     applePaySupported,
     checkApplePaySupport,
     startPayPalCheckout,
@@ -98,22 +101,31 @@ export function PaymentScreen(_props: Props) {
     completeKorapayCheckout,
     cancelKorapayCheckout,
     startStripeCardCheckout,
-    completeStripeCardPayment,
-    cancelStripeCardCheckout,
     startApplePayCheckout,
     retryCaptureForCreatedOrder,
+    resumePayPalFromRouteParams,
     createdOrderId,
   } = checkoutPayment;
-  const showPayPalProcessing =
-    checkoutPayment.isPayPalCapturing === true || checkoutPayment.isPayPalBrowserPending === true;
-  const payPalProcessingMessage = checkoutPayment.isPayPalCapturing
-    ? 'Processing your PayPal payment...'
-    : 'Complete PayPal, then close the browser to return here.';
 
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethodId>('paypal');
   const [formNotice, setFormNotice] = useState<string | null>(null);
   const [showOrderSuccess, setShowOrderSuccess] = useState(false);
-  const paymentError = getCheckoutPaymentErrorMessage(orderError, captureError, checkoutNotice);
+
+  const showProcessingOverlay =
+    checkoutPayment.isPayPalCapturing === true ||
+    checkoutPayment.isStripeInitializing === true ||
+    (isCapturing && !checkoutPayment.isPayPalCapturing && selectedPayment === 'stripe');
+
+  const paymentError = getCheckoutPaymentErrorMessage(
+    orderError,
+    captureError,
+    checkoutNotice,
+    Boolean(captureResult),
+  );
+
+  useEffect(() => {
+    void resumePayPalFromRouteParams(route.params);
+  }, [resumePayPalFromRouteParams, route.params]);
 
   useEffect(() => {
     if (captureResult) {
@@ -123,6 +135,8 @@ export function PaymentScreen(_props: Props) {
       }
     }
   }, [authUserId, captureResult, removeAppliedCoupon]);
+
+  useClearCartOnSuccessfulCheckout(captureResult, cart, authUserId);
 
   useEffect(() => {
     void checkApplePaySupport();
@@ -143,12 +157,18 @@ export function PaymentScreen(_props: Props) {
 
   const itemCount = getCartItemCount(cart);
   const subtotalCad = useMemo(() => getCartSubtotalCad(cart, userInfo), [cart, userInfo]);
+  const selectedShippingOptions = useMemo(() => resolveCartShippingOptions(cart), [cart]);
   const shippingCad = useMemo(
-    () => resolveCartShippingCad(cart, totalShippingRate, fetchedShippingRate),
-    [cart, fetchedShippingRate, totalShippingRate],
+    () =>
+      resolveCartShippingCad(
+        cart,
+        totalShippingRate,
+        fetchedShippingRate,
+        selectedShippingOptions,
+      ),
+    [cart, fetchedShippingRate, selectedShippingOptions, totalShippingRate],
   );
 
-  const selectedShippingOptions = useMemo(() => resolveCartShippingOptions(cart), [cart]);
   const discountAmount = appliedCoupon?.discountAmount ?? 0;
   const shippingPending = isCartShippingPending(cart, selectedShippingOptions);
 
@@ -170,12 +190,11 @@ export function PaymentScreen(_props: Props) {
   );
   const payerEmail = shippingAddress.email || user?.email || checkoutIdentity?.email;
   const maskedPayerEmail = maskEmail(payerEmail);
-  const billingName = shippingAddress.name;
 
   const paymentMethods = useMemo(() => {
     const stripeEnabled = !showKorapay && stripeConfigured;
     const korapayEnabled = showKorapay;
-    const applePayEnabled = Platform.OS === 'ios' && applePaySupported && stripeConfigured;
+    const applePayEnabled = Platform.OS === 'ios' && applePaySupported && applePayBuildReady;
 
     const methods: Array<{
       id: PaymentMethodId;
@@ -194,7 +213,7 @@ export function PaymentScreen(_props: Props) {
       methods.push({
         id: 'stripe',
         label: 'Debit / Credit Card',
-        subtitle: stripeConfigured ? 'Visa, Mastercard, and more' : 'Requires a development build',
+        subtitle: stripeConfigured ? 'Secure Stripe checkout' : 'Stripe is not configured',
         disabled: !stripeEnabled,
       });
     }
@@ -216,14 +235,14 @@ export function PaymentScreen(_props: Props) {
           ? 'Available on iOS only'
           : applePayEnabled
             ? 'Fast checkout on iPhone'
-            : stripeConfigured
+            : applePayBuildReady
               ? 'Apple Pay is not available on this device'
               : 'Requires a development build',
       disabled: !applePayEnabled,
     });
 
     return methods;
-  }, [applePaySupported, maskedPayerEmail, showKorapay, stripeConfigured]);
+  }, [applePayBuildReady, applePaySupported, maskedPayerEmail, showKorapay, stripeConfigured]);
 
   const productEntries = useMemo(
     () =>
@@ -334,7 +353,8 @@ export function PaymentScreen(_props: Props) {
     navigateToHomeTab(navigation);
   };
 
-  const paymentFlowActive = Boolean(korapaySession || stripeCardSession);
+  const paymentFlowActive = Boolean(korapaySession);
+  const checkoutCompleted = Boolean(captureResult);
 
   if (!isAuthorized) {
     return (
@@ -344,7 +364,7 @@ export function PaymentScreen(_props: Props) {
     );
   }
 
-  if (isLoading) {
+  if (isLoading && !checkoutCompleted) {
     return (
       <View style={[styles.centeredState, { paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color={colors.brandBlue} />
@@ -355,7 +375,7 @@ export function PaymentScreen(_props: Props) {
     );
   }
 
-  if (error) {
+  if (error && !checkoutCompleted) {
     return (
       <View style={[styles.centeredState, { paddingTop: insets.top }]}>
         <AppText variant="bodySmall" color="error">
@@ -366,7 +386,7 @@ export function PaymentScreen(_props: Props) {
     );
   }
 
-  if (entries.length === 0) {
+  if (entries.length === 0 && !checkoutCompleted) {
     return (
       <View style={[styles.centeredState, { paddingTop: insets.top }]}>
         <AppText variant="h2">Nothing to pay for</AppText>
@@ -451,25 +471,13 @@ export function PaymentScreen(_props: Props) {
         />
       ) : null}
 
-      <PayPalProcessingOverlay
-        visible={showPayPalProcessing}
-        message={payPalProcessingMessage}
-      />
+      <PayPalProcessingOverlay visible={showProcessingOverlay} />
 
       <KorapayCheckoutWebView
         visible={Boolean(korapaySession)}
         checkoutUrl={korapaySession?.checkoutUrl ?? null}
         onComplete={() => void completeKorapayCheckout()}
         onCancel={cancelKorapayCheckout}
-      />
-
-      <StripeCardPaymentSheet
-        visible={Boolean(stripeCardSession)}
-        billingEmail={payerEmail ?? ''}
-        billingName={billingName}
-        isProcessing={isCapturing}
-        onPay={(billing) => completeStripeCardPayment(billing)}
-        onCancel={cancelStripeCardCheckout}
       />
 
       <OrderSuccessSheet

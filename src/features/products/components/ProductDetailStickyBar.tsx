@@ -2,12 +2,22 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '../../../components/ui/AppText';
-import { layout, radius, spacing, withSafeAreaBottom } from '../../../design-system';
+import { colors, layout, radius, shadows, spacing, withSafeAreaBottom } from '../../../design-system';
 import type { PdpTheme } from '../../../design-system/pdpTheme';
 
 /** Reserve scroll space so content clears the overlay Add to Cart button. */
-export function getProductDetailStickyBarInset(bottomInset = 0): number {
-  return spacing.sm + layout.minTouchTarget + 6 + spacing.sm + bottomInset;
+export function getProductDetailStickyBarInset(
+  bottomInset = 0,
+  hasFeedback = false,
+): number {
+  const feedbackHeight = hasFeedback ? 56 : 0;
+  return feedbackHeight + spacing.sm + layout.minTouchTarget + 6 + spacing.sm + bottomInset;
+}
+
+export interface ProductDetailStickyFeedback {
+  type: 'success' | 'error';
+  message: string;
+  onViewCart?: () => void;
 }
 
 export interface ProductDetailStickyBarProps {
@@ -16,6 +26,7 @@ export interface ProductDetailStickyBarProps {
   disabled: boolean;
   isLoading: boolean;
   onAddToCart: () => void;
+  feedback?: ProductDetailStickyFeedback | null;
 }
 
 export function ProductDetailStickyBar({
@@ -24,6 +35,7 @@ export function ProductDetailStickyBar({
   disabled,
   isLoading,
   onAddToCart,
+  feedback,
 }: ProductDetailStickyBarProps) {
   const insets = useSafeAreaInsets();
 
@@ -34,8 +46,39 @@ export function ProductDetailStickyBar({
         {
           paddingBottom: withSafeAreaBottom(spacing.sm, insets.bottom),
         },
+        shadows.card,
       ]}
     >
+      {feedback ? (
+        <View
+          style={[
+            styles.feedback,
+            {
+              backgroundColor:
+                feedback.type === 'success' ? theme.deliveryBannerBg : colors.surfaceMuted,
+              borderColor: theme.border,
+            },
+          ]}
+        >
+          <AppText
+            variant="bodySmall"
+            style={{
+              flex: 1,
+              color: feedback.type === 'success' ? theme.deliveryBannerText : theme.textPrimary,
+            }}
+          >
+            {feedback.message}
+          </AppText>
+          {feedback.type === 'success' && feedback.onViewCart ? (
+            <Pressable accessibilityRole="button" onPress={feedback.onViewCart}>
+              <AppText variant="bodyMedium" style={{ color: theme.textPrimary, fontWeight: '600' }}>
+                View cart
+              </AppText>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+
       <Pressable
         accessibilityRole="button"
         disabled={disabled || isLoading}
@@ -69,7 +112,19 @@ const styles = StyleSheet.create({
     bottom: 0,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
-    backgroundColor: 'transparent',
+    backgroundColor: colors.surface,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    gap: spacing.sm,
+  },
+  feedback: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderRadius: radius.large,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   cta: {
     width: '100%',

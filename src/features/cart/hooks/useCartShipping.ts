@@ -56,6 +56,14 @@ export function useCartShipping({
   const [isSavingAddress, setIsSavingAddress] = useState(false);
   const [addressError, setAddressError] = useState<string | null>(null);
   const lastAppliedSignature = useRef('');
+  const cartCompositionKey = useMemo(
+    () =>
+      Object.entries(cart)
+        .map(([itemId, line]) => `${itemId}:${line.orderQuantiy ?? 1}`)
+        .sort()
+        .join('|'),
+    [cart],
+  );
 
   useEffect(() => {
     if (authUserId) {
@@ -159,6 +167,7 @@ export function useCartShipping({
   useEffect(() => {
     lastAppliedSignature.current = '';
   }, [
+    cartCompositionKey,
     shippingAddress.city,
     shippingAddress.country,
     shippingAddress.state,

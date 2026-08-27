@@ -11,7 +11,7 @@ interface PayPalProcessingOverlayProps {
 
 export function PayPalProcessingOverlay({
   visible,
-  message = 'Processing your PayPal payment...',
+  message = 'Processing...',
 }: PayPalProcessingOverlayProps) {
   const insets = useSafeAreaInsets();
 
@@ -22,15 +22,10 @@ export function PayPalProcessingOverlay({
   return (
     <Modal visible transparent animationType="fade">
       <View style={[styles.backdrop, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-        <View style={styles.card}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <AppText variant="bodyMedium" style={styles.message}>
-            {message}
-          </AppText>
-          <AppText variant="bodySmall" color="textSecondary" style={styles.hint}>
-            Please wait while we confirm your order.
-          </AppText>
-        </View>
+        <ActivityIndicator size="large" color={colors.textInverse} />
+        <AppText variant="bodyMedium" style={styles.message}>
+          {message}
+        </AppText>
       </View>
     </Modal>
   );
@@ -41,25 +36,13 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    backgroundColor: colors.overlay,
     paddingHorizontal: spacing.xl,
-  },
-  card: {
-    width: '100%',
-    maxWidth: 360,
-    borderRadius: 16,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.xl,
-    alignItems: 'center',
     gap: spacing.md,
   },
   message: {
-    color: colors.textPrimary,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  hint: {
+    color: colors.textInverse,
+    fontWeight: '600',
     textAlign: 'center',
   },
 });

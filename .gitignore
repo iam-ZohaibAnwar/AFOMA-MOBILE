@@ -53,3 +53,4 @@ credentials/
 credentials.json
 .claude/
 .cursor/
+.impeccable/

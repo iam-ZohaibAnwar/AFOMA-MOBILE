@@ -1,6 +1,7 @@
 import { Linking } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 
+import { resolvePayPalAuthRedirectUrl } from './resolvePayPalMobileReturnUrl';
 import {
   isPayPalApprovalCompleteUrl,
   isPayPalCheckoutCancelledUrl,
@@ -33,16 +34,24 @@ function readDeepLinkResult(url: string): PayPalAuthSessionResult | null {
   return null;
 }
 
+function readAuthSessionResult(
+  result: WebBrowser.WebBrowserAuthSessionResult,
+): PayPalAuthSessionResult | null {
+  if (result.type !== 'success' || !result.url) {
+    return null;
+  }
+
+  return readDeepLinkResult(result.url);
+}
+
 /**
- * Opens PayPal in the system browser.
- *
- * The backend currently redirects buyers to the web storefront after approval,
- * which cannot reopen a local Expo Go build. After approving in PayPal, close
- * the browser tab — the app captures the approved order when the browser closes.
+ * Opens PayPal in a system auth session (Safari / Chrome Custom Tab).
+ * The browser auto-closes when PayPal redirects to the configured return URL prefix.
  */
 export async function openPayPalAuthSession(approvalUrl: string): Promise<PayPalAuthSessionResult> {
   preparePayPalAuthSession();
 
+  const redirectUrl = resolvePayPalAuthRedirectUrl();
   let deepLinkResult: PayPalAuthSessionResult | null = null;
 
   const subscription = Linking.addEventListener('url', ({ url }) => {
@@ -56,10 +65,24 @@ export async function openPayPalAuthSession(approvalUrl: string): Promise<PayPal
   });
 
   try {
-    await WebBrowser.openBrowserAsync(approvalUrl, {
+    const result = await WebBrowser.openAuthSessionAsync(approvalUrl, redirectUrl, {
       showInRecents: true,
       createTask: false,
+      preferEphemeralSession: false,
     });
+
+    const sessionResult = readAuthSessionResult(result);
+    if (sessionResult) {
+      return sessionResult;
+    }
+
+    if (result.type === 'cancel' || result.type === 'dismiss') {
+      if (deepLinkResult) {
+        return deepLinkResult;
+      }
+
+      return { status: 'dismissed' };
+    }
 
     if (deepLinkResult) {
       return deepLinkResult;

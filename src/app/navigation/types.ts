@@ -71,7 +71,14 @@ export type ShoppingStackParamList = {
     query?: string;
   };
   Checkout: undefined;
-  Payment: undefined;
+  Payment:
+    | {
+        token?: string;
+        PayerID?: string;
+        payerID?: string;
+        cancel?: string;
+      }
+    | undefined;
   Orders: undefined;
   AccountDetails: undefined;
   AddressBook: undefined;

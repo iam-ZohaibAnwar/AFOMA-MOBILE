@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Linking, Platform } from 'react-native';
 import { PlatformPay } from '@stripe/stripe-react-native';
+import * as WebBrowser from 'expo-web-browser';
 
 import { useStripeCheckoutActions } from '../../../app/providers/StripeCheckoutContext';
-import { isStripeNativeSupported } from '../../../app/utils/isStripeNativeSupported';
+import {
+  isStripeCardCheckoutSupported,
+  isStripePlatformPaySupported,
+} from '../../../app/utils/isStripeNativeSupported';
 
 import { getErrorMessage } from '../../../services/api/errors';
 import {
@@ -12,8 +16,16 @@ import {
   initializeKorapayCheckout,
 } from '../../../services/api/paymentsApi';
 import { extractPayPalApprovalUrl } from '../../../services/api/ordersApi';
+import {
+  clearPayPalPendingSession,
+  loadPayPalPendingSession,
+  savePayPalPendingSession,
+  type PayPalPendingSession,
+} from '../../../services/storage/paypalPendingSessionStorage';
 import type { CreateCheckoutOrderRequest } from '../../../services/types/order';
 import { buildCheckoutOrderPayload, type CheckoutOrderParams } from '../utils/buildCheckoutOrderPayload';
+import { buildStripeBillingDetails } from '../utils/buildStripeBillingDetails';
+import { extractPaymentIntentId } from '../utils/extractPaymentIntentId';
 import { openPayPalAuthSession } from '../utils/openPayPalAuthSession';
 import {
   isPayPalApprovalCompleteUrl,
@@ -21,6 +33,7 @@ import {
   resolvePayPalOrderIdForCapture,
 } from '../utils/paypalReturnUrl';
 import { resolvePayPalCheckoutCurrency, resolvePayPalConversionRate } from '../utils/paypalCheckoutCurrency';
+import { resolveStripeReturnUrl } from '../utils/resolveStripeReturnUrl';
 import { toStripeAmount } from '../utils/toStripeAmount';
 import { useCheckoutCapture } from './useCheckoutCapture';
 import { usePlaceOrder } from './usePlaceOrder';
@@ -37,9 +50,34 @@ export interface KorapayCheckoutSession {
   params: CheckoutOrderParams;
 }
 
-export interface StripeCardSession {
-  clientSecret: string;
-  params: CheckoutOrderParams;
+export interface PaymentRoutePayPalParams {
+  token?: string;
+  PayerID?: string;
+  payerID?: string;
+  cancel?: string;
+}
+
+function buildReturnUrlFromRouteParams(params: PaymentRoutePayPalParams): string | null {
+  if (params.cancel === 'true') {
+    return 'afoma://checkout/paypal?cancel=true';
+  }
+
+  const token = params.token?.trim();
+  const payerId = params.PayerID?.trim() || params.payerID?.trim();
+
+  if (!token && !payerId) {
+    return null;
+  }
+
+  const query = new URLSearchParams();
+  if (token) {
+    query.set('token', token);
+  }
+  if (payerId) {
+    query.set('PayerID', payerId);
+  }
+
+  return `afoma://checkout/paypal?${query.toString()}`;
 }
 
 export function useCheckoutPayment() {
@@ -61,7 +99,6 @@ export function useCheckoutPayment() {
   const stripeActions = useStripeCheckoutActions();
 
   const [korapaySession, setKorapaySession] = useState<KorapayCheckoutSession | null>(null);
-  const [stripeCardSession, setStripeCardSession] = useState<StripeCardSession | null>(null);
   const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
   const [isStripeInitializing, setIsStripeInitializing] = useState(false);
   const [isKorapayInitializing, setIsKorapayInitializing] = useState(false);
@@ -69,15 +106,137 @@ export function useCheckoutPayment() {
   const [isPayPalBrowserPending, setIsPayPalBrowserPending] = useState(false);
   const [isPayPalCapturing, setIsPayPalCapturing] = useState(false);
   const isPayPalFlowActiveRef = useRef(false);
+  const isPayPalBrowserPendingRef = useRef(false);
+  const resumePayPalInFlightRef = useRef(false);
+  const memoryPendingSessionRef = useRef<PayPalPendingSession | null>(null);
+  const captureResultRef = useRef(captureResult);
+
+  useEffect(() => {
+    captureResultRef.current = captureResult;
+  }, [captureResult]);
 
   const resetCheckoutPayment = useCallback(() => {
     resetOrderState();
+    memoryPendingSessionRef.current = null;
+    void clearPayPalPendingSession();
     setKorapaySession(null);
-    setStripeCardSession(null);
     setCheckoutNotice(null);
     setIsPayPalBrowserPending(false);
+    isPayPalBrowserPendingRef.current = false;
     isPayPalFlowActiveRef.current = false;
   }, [resetOrderState]);
+
+  const resolvePendingPayPalSession = useCallback(async (): Promise<PayPalPendingSession | null> => {
+    if (memoryPendingSessionRef.current) {
+      return memoryPendingSessionRef.current;
+    }
+
+    const stored = await loadPayPalPendingSession();
+    if (stored) {
+      memoryPendingSessionRef.current = stored;
+    }
+
+    return stored;
+  }, []);
+
+  const captureApprovedPayPalReturn = useCallback(
+    async (
+      returnUrl: string | undefined,
+      fallbackSession: PayPalPendingSession | null,
+      options?: { quiet?: boolean },
+    ) => {
+      if (captureResultRef.current?.paymentMethod === 'paypal') {
+        memoryPendingSessionRef.current = null;
+        await clearPayPalPendingSession();
+        return true;
+      }
+
+      const memoryContext = getLastPayPalCaptureContext();
+      const pendingSession = fallbackSession ?? memoryPendingSessionRef.current ?? (await loadPayPalPendingSession());
+
+      const orderId = pendingSession?.orderId ?? memoryContext?.orderId;
+      const checkoutParams = pendingSession?.checkoutParams ?? memoryContext?.checkoutParams;
+      const createPayload = pendingSession?.createPayload ?? memoryContext?.createPayload;
+
+      if (!orderId || !checkoutParams || !createPayload) {
+        if (!options?.quiet) {
+          setCheckoutNotice('PayPal payment was approved, but checkout details were lost. Please contact support if you were charged.');
+        }
+        return false;
+      }
+
+      setIsPayPalBrowserPending(false);
+      isPayPalBrowserPendingRef.current = false;
+      setIsPayPalCapturing(true);
+      setCheckoutNotice(null);
+
+      try {
+        const captureOrderId = resolvePayPalOrderIdForCapture(orderId, returnUrl);
+        const result = await capturePayPalOrderWithRetry(
+          captureOrderId,
+          checkoutParams,
+          createPayload,
+          3,
+        );
+
+        if (!result) {
+          if (!options?.quiet && !captureResultRef.current) {
+            setCheckoutNotice(
+              returnUrl
+                ? 'PayPal approved your payment, but order confirmation failed. Please contact support if you were charged.'
+                : 'PayPal payment could not be confirmed. If you were charged, contact support.',
+            );
+          }
+          return Boolean(captureResultRef.current);
+        }
+
+        memoryPendingSessionRef.current = null;
+        await clearPayPalPendingSession();
+        setCheckoutNotice(null);
+        return true;
+      } catch (err) {
+        if (!options?.quiet && !captureResultRef.current) {
+          setCheckoutNotice(getErrorMessage(err, 'Failed to complete PayPal payment'));
+        }
+        return Boolean(captureResultRef.current);
+      } finally {
+        isPayPalFlowActiveRef.current = false;
+        setIsPayPalCapturing(false);
+      }
+    },
+    [capturePayPalOrderWithRetry, getLastPayPalCaptureContext],
+  );
+
+  const tryAutoCapturePendingPayPal = useCallback(async () => {
+    if (
+      resumePayPalInFlightRef.current ||
+      captureResult ||
+      isPayPalCapturing ||
+      !isPayPalBrowserPendingRef.current
+    ) {
+      return false;
+    }
+
+    const session = memoryPendingSessionRef.current ?? (await loadPayPalPendingSession());
+    if (!session) {
+      return false;
+    }
+
+    resumePayPalInFlightRef.current = true;
+
+    try {
+      const success = await captureApprovedPayPalReturn(undefined, session, { quiet: true });
+      if (success) {
+        isPayPalFlowActiveRef.current = false;
+        isPayPalBrowserPendingRef.current = false;
+        setIsPayPalBrowserPending(false);
+        void WebBrowser.dismissBrowser();
+      }
+      return success;
+    } finally {
+      resumePayPalInFlightRef.current = false;
+    }
+  }, [captureApprovedPayPalReturn, captureResult, isPayPalCapturing]);
 
   const runPayPalBrowserCheckout = useCallback(
     async (
@@ -90,10 +249,21 @@ export function useCheckoutPayment() {
         return false;
       }
 
+      const pendingSession: PayPalPendingSession = {
+        orderId,
+        approvalUrl,
+        createPayload,
+        checkoutParams: params,
+        startedAt: Date.now(),
+      };
+
+      memoryPendingSessionRef.current = pendingSession;
+      await savePayPalPendingSession(pendingSession);
       isPayPalFlowActiveRef.current = true;
+      isPayPalBrowserPendingRef.current = true;
       setIsPayPalBrowserPending(true);
       setCheckoutNotice(
-        'Complete payment in PayPal, then close the browser to return to the app.',
+        'PayPal opens in your browser so you can paste credentials and use saved passwords. Return here after approving payment.',
       );
 
       try {
@@ -101,12 +271,16 @@ export function useCheckoutPayment() {
 
         if (authResult.status === 'cancelled') {
           setCheckoutNotice('PayPal checkout was cancelled.');
+          memoryPendingSessionRef.current = null;
+          await clearPayPalPendingSession();
           return false;
         }
 
         if (authResult.status === 'approved') {
           if (isPayPalCheckoutCancelledUrl(authResult.returnUrl)) {
             setCheckoutNotice('PayPal checkout was cancelled.');
+            memoryPendingSessionRef.current = null;
+            await clearPayPalPendingSession();
             return false;
           }
 
@@ -114,43 +288,67 @@ export function useCheckoutPayment() {
             setCheckoutNotice('PayPal payment was not completed. Please try again.');
             return false;
           }
+
+          return captureApprovedPayPalReturn(authResult.returnUrl, pendingSession);
         }
 
-        setIsPayPalBrowserPending(false);
-        setIsPayPalCapturing(true);
-        setCheckoutNotice(null);
-
-        const captureOrderId = resolvePayPalOrderIdForCapture(
-          orderId,
-          authResult.status === 'approved' ? authResult.returnUrl : undefined,
-        );
-        const retryAttempts = authResult.status === 'dismissed' ? 3 : 1;
-        const result = await capturePayPalOrderWithRetry(
-          captureOrderId,
-          params,
-          createPayload,
-          retryAttempts,
-        );
-        if (!result) {
-          setCheckoutNotice(
-            authResult.status === 'dismissed'
-              ? 'PayPal payment could not be confirmed. If you were charged, contact support.'
-              : 'PayPal approved your payment, but order confirmation failed. Please contact support if you were charged.',
-          );
-          return false;
-        }
-
-        return true;
+        return captureApprovedPayPalReturn(undefined, pendingSession);
       } catch (err) {
         setCheckoutNotice(getErrorMessage(err, 'Failed to complete PayPal payment'));
         return false;
       } finally {
         isPayPalFlowActiveRef.current = false;
+        isPayPalBrowserPendingRef.current = false;
         setIsPayPalBrowserPending(false);
-        setIsPayPalCapturing(false);
+        void WebBrowser.dismissBrowser();
       }
     },
-    [capturePayPalOrderWithRetry],
+    [captureApprovedPayPalReturn],
+  );
+
+  const resumePayPalFromReturnUrl = useCallback(
+    async (returnUrl: string) => {
+      if (resumePayPalInFlightRef.current || captureResult) {
+        return false;
+      }
+
+      if (isPayPalCheckoutCancelledUrl(returnUrl)) {
+        setCheckoutNotice('PayPal checkout was cancelled.');
+        memoryPendingSessionRef.current = null;
+        await clearPayPalPendingSession();
+        return false;
+      }
+
+      if (!isPayPalApprovalCompleteUrl(returnUrl)) {
+        return false;
+      }
+
+      resumePayPalInFlightRef.current = true;
+
+      try {
+        const pendingSession = await resolvePendingPayPalSession();
+        return captureApprovedPayPalReturn(returnUrl, pendingSession);
+      } finally {
+        resumePayPalInFlightRef.current = false;
+      }
+    },
+    [captureApprovedPayPalReturn, captureResult, resolvePendingPayPalSession],
+  );
+
+  const resumePayPalFromRouteParams = useCallback(
+    async (params?: PaymentRoutePayPalParams) => {
+      if (!params) {
+        return false;
+      }
+
+      const returnUrl = buildReturnUrlFromRouteParams(params);
+      if (!returnUrl) {
+        return false;
+      }
+
+      return resumePayPalFromReturnUrl(returnUrl);
+    },
+    [resumePayPalFromReturnUrl],
   );
 
   const startPayPalCheckout = useCallback(
@@ -188,6 +386,42 @@ export function useCheckoutPayment() {
     },
     [placeOrder, runPayPalBrowserCheckout],
   );
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        void tryAutoCapturePendingPayPal();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [tryAutoCapturePendingPayPal]);
+
+  useEffect(() => {
+    const handleIncomingUrl = (url: string) => {
+      if (!url.includes('checkout/paypal') && !url.includes('thank-you') && !url.includes('payment-success')) {
+        return;
+      }
+
+      void resumePayPalFromReturnUrl(url);
+    };
+
+    void Linking.getInitialURL().then((initialUrl) => {
+      if (initialUrl) {
+        handleIncomingUrl(initialUrl);
+      }
+    });
+
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      handleIncomingUrl(url);
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [resumePayPalFromReturnUrl]);
 
   const startKorapayCheckout = useCallback(async (params: CheckoutOrderParams) => {
     setIsKorapayInitializing(true);
@@ -252,8 +486,8 @@ export function useCheckoutPayment() {
 
   const startStripeCardCheckout = useCallback(
     async (params: CheckoutOrderParams, displayAmount: number, currency: string) => {
-      if (!isStripeNativeSupported() || !stripeActions) {
-        setCheckoutNotice('Card payments require a development build. PayPal is available in Expo Go.');
+      if (!isStripeCardCheckoutSupported() || !stripeActions) {
+        setCheckoutNotice('Card payments are unavailable. Add EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY to continue.');
         return false;
       }
 
@@ -262,58 +496,70 @@ export function useCheckoutPayment() {
 
       try {
         const clientSecret = await createStripeClientSecret(displayAmount, currency);
-        setStripeCardSession({ clientSecret, params });
-        return true;
-      } catch (err) {
-        setCheckoutNotice(getErrorMessage(err, 'Could not start card payment'));
-        return false;
-      } finally {
-        setIsStripeInitializing(false);
-      }
-    },
-    [createStripeClientSecret, stripeActions],
-  );
-
-  const completeStripeCardPayment = useCallback(
-    async (billing: { name: string; email: string }) => {
-      if (!stripeCardSession || !stripeActions) {
-        return;
-      }
-
-      const { clientSecret, params } = stripeCardSession;
-
-      try {
-        const { error, paymentIntent } = await stripeActions.confirmPayment(clientSecret, {
-          paymentMethodType: 'Card',
-          paymentMethodData: {
-            billingDetails: {
-              name: billing.name,
-              email: billing.email,
+        const { error: initError } = await stripeActions.initPaymentSheet({
+          merchantDisplayName: 'AFOMA Marketplace',
+          paymentIntentClientSecret: clientSecret,
+          defaultBillingDetails: buildStripeBillingDetails(params),
+          allowsDelayedPaymentMethods: false,
+          returnURL: resolveStripeReturnUrl(),
+          appearance: {
+            colors: {
+              primary: '#1F628E',
+              background: '#FFFFFF',
+              componentBackground: '#FFFFFF',
+              componentBorder: '#E2E8F0',
+              componentDivider: '#FED7AA',
+              primaryText: '#172554',
+              secondaryText: '#475569',
+              placeholderText: '#94A3B8',
+              icon: '#1F628E',
+            },
+            shapes: {
+              borderRadius: 12,
             },
           },
         });
 
-        if (error) {
-          throw new Error(error.message || 'Card payment failed');
+        if (initError) {
+          throw new Error(initError.message || 'Could not open secure card checkout');
         }
 
-        if (paymentIntent?.status !== 'Succeeded' || !paymentIntent.id) {
-          throw new Error('Card payment was not completed');
+        setIsStripeInitializing(false);
+
+        const { error: presentError } = await stripeActions.presentPaymentSheet();
+
+        if (presentError) {
+          if (presentError.code === 'Canceled') {
+            setCheckoutNotice('Card payment was cancelled.');
+            return false;
+          }
+
+          throw new Error(presentError.message || 'Card payment failed');
         }
 
-        setStripeCardSession(null);
-        await captureCheckoutPayment(paymentIntent.id, params, 'stripe');
+        const paymentIntentId = extractPaymentIntentId(clientSecret);
+        const result = await captureCheckoutPayment(paymentIntentId, params, 'stripe');
+
+        if (!result) {
+          if (!captureResultRef.current) {
+            setCheckoutNotice('Your card was charged, but order confirmation failed. Check My Orders or contact support.');
+          }
+          return Boolean(captureResultRef.current);
+        }
+
+        setCheckoutNotice(null);
+        return true;
       } catch (err) {
-        setCheckoutNotice(getErrorMessage(err, 'Card payment failed'));
+        if (!captureResultRef.current) {
+          setCheckoutNotice(getErrorMessage(err, 'Could not complete card payment'));
+        }
+        return Boolean(captureResultRef.current);
+      } finally {
+        setIsStripeInitializing(false);
       }
     },
-    [captureCheckoutPayment, stripeActions, stripeCardSession],
+    [captureCheckoutPayment, createStripeClientSecret, stripeActions],
   );
-
-  const cancelStripeCardCheckout = useCallback(() => {
-    setStripeCardSession(null);
-    setCheckoutNotice('Card payment was cancelled.');
-  }, []);
 
   const checkApplePaySupport = useCallback(async () => {
     if (Platform.OS !== 'ios' || !stripeActions) {
@@ -333,8 +579,8 @@ export function useCheckoutPayment() {
 
   const startApplePayCheckout = useCallback(
     async (params: CheckoutOrderParams, displayAmount: number, currency: string) => {
-      if (!isStripeNativeSupported() || !stripeActions) {
-        setCheckoutNotice('Apple Pay requires a development build. PayPal is available in Expo Go.');
+      if (!isStripePlatformPaySupported() || !stripeActions) {
+        setCheckoutNotice('Apple Pay requires a development build. Use card or PayPal in Expo Go.');
         return false;
       }
 
@@ -406,7 +652,13 @@ export function useCheckoutPayment() {
 
   const retryCaptureForCreatedOrder = useCallback(async () => {
     const context = getLastPayPalCaptureContext();
-    if (!context) {
+    const pendingSession = await resolvePendingPayPalSession();
+
+    const orderId = pendingSession?.orderId ?? context?.orderId;
+    const checkoutParams = pendingSession?.checkoutParams ?? context?.checkoutParams;
+    const createPayload = pendingSession?.createPayload ?? context?.createPayload;
+
+    if (!orderId || !checkoutParams || !createPayload) {
       setCheckoutNotice('No PayPal order is available to confirm.');
       return false;
     }
@@ -416,9 +668,9 @@ export function useCheckoutPayment() {
 
     try {
       const result = await capturePayPalOrderWithRetry(
-        context.orderId,
-        context.checkoutParams,
-        context.createPayload,
+        orderId,
+        checkoutParams,
+        createPayload,
         3,
       );
 
@@ -427,11 +679,13 @@ export function useCheckoutPayment() {
         return false;
       }
 
+      memoryPendingSessionRef.current = null;
+      await clearPayPalPendingSession();
       return true;
     } finally {
       setIsPayPalCapturing(false);
     }
-  }, [capturePayPalOrderWithRetry, getLastPayPalCaptureContext]);
+  }, [capturePayPalOrderWithRetry, getLastPayPalCaptureContext, resolvePendingPayPalSession]);
 
   const isProcessing =
     isPlacingOrder ||
@@ -440,8 +694,7 @@ export function useCheckoutPayment() {
     isPayPalCapturing ||
     isStripeInitializing ||
     isKorapayInitializing ||
-    Boolean(korapaySession) ||
-    Boolean(stripeCardSession);
+    Boolean(korapaySession);
 
   return {
     isPlacingOrder,
@@ -458,17 +711,16 @@ export function useCheckoutPayment() {
     createdOrderId,
     checkoutNotice,
     korapaySession,
-    stripeCardSession,
     applePaySupported,
     checkApplePaySupport,
     startPayPalCheckout,
     continuePayPalCheckout,
+    resumePayPalFromRouteParams,
+    resumePayPalFromReturnUrl,
     startKorapayCheckout,
     completeKorapayCheckout,
     cancelKorapayCheckout,
     startStripeCardCheckout,
-    completeStripeCardPayment,
-    cancelStripeCardCheckout,
     startApplePayCheckout,
     retryCaptureForCreatedOrder,
     resetCheckoutPayment,
@@ -479,8 +731,13 @@ export function getCheckoutPaymentErrorMessage(
   orderError: string | null,
   captureError: string | null,
   checkoutNotice: string | null,
+  hasSuccessfulCapture = false,
   fallback = 'Failed to process payment',
 ): string | null {
+  if (hasSuccessfulCapture) {
+    return null;
+  }
+
   return orderError || captureError || checkoutNotice || null;
 }
 

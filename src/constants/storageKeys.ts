@@ -8,4 +8,5 @@ export const STORAGE_KEYS = {
   guestCheckoutProfile: 'afoma.guestCheckoutProfile',
   selectedDeliveryAddress: 'afoma.selectedDeliveryAddress',
   appliedCoupon: 'afoma.appliedCoupon',
+  paypalPendingCheckout: 'afoma.paypalPendingCheckout',
 } as const;

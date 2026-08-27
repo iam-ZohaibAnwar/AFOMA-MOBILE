@@ -3,12 +3,13 @@ import { Platform } from 'react-native';
 import { StripeProvider } from '@stripe/stripe-react-native';
 
 import { env } from '../config/env';
-import { isStripeNativeSupported } from '../utils/isStripeNativeSupported';
+import { isStripeConfigured } from '../utils/isStripeNativeSupported';
+import { resolveStripeUrlScheme } from '../../features/checkout/utils/resolveStripeReturnUrl';
 import { StripeCheckoutBridge } from './StripeCheckoutBridge';
 import { StripeCheckoutContextProvider } from './StripeCheckoutContext';
 
 export function StripeAppProvider({ children }: { children: ReactNode }) {
-  if (!isStripeNativeSupported()) {
+  if (!isStripeConfigured()) {
     return (
       <StripeCheckoutContextProvider value={null}>{children}</StripeCheckoutContextProvider>
     );
@@ -20,7 +21,11 @@ export function StripeAppProvider({ children }: { children: ReactNode }) {
       : undefined;
 
   return (
-    <StripeProvider publishableKey={env.stripePublishableKey} merchantIdentifier={merchantIdentifier}>
+    <StripeProvider
+      publishableKey={env.stripePublishableKey}
+      merchantIdentifier={merchantIdentifier}
+      urlScheme={resolveStripeUrlScheme()}
+    >
       <StripeCheckoutBridge>{children}</StripeCheckoutBridge>
     </StripeProvider>
   );
