@@ -99,6 +99,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    const { disconnectChatSocket } = await import('../../../services/socket/chatSocket');
+    disconnectChatSocket();
     await clearAuthenticatedSession();
     await clearStoredUserPricingInfo();
     setState({

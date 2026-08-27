@@ -1,7 +1,8 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import type { AuthUser } from '../../auth/types';
 import { resolveAuthUserId } from '../../auth/utils/resolveAuthUserId';
+import { guestProfileToShippingAddress } from '../../cart/utils/cartShippingIdentity';
 import type {
   ShippingAddress,
   ShippingAddressErrors,
@@ -13,12 +14,24 @@ import {
   validateShippingAddress,
 } from '../utils/validateShippingAddress';
 import { useAuthenticatedShippingAddress } from './useAuthenticatedShippingAddress';
+import { useGuestCheckoutIdentity } from './useGuestCheckoutIdentity';
 
 export function useCheckoutShippingAddress(user: AuthUser | null) {
   const authUserId = resolveAuthUserId(user);
   const authShipping = useAuthenticatedShippingAddress(user, authUserId);
+  const { guestProfile } = useGuestCheckoutIdentity(user);
   const [guestShippingAddress, setGuestShippingAddress] = useState<ShippingAddress>(emptyShippingAddress());
   const [addressErrors, setAddressErrors] = useState<ShippingAddressErrors>({});
+
+  useEffect(() => {
+    if (authUserId) {
+      return;
+    }
+
+    if (guestProfile) {
+      setGuestShippingAddress(guestProfileToShippingAddress(guestProfile));
+    }
+  }, [authUserId, guestProfile]);
 
   const shippingAddress = authUserId ? authShipping.shippingAddress : guestShippingAddress;
   const setShippingAddress = authUserId ? authShipping.setShippingAddress : setGuestShippingAddress;

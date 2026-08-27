@@ -1,27 +1,33 @@
 import type { NavigationProp, ParamListBase } from '@react-navigation/native';
-
-
+import { CommonActions } from '@react-navigation/native';
 
 type Nav = NavigationProp<ParamListBase>;
 
-
+function navigateToMarketplaceSegment(navigation: Nav, segment: 'home' | 'category') {
+  navigation.dispatch(
+    CommonActions.navigate({
+      name: 'MainTabs',
+      params: {
+        screen: 'MarketplaceTab',
+        params: { segment },
+      },
+      merge: true,
+    }),
+  );
+}
 
 export function navigateToHomeTab(navigation: Nav) {
+  navigateToMarketplaceSegment(navigation, 'home');
+}
 
-  navigation.navigate('MainTabs', {
-
-    screen: 'MarketplaceTab',
-
-    params: { segment: 'home' },
-
-  });
-
+export function navigateToCategoryTab(navigation: Nav) {
+  navigateToMarketplaceSegment(navigation, 'category');
 }
 
 
 
 export function navigateToBrowseTab(navigation: Nav) {
-  navigateToHomeTab(navigation);
+  navigateToCategoryTab(navigation);
 }
 
 
@@ -44,10 +50,18 @@ export function navigateToSearchTab(navigation: Nav, query?: string) {
 
 
 
-export function navigateToCartTab(navigation: Nav) {
+export function navigateToShopTab(navigation: Nav, _options?: { resetBrowse?: boolean }) {
+  navigateToCategoryTab(navigation);
+}
 
-  navigation.navigate('MainTabs', { screen: 'CartTab' });
-
+export function navigateToCartTab(
+  navigation: Nav,
+  params?: { highlightItemId?: string },
+) {
+  navigation.navigate('MainTabs', {
+    screen: 'CartTab',
+    params,
+  });
 }
 
 
@@ -66,6 +80,6 @@ export function navigateToShop(navigation: Nav, slug: string) {
     return;
   }
 
-  navigation.navigate('Shop', { slug: trimmed });
+  navigation.navigate('SellerShop', { slug: trimmed });
 }
 

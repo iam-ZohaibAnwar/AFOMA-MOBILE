@@ -156,6 +156,7 @@ export function SearchScreenContent({
                 emptyMessage={emptyMessage}
                 ListFooterComponent={
                   <SuggestedProductsSection
+                    embedded
                     title="More like this"
                     products={suggestedProducts}
                     onProductPress={onProductPress}

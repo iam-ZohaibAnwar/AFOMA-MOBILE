@@ -1,8 +1,10 @@
+import { type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '../../../components/ui/AppText';
 import { colors, spacing } from '../../../design-system';
 import { formatProductPrice } from '../../products/utils/productDisplay';
+import { SummaryValuePending } from './SummaryValuePending';
 
 export interface CartOrderSummaryProps {
   currency?: string;
@@ -12,6 +14,7 @@ export interface CartOrderSummaryProps {
   shippingAmount?: number | null;
   serviceChargeAmount?: number | null;
   total?: number | null;
+  shippingPending?: boolean;
 }
 
 function SummaryRow({
@@ -21,21 +24,28 @@ function SummaryRow({
   emphasized = false,
 }: {
   label: string;
-  value: string;
+  value: ReactNode;
   valueColor?: string;
   emphasized?: boolean;
 }) {
-  return (
-    <View style={styles.row}>
-      <AppText variant={emphasized ? 'bodyMedium' : 'body'} color={emphasized ? 'textPrimary' : 'textSecondary'}>
-        {label}
-      </AppText>
+  const valueContent =
+    typeof value === 'string' ? (
       <AppText
         variant={emphasized ? 'h3' : 'bodyMedium'}
         style={valueColor ? { color: valueColor } : emphasized ? styles.totalValue : styles.value}
       >
         {value}
       </AppText>
+    ) : (
+      value
+    );
+
+  return (
+    <View style={styles.row}>
+      <AppText variant={emphasized ? 'bodyMedium' : 'body'} color={emphasized ? 'textPrimary' : 'textSecondary'}>
+        {label}
+      </AppText>
+      {valueContent}
     </View>
   );
 }
@@ -60,6 +70,7 @@ export function CartOrderSummary({
   shippingAmount = null,
   serviceChargeAmount = null,
   total = null,
+  shippingPending = false,
 }: CartOrderSummaryProps) {
   const subtotalLabel =
     typeof itemCount === 'number'
@@ -76,12 +87,36 @@ export function CartOrderSummary({
           valueColor={colors.success}
         />
       ) : null}
-      <SummaryRow label="Shipping" value={formatSummaryAmount(shippingAmount, currency)} />
-      <SummaryRow label="Service charge" value={formatSummaryAmount(serviceChargeAmount, currency)} />
+      <SummaryRow
+        label="Shipping"
+        value={
+          shippingPending ? (
+            <SummaryValuePending delayMs={0} />
+          ) : (
+            formatSummaryAmount(shippingAmount, currency)
+          )
+        }
+      />
+      <SummaryRow
+        label="Service charge"
+        value={
+          shippingPending ? (
+            <SummaryValuePending delayMs={120} />
+          ) : (
+            formatSummaryAmount(serviceChargeAmount, currency)
+          )
+        }
+      />
       <View style={styles.dashedDivider} />
       <SummaryRow
         label="Total amount"
-        value={formatSummaryAmount(total, currency)}
+        value={
+          shippingPending ? (
+            <SummaryValuePending emphasized delayMs={240} />
+          ) : (
+            formatSummaryAmount(total, currency)
+          )
+        }
         emphasized
       />
     </View>

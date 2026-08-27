@@ -1,15 +1,13 @@
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Rating } from '../../../components/ecommerce';
 import { AppText } from '../../../components/ui/AppText';
-import { colors, radius, spacing } from '../../../design-system';
+import { spacing } from '../../../design-system';
 import type { PdpTheme } from '../../../design-system/pdpTheme';
 import type { Review } from '../../../services/types/review';
 
 export interface ProductDetailReviewsContentProps {
   reviews: Review[];
-  reviewCount: number;
-  isLoading: boolean;
   theme: PdpTheme;
 }
 
@@ -41,39 +39,21 @@ function getReviewRating(review: Review): number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 5;
 }
 
-export function ProductDetailReviewsContent({
-  reviews,
-  reviewCount,
-  isLoading,
-  theme,
-}: ProductDetailReviewsContentProps) {
-  if (isLoading) {
-    return (
-      <View style={styles.loadingRow}>
-        <ActivityIndicator size="small" color={colors.textPrimary} />
-        <AppText variant="bodySmall" style={{ color: theme.textSecondary }}>
-          Loading reviews…
-        </AppText>
-      </View>
-    );
-  }
+export function ProductDetailReviewsContent({ reviews, theme }: ProductDetailReviewsContentProps) {
+  const visibleReviews = reviews
+    .filter((review) => !review.isReply && getReviewText(review))
+    .slice(0, 3);
 
-  if (reviewCount === 0 || reviews.length === 0) {
-    return (
-      <AppText variant="bodySmall" style={{ color: theme.textSecondary }}>
-        No reviews yet for this product.
-      </AppText>
-    );
+  if (visibleReviews.length === 0) {
+    return null;
   }
-
-  const visibleReviews = reviews.filter((review) => !review.isReply && getReviewText(review)).slice(0, 3);
 
   return (
     <View style={styles.container}>
       {visibleReviews.map((review, index) => (
         <View
           key={review._id ?? `review-${index}`}
-          style={[styles.reviewCard, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
+          style={[styles.reviewRow, { borderTopColor: theme.border }]}
         >
           <View style={styles.reviewHeader}>
             <AppText variant="bodyMedium" style={[styles.reviewerName, { color: theme.textPrimary }]}>
@@ -86,11 +66,7 @@ export function ProductDetailReviewsContent({
               starEmptyColor={theme.starEmpty}
             />
           </View>
-          <AppText
-            variant="bodySmall"
-            style={{ color: theme.textSecondary }}
-            numberOfLines={3}
-          >
+          <AppText variant="bodySmall" style={{ color: theme.textSecondary }} numberOfLines={4}>
             {getReviewText(review)}
           </AppText>
         </View>
@@ -101,18 +77,12 @@ export function ProductDetailReviewsContent({
 
 const styles = StyleSheet.create({
   container: {
-    gap: spacing.sm,
+    gap: 0,
   },
-  loadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  reviewRow: {
     gap: spacing.sm,
-  },
-  reviewCard: {
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radius.large,
-    borderWidth: StyleSheet.hairlineWidth,
+    paddingTop: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   reviewHeader: {
     flexDirection: 'row',

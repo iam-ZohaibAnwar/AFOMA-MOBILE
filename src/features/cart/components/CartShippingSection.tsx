@@ -1,10 +1,9 @@
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppText } from '../../../components/ui/AppText';
 import { colors, radius, spacing } from '../../../design-system';
 import type { CheckoutShippingOption } from '../../checkout/hooks/useCheckoutShippingRates';
-import { formatConsolidatedShippingSummary } from '../utils/shippingSummary';
 
 export interface CartShippingSectionProps {
   isAuthenticated: boolean;
@@ -14,8 +13,6 @@ export interface CartShippingSectionProps {
   isLoading: boolean;
   error: string | null;
   selectedOptions: CheckoutShippingOption[];
-  selectedShippingCost: number;
-  hasMultipleSellers: boolean;
   onOpenDeliveryDetails: () => void;
   onOpenShippingOptions: () => void;
   onSignIn: () => void;
@@ -30,8 +27,6 @@ export function CartShippingSection({
   isLoading,
   error,
   selectedOptions,
-  selectedShippingCost,
-  hasMultipleSellers,
   onOpenDeliveryDetails,
   onOpenShippingOptions,
   onSignIn,
@@ -39,8 +34,7 @@ export function CartShippingSection({
 }: CartShippingSectionProps) {
   if (isLoadingAuthAddress) {
     return (
-      <View style={styles.loadingBox}>
-        <ActivityIndicator size="small" color={colors.primary} />
+      <View style={styles.gateBox}>
         <AppText variant="body" color="textSecondary">
           Loading your saved delivery address...
         </AppText>
@@ -51,7 +45,6 @@ export function CartShippingSection({
   if (needsDeliveryDetails) {
     return (
       <View style={styles.gateBox}>
-        <AppText variant="label">Shipping</AppText>
         <AppText variant="body" color="textSecondary">
           {isAuthenticated
             ? 'Your account does not have a complete delivery address yet. Add one to calculate shipping.'
@@ -68,21 +61,22 @@ export function CartShippingSection({
     );
   }
 
+  const canChangeShipping =
+    canFetchRates && !error && selectedOptions.length > 0 && !isLoading;
+
+  const showInlineMessage =
+    !canFetchRates || error || (!isLoading && selectedOptions.length === 0);
+
+  if (!showInlineMessage && !canChangeShipping && !isAuthenticated) {
+    return null;
+  }
+
   return (
     <View style={styles.section}>
-      <AppText variant="label">Shipping</AppText>
-
       {!canFetchRates ? (
         <AppText variant="body" color="textSecondary">
           Complete delivery details to calculate shipping.
         </AppText>
-      ) : isLoading ? (
-        <View style={styles.inlineState}>
-          <ActivityIndicator size="small" color={colors.primary} />
-          <AppText variant="body" color="textSecondary">
-            Calculating shipping rates...
-          </AppText>
-        </View>
       ) : error ? (
         <View style={styles.inlineState}>
           <AppText variant="bodySmall" color="error">
@@ -94,24 +88,13 @@ export function CartShippingSection({
             </AppText>
           </Pressable>
         </View>
-      ) : selectedOptions.length > 0 ? (
-        <View style={styles.summaryBox}>
-          <AppText variant="bodyMedium" style={styles.summaryText}>
-            {formatConsolidatedShippingSummary(selectedOptions, selectedShippingCost)}
-          </AppText>
-          {hasMultipleSellers ? (
-            <AppText variant="caption" color="textMuted">
-              All items ship to your delivery address. Shipping is combined at checkout.
-            </AppText>
-          ) : null}
-        </View>
-      ) : (
+      ) : !isLoading && selectedOptions.length === 0 ? (
         <AppText variant="body" color="textSecondary">
           No shipping options available.
         </AppText>
-      )}
+      ) : null}
 
-      {!isLoading && !error && selectedOptions.length > 0 ? (
+      {canChangeShipping ? (
         <Pressable accessibilityRole="button" onPress={onOpenShippingOptions}>
           <AppText variant="bodyMedium" color="textLink">
             Change shipping
@@ -132,7 +115,7 @@ export function CartShippingSection({
 
 const styles = StyleSheet.create({
   section: {
-    gap: spacing.md,
+    gap: spacing.sm,
     paddingVertical: spacing.lg,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.borderStrong,
@@ -149,23 +132,7 @@ const styles = StyleSheet.create({
   actions: {
     gap: spacing.sm,
   },
-  loadingBox: {
-    gap: spacing.sm,
-    alignItems: 'center',
-    paddingVertical: spacing.lg,
-  },
   inlineState: {
     gap: spacing.sm,
-  },
-  summaryBox: {
-    gap: spacing.xs,
-    padding: spacing.md,
-    borderRadius: radius.large,
-    backgroundColor: colors.surfaceSecondary,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  summaryText: {
-    color: colors.textPrimary,
   },
 });

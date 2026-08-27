@@ -22,7 +22,8 @@ export type AuthStackParamList = {
 
 export type MainTabParamList = {
   MarketplaceTab: { segment?: 'home' | 'category' } | undefined;
-  CartTab: undefined;
+  ShopTab: { resetBrowseAt?: number } | undefined;
+  CartTab: { highlightItemId?: string } | undefined;
   AccountTab: undefined;
 };
 
@@ -37,6 +38,8 @@ export type ShoppingStackParamList = {
     subCategoryId: string;
     categoryName?: string;
     subCategoryName?: string;
+    /** Pre-select a child tab when opening from deep links or drawer. */
+    initialChildCategoryId?: string;
   };
   ChildCategory: {
     categoryId: string;
@@ -66,6 +69,8 @@ export type ShoppingStackParamList = {
   ProductDetail: {
     productId?: string;
     slug?: string;
+    /** After guest login from "Message seller", reopen chat automatically. */
+    openChat?: boolean;
   };
   Search: {
     query?: string;
@@ -83,11 +88,16 @@ export type ShoppingStackParamList = {
   AccountDetails: undefined;
   AddressBook: undefined;
   ReferralEarnings: undefined;
+  ChatList: undefined;
+  ChatThread: {
+    chatId?: string;
+    receiverId?: string;
+  };
   TermsConditions: undefined;
   OrderDetail: {
     orderId: string;
   };
-  Shop: {
+  SellerShop: {
     slug: string;
   };
 };

@@ -1,5 +1,13 @@
 import { type ReactElement, type Ref } from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
+import {
+  FlatList,
+  StyleSheet,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 
 import { ProductCard } from '../../../components/ecommerce/ProductCard';
 import { SectionHeader } from '../../../components/ecommerce/SectionHeader';
@@ -26,6 +34,13 @@ interface ProductGridProps {
   showRating?: boolean;
   onCartPress?: (product: Product) => void;
   listRef?: Ref<FlatList<Product>>;
+  onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  scrollEventThrottle?: number;
+  contentInsetBottom?: number;
+  scrollEnabled?: boolean;
+  /** Removes outer list padding for grids nested inside another padded container. */
+  nestedInList?: boolean;
+  style?: StyleProp<ViewStyle>;
 }
 
 export function ProductGrid({
@@ -43,6 +58,12 @@ export function ProductGrid({
   showRating = false,
   onCartPress,
   listRef,
+  onScroll,
+  scrollEventThrottle = 16,
+  contentInsetBottom = 0,
+  scrollEnabled = true,
+  nestedInList = false,
+  style,
 }: ProductGridProps) {
   const showEmptyState = !isLoading && products.length === 0;
 
@@ -58,15 +79,21 @@ export function ProductGrid({
   return (
     <FlatList
       ref={listRef}
+      style={style}
       data={products}
       keyExtractor={(item, index) => getProductRouteId(item) ?? `product-${index}`}
       numColumns={2}
+      scrollEnabled={scrollEnabled}
+      nestedScrollEnabled={nestedInList}
       columnWrapperStyle={[styles.row, edgeToEdgeHeader && styles.rowEdgeToEdge]}
       contentContainerStyle={[
-        styles.listContent,
+        nestedInList ? styles.listContentNested : styles.listContent,
         edgeToEdgeHeader && styles.listContentEdgeToEdge,
+        contentInsetBottom > 0 && { paddingBottom: spacing.lg + contentInsetBottom },
       ]}
       showsVerticalScrollIndicator={false}
+      onScroll={onScroll}
+      scrollEventThrottle={scrollEventThrottle}
       ListHeaderComponent={listHeader}
       renderItem={({ item }) => (
         <View style={styles.cardWrap}>
@@ -103,9 +130,13 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     flexGrow: 1,
   },
+  listContentNested: {
+    padding: 0,
+    flexGrow: 0,
+  },
   listContentEdgeToEdge: {
     paddingHorizontal: 0,
-    paddingTop: 0,
+    paddingTop: spacing.lg,
   },
   row: {
     alignItems: 'stretch',

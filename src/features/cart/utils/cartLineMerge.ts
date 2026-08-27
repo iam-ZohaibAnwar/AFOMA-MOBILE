@@ -40,6 +40,7 @@ export interface PreparedCartLine {
   quantityAdded: number;
   totalQuantity: number;
   unitCad: number;
+  wasCartEmptyBeforeAdd: boolean;
 }
 
 export function parseMaxQuantity(raw: number | string | undefined, fallback?: number | string): number {
@@ -155,6 +156,7 @@ export function mergeProductIntoCart(
   }
 
   const quantityAdded = Math.max(0, totalQuantity - existingQuantity);
+  const wasCartEmptyBeforeAdd = Object.keys(cart).length === 0;
 
   const line: CartLineItem = {
     ...(existingLine ?? {}),
@@ -182,6 +184,7 @@ export function mergeProductIntoCart(
       quantityAdded,
       totalQuantity,
       unitCad,
+      wasCartEmptyBeforeAdd,
     },
   };
 }

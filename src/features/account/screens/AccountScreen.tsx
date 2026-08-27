@@ -6,6 +6,11 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { navigateToSellerScreen } from '../../../app/navigation/sellerNavigation';
+import {
+  marketplaceScrollProps,
+  useMarketplaceFooterContentInset,
+  useMarketplaceScrollHandler,
+} from '../../../app/navigation/marketplaceChrome';
 import type { SellerStackParamList } from '../../../app/navigation/sellerTypes';
 import { navigateToAdminScreen } from '../../../features/admin/navigation/adminNavigation';
 import { colors, spacing } from '../../../design-system';
@@ -36,6 +41,8 @@ function showComingSoon(feature: string) {
 
 export function AccountScreen(_props: Props) {
   const insets = useSafeAreaInsets();
+  const footerInset = useMarketplaceFooterContentInset();
+  const onMarketplaceScroll = useMarketplaceScrollHandler();
   const rootNavigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const stackNavigation = useNavigation<AccountNavigationProp>();
   const { user, logout, role, fullAccess, isAuthenticated, isLoading: isAuthLoading } = useAuth();
@@ -80,9 +87,11 @@ export function AccountScreen(_props: Props) {
       style={styles.screen}
       contentContainerStyle={[
         styles.content,
-        { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.xxl },
+        { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.xxl + footerInset },
       ]}
       showsVerticalScrollIndicator={false}
+      onScroll={onMarketplaceScroll}
+      {...marketplaceScrollProps}
     >
       <AccountProfileHeader user={user} onEditPress={handlePersonalInfoPress} />
 
@@ -93,6 +102,7 @@ export function AccountScreen(_props: Props) {
           onPress={handlePersonalInfoPress}
         />
         <AccountMenuRow icon="orders" label="My orders" onPress={() => stackNavigation.navigate('Orders')} />
+        <AccountMenuRow icon="messages" label="Messages" onPress={() => stackNavigation.navigate('ChatList')} />
         {!isSeller ? (
           <AccountMenuRow icon="addresses" label="Addresses" onPress={() => stackNavigation.navigate('AddressBook')} />
         ) : null}
@@ -117,6 +127,7 @@ export function AccountScreen(_props: Props) {
             <AccountMenuRow icon="shop-profile" label="Shop profile" onPress={() => goSeller('SellerShopProfile')} />
             <AccountMenuRow icon="dashboard" label="Dashboard" onPress={() => goSeller('SellerDashboard')} />
             <AccountMenuRow icon="products" label="Products" onPress={() => goSeller('SellerProducts')} />
+            <AccountMenuRow icon="messages" label="Messages" onPress={() => stackNavigation.navigate('ChatList')} />
             <AccountMenuRow icon="seller-orders" label="Orders" onPress={() => goSeller('SellerOrders')} />
             <AccountMenuRow icon="shipping" label="Shipping" onPress={() => goSeller('SellerShippingConfig')} />
             <AccountMenuRow icon="shop-settings" label="Shop settings" onPress={() => goSeller('SellerShopSettings')} />

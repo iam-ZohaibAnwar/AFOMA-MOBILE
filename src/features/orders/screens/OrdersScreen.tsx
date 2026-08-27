@@ -7,6 +7,10 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { navigateToHomeTab } from '../../../app/navigation/shoppingNavigation';
+import {
+  marketplaceScrollProps,
+  useMarketplaceScrollHandler,
+} from '../../../app/navigation/marketplaceChrome';
 import type { RootStackParamList, ShoppingStackParamList } from '../../../app/navigation/types';
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppText } from '../../../components/ui/AppText';
@@ -49,6 +53,7 @@ function OrderListPageSkeleton() {
 
 export function OrdersScreen({ navigation }: Props) {
   const rootNavigation = useNavigation<OrdersNavigationProp>();
+  const onMarketplaceScroll = useMarketplaceScrollHandler();
   const { user } = useAuth();
   const authUserId = resolveAuthUserId(user);
   const { isAuthorized } = useRequireAuth(ORDERS_RETURN_TO);
@@ -149,6 +154,8 @@ export function OrdersScreen({ navigation }: Props) {
         orders.length === 0 && styles.listContentEmpty,
       ]}
       showsVerticalScrollIndicator={false}
+      onScroll={onMarketplaceScroll}
+      {...marketplaceScrollProps}
       renderItem={({ item }) => (
         <OrderListItem
           order={item}

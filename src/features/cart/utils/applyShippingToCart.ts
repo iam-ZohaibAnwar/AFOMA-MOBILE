@@ -13,13 +13,33 @@ function buildShippingService(option: CheckoutShippingOption): CartLineItem['shi
   };
 }
 
+function clearLineShipping(line: CartLineItem): CartLineItem | null {
+  const hasAppliedShipping =
+    (line.shippingRate ?? 0) > 0 ||
+    Boolean(line.shippingService?.value) ||
+    (line.shippingOptions?.length ?? 0) > 0;
+
+  if (!hasAppliedShipping) {
+    return null;
+  }
+
+  return {
+    ...line,
+    shippingRate: 0,
+    shippingService: undefined,
+    shippingOptions: [],
+  };
+}
+
 export function applyShippingSelectionsToCart(
   cart: CartMap,
   selectedOptions: CheckoutShippingOption[],
   groups: SellerShippingOptionsGroup[],
+  checkoutCart: CartMap = cart,
 ): CartMap {
   const selectedBySeller = new Map(selectedOptions.map((option) => [option.sellerId, option]));
   const groupOptionsBySeller = new Map(groups.map((group) => [group.sellerId, group.options.map((entry) => entry.option)]));
+  const checkoutItemIds = new Set(Object.keys(checkoutCart));
 
   let changed = false;
   const nextCart: CartMap = {};
@@ -28,6 +48,17 @@ export function applyShippingSelectionsToCart(
     const sellerId = getProductSellerId(line.productData?.seller);
     const isDownloadable = line.productData?.productType === 'Downloadable';
 
+    if (!checkoutItemIds.has(itemId)) {
+      const clearedLine = clearLineShipping(line);
+      if (clearedLine) {
+        changed = true;
+        nextCart[itemId] = clearedLine;
+      } else {
+        nextCart[itemId] = line;
+      }
+      continue;
+    }
+
     if (!sellerId || isDownloadable) {
       nextCart[itemId] = line;
       continue;
@@ -35,7 +66,13 @@ export function applyShippingSelectionsToCart(
 
     const selectedOption = selectedBySeller.get(sellerId);
     if (!selectedOption) {
-      nextCart[itemId] = line;
+      const clearedLine = clearLineShipping(line);
+      if (clearedLine) {
+        changed = true;
+        nextCart[itemId] = clearedLine;
+      } else {
+        nextCart[itemId] = line;
+      }
       continue;
     }
 

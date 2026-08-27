@@ -2,12 +2,14 @@ import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Skeleton } from '../../../components/ecommerce';
+import { useMarketplaceFooterContentInset } from '../../../app/navigation/marketplaceChrome';
 import { colors, radius, spacing } from '../../../design-system';
 import { getProductDetailStickyBarInset } from './ProductDetailStickyBar';
 
 export function ProductDetailSkeleton() {
   const insets = useSafeAreaInsets();
-  const stickyBarInset = getProductDetailStickyBarInset(insets.bottom);
+  const footerInset = useMarketplaceFooterContentInset();
+  const stickyBarInset = getProductDetailStickyBarInset(footerInset);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -35,7 +37,7 @@ export function ProductDetailSkeleton() {
         <Skeleton variant="text" width="80%" height={14} />
       </View>
 
-      <View style={[styles.stickyBar, { paddingBottom: insets.bottom + spacing.sm }]}>
+      <View style={[styles.stickyBar, { bottom: footerInset, paddingBottom: spacing.sm }]}>
         <Skeleton variant="rect" height={52} style={styles.cta} />
       </View>
     </View>

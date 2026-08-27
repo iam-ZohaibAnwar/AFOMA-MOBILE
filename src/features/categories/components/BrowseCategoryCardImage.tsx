@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Image, StyleSheet, View, type ImageSourcePropType } from 'react-native';
 
-import { colors, radius } from '../../../design-system';
-import { getCategoryImageSource } from '../utils/categoryImage';
+import { colors } from '../../../design-system';
+import { getBrowseCategoryImageSource } from '../utils/categoryImage';
 import {
   getCategoryPlaceholderImageUrl,
   getSubCategoryImageUrl,
@@ -11,14 +11,15 @@ import {
 export interface BrowseCategoryCardImageProps {
   name: string;
   slug?: string;
+  size?: number;
 }
 
 function getRemoteCategoryImageUri(slug: string | undefined): string {
   return getSubCategoryImageUrl(slug);
 }
 
-export function BrowseCategoryCardImage({ name, slug }: BrowseCategoryCardImageProps) {
-  const localSource = useMemo(() => getCategoryImageSource(slug, name), [name, slug]);
+export function BrowseCategoryCardImage({ name, slug, size = 88 }: BrowseCategoryCardImageProps) {
+  const localSource = useMemo(() => getBrowseCategoryImageSource(slug, name), [name, slug]);
   const placeholderUri = getCategoryPlaceholderImageUrl();
   const [useRemoteFallback, setUseRemoteFallback] = useState(false);
   const [usePlaceholderFallback, setUsePlaceholderFallback] = useState(false);
@@ -47,7 +48,7 @@ export function BrowseCategoryCardImage({ name, slug }: BrowseCategoryCardImageP
   };
 
   return (
-    <View style={styles.imageWrap}>
+    <View style={[styles.imageWrap, { width: size, height: size, borderRadius: Math.round(size * 0.22) }]}>
       <Image
         source={imageSource}
         style={styles.image}
@@ -60,9 +61,6 @@ export function BrowseCategoryCardImage({ name, slug }: BrowseCategoryCardImageP
 
 const styles = StyleSheet.create({
   imageWrap: {
-    width: 88,
-    height: 88,
-    borderRadius: radius.large,
     overflow: 'hidden',
     backgroundColor: colors.surfaceMuted,
   },

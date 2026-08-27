@@ -255,9 +255,9 @@ const styles = StyleSheet.create({
     ...shadows.card,
   },
   cardShop: {
-    backgroundColor: colors.surfaceWhite,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.borderStrong,
+    borderColor: colors.border,
     ...shadows.card,
   },
   pressed: {

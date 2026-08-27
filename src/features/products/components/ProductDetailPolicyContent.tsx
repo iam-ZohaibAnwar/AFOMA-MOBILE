@@ -21,7 +21,7 @@ export function ProductDetailPolicyContent({ policy, theme }: ProductDetailPolic
   if (!cancellationMessage && !returnMessage) {
     return (
       <AppText variant="bodySmall" style={{ color: theme.textSecondary }}>
-        No cancellation policies available for this shop.
+        No policy details available for this shop.
       </AppText>
     );
   }

@@ -1,16 +1,20 @@
-import { useLayoutEffect, useMemo, useState, useCallback, type ReactNode } from 'react';
+import { useLayoutEffect, useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   Pressable,
   ScrollView,
   StyleSheet,
   View,
+  type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FadeInContent } from '../../../components/motion';
+import { HeaderBackButton } from '../../../components/ui/HeaderBackButton';
 import { usePricing } from '../../../app/providers/PricingProvider';
 
 import { AppText } from '../../../components/ui/AppText';
@@ -22,14 +26,15 @@ import { usePdpTheme } from '../../../design-system/pdpTheme';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { resolveAuthUserId } from '../../auth/utils/resolveAuthUserId';
 import { navigateToCartTab, navigateToShop } from '../../../app/navigation/shoppingNavigation';
+import { ProductDetailBottomDock, type ProductDetailBottomDockMode } from '../components/ProductDetailBottomDock';
+import { useMarketplaceFooterContentInset } from '../../../app/navigation/marketplaceChrome';
 
 import {
-
   AddToCartValidationError,
-
   addProductToCart,
-
 } from '../../cart/utils/addProductToCart';
+import { notifyFlyToCart } from '../../cart/utils/cartFeedback';
+import { useCart } from '../../cart/hooks/useCart';
 
 import { buildAddToCartInputFromPdp } from '../../cart/utils/cartLineMerge';
 
@@ -38,23 +43,19 @@ import { getErrorMessage } from '../../../services/api/errors';
 import type { ShoppingStackParamList } from '../../../app/navigation/types';
 import type { Product } from '../../../services/types/product';
 
-import { ProductAccordion } from '../components/ProductAccordion';
-import { ProductDetailDescriptionContent } from '../components/ProductDetailDescriptionContent';
-import { ProductDetailPolicyContent } from '../components/ProductDetailPolicyContent';
-import { ProductDetailReviewsContent } from '../components/ProductDetailReviewsContent';
-import { ProductDetailReviewsHeaderMeta } from '../components/ProductDetailReviewsHeaderMeta';
+import { ProductDetailItemDetailsSection } from '../components/ProductDetailItemDetailsSection';
+import { ProductDetailPoliciesSection } from '../components/ProductDetailPoliciesSection';
+import { ProductDetailReviewsSection } from '../components/ProductDetailReviewsSection';
+import { ProductMeetSellerSection } from '../components/ProductMeetSellerSection';
 
 import { ProductDetailHeader } from '../components/ProductDetailHeader';
 
-import { ProductDetailNavBar } from '../components/ProductDetailNavBar';
-
-import { ProductDetailStickyBar, getProductDetailStickyBarInset } from '../components/ProductDetailStickyBar';
+import {
+  ProductDetailAddToCartCta,
+  type ProductDetailAddToCartCtaMode,
+} from '../components/ProductDetailStickyBar';
 
 import { ProductGallery } from '../components/ProductGallery';
-
-import { ProductSellerSection } from '../components/ProductSellerSection';
-
-import { ProductTypeInfo } from '../components/ProductTypeInfo';
 
 import { ProductVariationSelectors } from '../components/ProductVariationSelectors';
 
@@ -71,16 +72,21 @@ import { useProductReviews } from '../hooks/useProductReviews';
 import { getProductGalleryImages } from '../utils/productGallery';
 import { getProductShareUrl } from '../utils/productShare';
 import { promptProductShare } from '../utils/shareProduct';
+import {
+  buildProductDetailAuthReturnTo,
+  canShowProductSellerMessage,
+  openProductSellerChat,
+} from '../utils/productSellerChat';
 
 import {
 
   getProductCompareAtPriceForSelection,
 
-  getProductDescription,
-
   getProductDiscountPercent,
 
   getProductDisplayName,
+
+  getProductImageUrl,
 
   getProductPriceForSelection,
 
@@ -88,38 +94,157 @@ import {
 
   getSellerDisplayName,
   getSellerStorePolicy,
-  hasSellerStorePolicy,
+  hasDisplayableStorePolicy,
 } from '../utils/productDisplay';
 
 
 
 type Props = NativeStackScreenProps<ShoppingStackParamList, 'ProductDetail'>;
 
-
-
-type FeedbackType = 'success' | 'error';
-
-
-
-const CONTENT_SHEET_GAP = spacing.lg;
-const CONTENT_SHEET_RADIUS = 28;
+const CONTENT_SHEET_OVERLAP = 16;
+const SCROLL_DELTA_THRESHOLD = 8;
+const AT_TOP_SCROLL_THRESHOLD = 24;
 
 
 
 export function ProductDetailScreen({ route, navigation }: Props) {
 
-  const { productId, slug } = route.params;
-  const insets = useSafeAreaInsets();
+  const { productId, slug, openChat } = route.params;
+  const footerInset = useMarketplaceFooterContentInset();
+  const scrollContentRef = useRef<View>(null);
+  const inlineCtaRef = useRef<View>(null);
+  const scrollViewHeightRef = useRef(0);
+  const inlineCtaYRef = useRef(0);
+  const inlineCtaHeightRef = useRef(0);
+  const lastScrollYRef = useRef(0);
+  const previousScrollYRef = useRef(0);
+  const footerScrollVisibleRef = useRef(true);
+  const dockModeRef = useRef<ProductDetailBottomDockMode>('footer');
+  const openChatHandledRef = useRef(false);
+  const [dockMode, setDockMode] = useState<ProductDetailBottomDockMode>('footer');
+
+  const measureInlineCtaPosition = useCallback(() => {
+    const scrollContent = scrollContentRef.current;
+    const inlineNode = inlineCtaRef.current;
+    if (!scrollContent || !inlineNode) {
+      return;
+    }
+
+    inlineNode.measureLayout(
+      scrollContent,
+      (_x, y, _width, height) => {
+        inlineCtaYRef.current = y;
+        inlineCtaHeightRef.current = height;
+      },
+      () => {},
+    );
+  }, []);
+
+  const syncBottomDock = useCallback(
+    (scrollY: number) => {
+      const viewHeight = scrollViewHeightRef.current;
+      const delta = scrollY - previousScrollYRef.current;
+      previousScrollYRef.current = scrollY;
+      lastScrollYRef.current = scrollY;
+
+      if (scrollY <= 0) {
+        footerScrollVisibleRef.current = true;
+      } else if (delta > SCROLL_DELTA_THRESHOLD) {
+        footerScrollVisibleRef.current = false;
+      } else if (delta < -SCROLL_DELTA_THRESHOLD) {
+        footerScrollVisibleRef.current = true;
+      }
+
+      const showFooterOnScroll = footerScrollVisibleRef.current;
+
+      const inlineTop = inlineCtaYRef.current;
+      const inlineBottom = inlineTop + inlineCtaHeightRef.current;
+      const viewportTop = scrollY + spacing.sm;
+      const viewportBottom = scrollY + viewHeight - footerInset - spacing.sm;
+
+      const hasInlineMetrics = inlineCtaHeightRef.current > 0;
+      const inlineAboveViewport = hasInlineMetrics && inlineBottom <= viewportTop;
+      const inlineBelowViewport = hasInlineMetrics && inlineTop >= viewportBottom;
+      const inlineInViewport =
+        hasInlineMetrics && !inlineAboveViewport && !inlineBelowViewport;
+
+      let nextMode: ProductDetailBottomDockMode;
+
+      if (!hasInlineMetrics) {
+        nextMode = scrollY <= AT_TOP_SCROLL_THRESHOLD ? 'footer' : 'cart';
+      } else if (inlineInViewport) {
+        // Inline Add to Cart is on screen — defer to it; tabs return on scroll-up.
+        nextMode = showFooterOnScroll ? 'footer' : 'hidden';
+      } else if (scrollY <= AT_TOP_SCROLL_THRESHOLD) {
+        nextMode = 'footer';
+      } else {
+        // Inline is above or below the viewport — keep sticky Add to Cart visible.
+        nextMode = 'cart';
+      }
+
+      if (nextMode === dockModeRef.current) {
+        return;
+      }
+
+      dockModeRef.current = nextMode;
+      setDockMode(nextMode);
+    },
+    [footerInset],
+  );
+
+  const handleScrollViewLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      scrollViewHeightRef.current = event.nativeEvent.layout.height;
+      syncBottomDock(lastScrollYRef.current);
+    },
+    [syncBottomDock],
+  );
+
+  const handleInlineCtaLayout = useCallback(
+    (_event: LayoutChangeEvent) => {
+      measureInlineCtaPosition();
+      requestAnimationFrame(() => {
+        syncBottomDock(lastScrollYRef.current);
+      });
+    },
+    [measureInlineCtaPosition, syncBottomDock],
+  );
+
+  const handleContentAboveInlineLayout = useCallback(
+    (_event: LayoutChangeEvent) => {
+      measureInlineCtaPosition();
+      requestAnimationFrame(() => {
+        syncBottomDock(lastScrollYRef.current);
+      });
+    },
+    [measureInlineCtaPosition, syncBottomDock],
+  );
+
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      syncBottomDock(event.nativeEvent.contentOffset.y);
+    },
+    [syncBottomDock],
+  );
+
+  const resetBottomDock = useCallback(() => {
+    dockModeRef.current = 'footer';
+    setDockMode('footer');
+    lastScrollYRef.current = 0;
+    previousScrollYRef.current = 0;
+    footerScrollVisibleRef.current = true;
+    inlineCtaYRef.current = 0;
+    inlineCtaHeightRef.current = 0;
+  }, []);
 
   const theme = usePdpTheme();
 
-  const { user } = useAuth();
+  const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const authUserId = resolveAuthUserId(user);
 
   const { userInfo } = usePricing();
 
-
-
+  const { cart } = useCart(authUserId, userInfo);
   const { product, isRefreshing, error, retry } = useProductDetail(productId, slug);
 
   const { sellerProducts, relatedProducts, recentlyViewedProducts } =
@@ -129,13 +254,78 @@ export function ProductDetailScreen({ route, navigation }: Props) {
 
   const productRouteId = product ? getProductRouteId(product) : undefined;
 
-  const { averageRating, reviewCount, reviews, isLoading: isReviewsLoading } = useProductReviews(productRouteId);
+  const {
+    averageRating,
+    reviewAverages,
+    reviewCount,
+    reviews,
+    isLoading: isReviewsLoading,
+  } = useProductReviews(productRouteId);
 
 
 
   const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [cartError, setCartError] = useState<string | null>(null);
 
-  const [feedback, setFeedback] = useState<{ type: FeedbackType; message: string } | null>(null);
+  const isSelectionInCart = useMemo(() => {
+    if (!variationState.cartKey || !variationState.canAddToCart) {
+      return false;
+    }
+
+    return Boolean(cart[variationState.cartKey]);
+  }, [cart, variationState.canAddToCart, variationState.cartKey]);
+
+  const triggerFlyToCartFeedback = useCallback(() => {
+    if (!product) {
+      return;
+    }
+
+    const imageUrl = getProductImageUrl(product);
+    const launchFly = (fromX: number, fromY: number) => {
+      notifyFlyToCart({ imageUrl, fromX, fromY });
+    };
+
+    const measureNode = (node: View | null, fallbackY: number) => {
+      if (!node) {
+        const { width } = Dimensions.get('window');
+        launchFly(width / 2, fallbackY);
+        return;
+      }
+
+      node.measureInWindow((x, y, width, height) => {
+        launchFly(x + width / 2, y + height / 2);
+      });
+    };
+
+    const { width, height } = Dimensions.get('window');
+    const dockFallbackY = height - footerInset - spacing.xl * 2;
+
+    if (dockModeRef.current === 'cart' || dockModeRef.current === 'hidden') {
+      measureNode(inlineCtaRef.current, dockFallbackY);
+      return;
+    }
+
+    measureNode(inlineCtaRef.current, height * 0.72);
+  }, [footerInset, product]);
+
+  useEffect(() => {
+    setCartError(null);
+    resetBottomDock();
+    openChatHandledRef.current = false;
+    const frame = requestAnimationFrame(() => {
+      measureInlineCtaPosition();
+      syncBottomDock(0);
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+    };
+  }, [
+    measureInlineCtaPosition,
+    productRouteId,
+    resetBottomDock,
+    syncBottomDock,
+    variationState.cartKey,
+  ]);
 
 
 
@@ -168,93 +358,26 @@ export function ProductDetailScreen({ route, navigation }: Props) {
     : undefined;
 
   const discountPercent = product ? getProductDiscountPercent(product) : undefined;
-  const productDescription = product ? getProductDescription(product) : '';
-
+  const rawProductDescription = product?.description?.trim() ?? '';
   const sellerName = product ? getSellerDisplayName(product) : undefined;
   const sellerStoreSlug = product?.seller?.storeSlug?.trim();
   const sellerLogoUrl = product?.seller?.storeLogo || product?.seller?.userProfile;
   const sellerStorePolicy = product ? getSellerStorePolicy(product) : undefined;
-  const showSellerPolicies = hasSellerStorePolicy(sellerStorePolicy);
+  const showSellerPolicies = hasDisplayableStorePolicy(sellerStorePolicy);
+  const showSellerMessage = canShowProductSellerMessage({
+    seller: product?.seller,
+    authUserId,
+  });
+  const productAuthReturnTo = useMemo(
+    () => buildProductDetailAuthReturnTo(productRouteId, product?.slug),
+    [product?.slug, productRouteId],
+  );
 
-  const accordionSections = useMemo(() => {
-    const sections: Array<{
-      key: string;
-      title: string;
-      content: ReactNode;
-      renderHeaderMeta?: (expanded: boolean) => ReactNode | null;
-    }> = [];
-
-    if (sellerName) {
-      sections.push({
-        key: 'shop',
-        title: 'Shop',
-        content: (
-          <ProductSellerSection
-            embedded
-            sellerName={sellerName}
-            sellerLogoUrl={sellerLogoUrl}
-            onPress={
-              sellerStoreSlug ? () => navigateToShop(navigation, sellerStoreSlug) : undefined
-            }
-          />
-        ),
-      });
+  const handleVisitShop = useCallback(() => {
+    if (sellerStoreSlug) {
+      navigateToShop(navigation, sellerStoreSlug);
     }
-
-    sections.push({
-      key: 'product-details',
-      title: 'Product Details',
-      content: (
-        <ProductDetailDescriptionContent description={productDescription} theme={theme} />
-      ),
-    });
-
-    sections.push({
-      key: 'reviews',
-      title: 'Customer Reviews',
-      renderHeaderMeta: (expanded) =>
-        expanded ? (
-          <ProductDetailReviewsHeaderMeta
-            averageRating={averageRating}
-            reviewCount={reviewCount}
-            theme={theme}
-          />
-        ) : null,
-      content: (
-        <ProductDetailReviewsContent
-          reviews={reviews}
-          reviewCount={reviewCount}
-          isLoading={isReviewsLoading}
-          theme={theme}
-        />
-      ),
-    });
-
-    if (showSellerPolicies && sellerStorePolicy) {
-      sections.push({
-        key: 'cancel-policies',
-        title: 'Cancel Policies',
-        content: <ProductDetailPolicyContent policy={sellerStorePolicy} theme={theme} />,
-      });
-    }
-
-    return sections;
-  }, [
-    averageRating,
-    isReviewsLoading,
-    navigation,
-    productDescription,
-    reviewCount,
-    reviews,
-    sellerLogoUrl,
-    sellerName,
-    sellerStorePolicy,
-    sellerStoreSlug,
-    showSellerPolicies,
-    theme,
-  ]);
-
-
+  }, [navigation, sellerStoreSlug]);
 
   const handleSharePress = useCallback(() => {
     if (!product) {
@@ -272,6 +395,43 @@ export function ProductDetailScreen({ route, navigation }: Props) {
       url: shareUrl,
     });
   }, [product]);
+
+  const handleMessageSeller = useCallback(() => {
+    openProductSellerChat({
+      navigation,
+      seller: product?.seller,
+      isAuthenticated,
+      returnTo: productAuthReturnTo,
+    });
+  }, [isAuthenticated, navigation, product?.seller, productAuthReturnTo]);
+
+  useEffect(() => {
+    if (!openChat || openChatHandledRef.current || isAuthLoading || !isAuthenticated || !product) {
+      return;
+    }
+
+    if (!canShowProductSellerMessage({ seller: product.seller, authUserId })) {
+      return;
+    }
+
+    openChatHandledRef.current = true;
+    navigation.setParams({ openChat: undefined });
+
+    openProductSellerChat({
+      navigation,
+      seller: product.seller,
+      isAuthenticated: true,
+      returnTo: productAuthReturnTo,
+    });
+  }, [
+    authUserId,
+    isAuthenticated,
+    isAuthLoading,
+    navigation,
+    openChat,
+    product,
+    productAuthReturnTo,
+  ]);
 
   const handleRecommendationPress = useCallback(
     (item: Product) => {
@@ -294,23 +454,11 @@ export function ProductDetailScreen({ route, navigation }: Props) {
 
       if (variationState.selectionIncomplete) {
 
-        setFeedback({
-
-          type: 'error',
-
-          message: 'Select all product options before adding to cart.',
-
-        });
+        setCartError('Select all product options before adding to cart.');
 
       } else if (variationState.outOfStock) {
 
-        setFeedback({
-
-          type: 'error',
-
-          message: 'This product is out of stock.',
-
-        });
+        setCartError('This product is out of stock.');
 
       }
 
@@ -322,13 +470,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
 
     if (variationState.maxQuantity < 1) {
 
-      setFeedback({
-
-        type: 'error',
-
-        message: 'This product is out of stock.',
-
-      });
+      setCartError('This product is out of stock.');
 
       return;
 
@@ -338,13 +480,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
 
     if (variationState.quantity > variationState.maxQuantity) {
 
-      setFeedback({
-
-        type: 'error',
-
-        message: `Maximum available quantity is ${variationState.maxQuantity}.`,
-
-      });
+      setCartError(`Maximum available quantity is ${variationState.maxQuantity}.`);
 
       return;
 
@@ -354,7 +490,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
 
     setIsAddingToCart(true);
 
-    setFeedback(null);
+    setCartError(null);
 
 
 
@@ -376,45 +512,23 @@ export function ProductDetailScreen({ route, navigation }: Props) {
 
 
 
-      const result = await addProductToCart(authUserId, product, userInfo, {
-
+      await addProductToCart(authUserId, product, userInfo, {
         quantity: cartInput.quantity,
-
         cartKey: cartInput.cartKey,
-
         selectedVariations: cartInput.selectedVariations,
-
         maxQuantity: cartInput.maxQuantity,
-
         mergeMode: 'increment',
-
       });
 
-
-
-      setFeedback({
-
-        type: 'success',
-
-        message: `Added ${result.quantityAdded} item${result.quantityAdded === 1 ? '' : 's'} to cart (${result.totalQuantity} total).`,
-
-      });
+      triggerFlyToCartFeedback();
 
     } catch (err) {
 
-      setFeedback({
-
-        type: 'error',
-
-        message:
-
-          err instanceof AddToCartValidationError
-
-            ? err.message
-
-            : getErrorMessage(err, 'Failed to add item to cart.'),
-
-      });
+      setCartError(
+        err instanceof AddToCartValidationError
+          ? err.message
+          : getErrorMessage(err, 'Failed to add item to cart.'),
+      );
 
     } finally {
 
@@ -431,8 +545,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
     return (
 
       <View style={[styles.centeredState, { backgroundColor: theme.background }]}>
-
-        <ProductDetailNavBar onBackPress={() => navigation.goBack()} />
+        <HeaderBackButton onPress={() => navigation.goBack()} color={theme.textPrimary} />
 
         <AppText variant="bodySmall" color="error">
 
@@ -468,6 +581,15 @@ export function ProductDetailScreen({ route, navigation }: Props) {
 
 
 
+  const handleCtaPress = () => {
+    if (isSelectionInCart) {
+      navigateToCartTab(navigation);
+      return;
+    }
+
+    void handleAddToCart();
+  };
+
   const addButtonDisabled =
 
     !product || !variationState.canAddToCart || isAddingToCart || variationState.disabledBySeller;
@@ -488,24 +610,26 @@ export function ProductDetailScreen({ route, navigation }: Props) {
 
         : 'Add to Cart';
 
-
+  const dockButtonLabel = addButtonLabel;
+  const dockButtonDisabled = isSelectionInCart ? false : addButtonDisabled;
+  const ctaMode: ProductDetailAddToCartCtaMode = isAddingToCart
+    ? 'loading'
+    : isSelectionInCart
+      ? 'viewCart'
+      : 'add';
 
   const quantityDisabled =
 
     addButtonDisabled || !variationState.showQuantityStepper || variationState.isDownloadable;
 
-  const stickyBarInset = getProductDetailStickyBarInset(insets.bottom, Boolean(feedback));
+  const floatingCtaActive = dockMode === 'cart';
+  const contentPaddingBottom = footerInset + spacing.xl;
 
   return (
 
     <FadeInContent style={styles.screen}>
 
     <View style={[styles.screenInner, { backgroundColor: theme.background }]}>
-
-      <ProductDetailNavBar
-        onBackPress={() => navigation.goBack()}
-        onSharePress={product ? handleSharePress : undefined}
-      />
 
       {error && product ? (
         <Pressable style={styles.refreshBanner} onPress={() => void retry()}>
@@ -524,16 +648,28 @@ export function ProductDetailScreen({ route, navigation }: Props) {
         style={styles.scroll}
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
+        onLayout={handleScrollViewLayout}
+        onScroll={handleScroll}
+        onContentSizeChange={() => {
+          measureInlineCtaPosition();
+          syncBottomDock(lastScrollYRef.current);
+        }}
+        scrollEventThrottle={16}
       >
-
+        <View ref={scrollContentRef} collapsable={false} style={styles.scrollContent}>
         <ProductGallery
-
           images={galleryImages}
-
           productName={product ? getProductDisplayName(product) : ''}
-
           theme={theme}
-
+          chrome={
+            product
+              ? {
+                  onBackPress: () => navigation.goBack(),
+                  onMessagePress: showSellerMessage ? handleMessageSeller : undefined,
+                  onSharePress: handleSharePress,
+                }
+              : null
+          }
         />
 
 
@@ -543,11 +679,12 @@ export function ProductDetailScreen({ route, navigation }: Props) {
             styles.contentSheet,
             {
               backgroundColor: theme.surface,
-              paddingBottom: stickyBarInset + spacing.md,
+              paddingBottom: contentPaddingBottom,
             },
           ]}
         >
 
+          <View style={styles.contentAboveInline} onLayout={handleContentAboveInlineLayout}>
           <ProductDetailHeader
 
             productName={product ? getProductDisplayName(product) : ''}
@@ -561,6 +698,8 @@ export function ProductDetailScreen({ route, navigation }: Props) {
             averageRating={averageRating}
 
             reviewCount={reviewCount}
+
+            productType={product?.productType}
 
             theme={theme}
 
@@ -582,8 +721,6 @@ export function ProductDetailScreen({ route, navigation }: Props) {
 
           />
 
-
-
           {variationState.isCustomizable ? (
 
             <ProductVariationSelectors
@@ -603,63 +740,97 @@ export function ProductDetailScreen({ route, navigation }: Props) {
             />
 
           ) : null}
+          </View>
 
+          <View
+            ref={inlineCtaRef}
+            collapsable={false}
+            style={styles.inlineCtaSection}
+            onLayout={handleInlineCtaLayout}
+          >
+            {cartError && !floatingCtaActive ? (
+              <AppText variant="bodySmall" color="error" style={styles.inlineCartError}>
+                {cartError}
+              </AppText>
+            ) : null}
 
-
-          {product ? <ProductTypeInfo product={product} /> : null}
-
-          {accordionSections.map((section) => (
-            <ProductAccordion
-              key={section.key}
-              title={section.title}
-              theme={theme}
-              renderHeaderMeta={section.renderHeaderMeta}
+            <View
+              style={floatingCtaActive ? styles.inlineCtaGhost : undefined}
+              pointerEvents={floatingCtaActive ? 'none' : 'auto'}
             >
-              {section.content}
-            </ProductAccordion>
-          ))}
+              <ProductDetailAddToCartCta
+                theme={theme}
+                buttonLabel={dockButtonLabel}
+                disabled={dockButtonDisabled}
+                mode={ctaMode}
+                onPress={handleCtaPress}
+              />
+            </View>
+          </View>
+
+          <ProductDetailReviewsSection
+            averageRating={averageRating}
+            reviewAverages={reviewAverages}
+            reviewCount={reviewCount}
+            reviews={reviews}
+            isLoading={isReviewsLoading}
+            theme={theme}
+          />
+
+          <ProductDetailItemDetailsSection
+            description={rawProductDescription}
+            theme={theme}
+          />
+
+          {showSellerPolicies && sellerStorePolicy ? (
+            <ProductDetailPoliciesSection policy={sellerStorePolicy} theme={theme} />
+          ) : null}
+
+          {sellerName ? (
+            <ProductMeetSellerSection
+              sellerName={sellerName}
+              sellerLogoUrl={sellerLogoUrl}
+              theme={theme}
+              onVisitShop={sellerStoreSlug ? handleVisitShop : undefined}
+              onMessageSeller={showSellerMessage ? handleMessageSeller : undefined}
+            />
+          ) : null}
 
           <SuggestedProductsSection
             embedded
-            title="More From This Seller"
+            title="More from this seller"
             products={sellerProducts}
             onProductPress={handleRecommendationPress}
+            showSeller={false}
           />
           <SuggestedProductsSection
             embedded
-            title="You May Also Like"
-            products={relatedProducts}
-            onProductPress={handleRecommendationPress}
-          />
-          <SuggestedProductsSection
-            embedded
-            title="Recently Viewed"
+            title="Recently viewed"
             products={recentlyViewedProducts}
+            onProductPress={handleRecommendationPress}
+            showSeller={false}
+          />
+          <SuggestedProductsSection
+            embedded
+            title="You may also like"
+            products={relatedProducts}
             onProductPress={handleRecommendationPress}
           />
 
         </View>
 
+        </View>
+
       </ScrollView>
 
-      <ProductDetailStickyBar
+      <ProductDetailBottomDock
+        mode={dockMode}
         theme={theme}
-        buttonLabel={addButtonLabel}
-        disabled={addButtonDisabled}
-        isLoading={isAddingToCart}
-        onAddToCart={() => void handleAddToCart()}
-        feedback={
-          feedback
-            ? {
-                type: feedback.type,
-                message: feedback.message,
-                onViewCart:
-                  feedback.type === 'success'
-                    ? () => navigateToCartTab(navigation)
-                    : undefined,
-              }
-            : null
-        }
+        buttonLabel={dockButtonLabel}
+        disabled={dockButtonDisabled}
+        ctaMode={ctaMode}
+        onPress={handleCtaPress}
+        errorMessage={dockMode === 'cart' ? cartError : null}
       />
 
     </View>
@@ -681,6 +852,9 @@ const styles = StyleSheet.create({
     flex: 1,
     position: 'relative',
   },
+  scrollContent: {
+    flexGrow: 1,
+  },
 
   scroll: {
     flex: 1,
@@ -691,13 +865,25 @@ const styles = StyleSheet.create({
   },
 
   contentSheet: {
-    marginTop: CONTENT_SHEET_GAP,
-    borderTopLeftRadius: CONTENT_SHEET_RADIUS,
-    borderTopRightRadius: CONTENT_SHEET_RADIUS,
+    marginTop: -CONTENT_SHEET_OVERLAP,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    gap: spacing.lg,
+    paddingTop: spacing.md,
+    gap: spacing.md,
     flexGrow: 1,
+  },
+  contentAboveInline: {
+    gap: spacing.md,
+  },
+  inlineCtaSection: {
+    gap: spacing.sm,
+  },
+  inlineCtaGhost: {
+    opacity: 0,
+  },
+  inlineCartError: {
+    textAlign: 'center',
   },
 
   centeredState: {

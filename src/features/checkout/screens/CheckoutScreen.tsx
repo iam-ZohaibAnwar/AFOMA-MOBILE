@@ -15,7 +15,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { useAuth } from '../../auth/hooks/useAuth';
-import { useRequireAuth } from '../../auth/hooks/useRequireAuth';
+import { useRequireCheckoutAccess } from '../hooks/useRequireCheckoutAccess';
 import { authReturnTo } from '../../auth/utils/authNavigation';
 import { resolveAuthUserId } from '../../auth/utils/resolveAuthUserId';
 import { usePricing } from '../../../app/providers/PricingProvider';
@@ -40,6 +40,11 @@ import {
 } from '../utils/buildCheckoutOrderPayload';
 import { validateShippingAddress } from '../utils/validateShippingAddress';
 import { formatProductPrice } from '../../products/utils/productDisplay';
+import {
+  marketplaceScrollProps,
+  useMarketplaceFooterContentInset,
+  useMarketplaceScrollHandler,
+} from '../../../app/navigation/marketplaceChrome';
 import { navigateToCartTab, navigateToHomeTab } from '../../../app/navigation/shoppingNavigation';
 import type { RootStackParamList, ShoppingStackParamList } from '../../../app/navigation/types';
 
@@ -52,11 +57,17 @@ type CheckoutNavigationProp = CompositeNavigationProp<
 
 const CHECKOUT_RETURN_TO = authReturnTo.checkout();
 
-export function CheckoutScreen(_props: Props) {
+export function CheckoutScreen(props: Props) {
+  return <CheckoutScreenBody {...props} />;
+}
+
+function CheckoutScreenBody(_props: Props) {
   const navigation = useNavigation<CheckoutNavigationProp>();
   const rootNavigation = navigation;
+  const footerInset = useMarketplaceFooterContentInset();
+  const onMarketplaceScroll = useMarketplaceScrollHandler();
   const { user, isAuthenticated } = useAuth();
-  const { isAuthorized } = useRequireAuth(CHECKOUT_RETURN_TO);
+  const { isAuthorized } = useRequireCheckoutAccess(CHECKOUT_RETURN_TO);
   const authUserId = resolveAuthUserId(user);
   const { userInfo } = usePricing();
   const { cart, entries, subTotal, isLoading, error, retry } = useCart(authUserId, userInfo);
@@ -341,9 +352,11 @@ export function CheckoutScreen(_props: Props) {
       <FlatList
         data={entries}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: footerInset + 24 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        onScroll={onMarketplaceScroll}
+        {...marketplaceScrollProps}
         renderItem={({ item }) => (
           <CartLineItemRow itemId={item.id} line={item.line} showRemove={false} />
         )}

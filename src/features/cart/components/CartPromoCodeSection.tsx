@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { AppText } from '../../../components/ui/AppText';
+import { ChevronForwardIcon } from '../../../components/ui/ChevronForwardIcon';
 import { colors, layout, radius, spacing } from '../../../design-system';
 import { COUPON_CODE_MAX_LEN } from '../../../utils/couponCodeRules';
 
@@ -50,11 +51,6 @@ export function CartPromoCodeSection({
         disabled={isApplying || Boolean(appliedCode) || !promoCode.trim()}
       >
         <View style={styles.inputWrap}>
-          <View style={styles.iconBadge}>
-            <AppText variant="caption" style={styles.iconBadgeText}>
-              %
-            </AppText>
-          </View>
           <TextInput
             value={promoCode}
             onChangeText={setPromoCode}
@@ -73,9 +69,7 @@ export function CartPromoCodeSection({
           {isApplying ? (
             <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <AppText variant="bodyMedium" color="textMuted">
-              ›
-            </AppText>
+            <ChevronForwardIcon color={colors.primary} size={24} />
           )}
         </View>
       </Pressable>
@@ -132,19 +126,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: colors.surfaceGrey,
     paddingHorizontal: spacing.md,
-    gap: spacing.sm,
-  },
-  iconBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconBadgeText: {
-    color: colors.primary,
-    fontWeight: '700',
   },
   input: {
     flex: 1,
@@ -153,7 +134,8 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   applyButton: {
-    width: 32,
+    minWidth: layout.minTouchTarget,
+    minHeight: layout.minTouchTarget,
     alignItems: 'center',
     justifyContent: 'center',
   },

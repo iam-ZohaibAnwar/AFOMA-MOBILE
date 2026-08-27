@@ -1,11 +1,20 @@
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, StyleSheet, useWindowDimensions, View } from 'react-native';
 
+import { AppText } from '../../../components/ui/AppText';
+import { colors, spacing } from '../../../design-system';
 import type { Category } from '../../../services/types/category';
 import {
   getCategoryDisplayName,
   getCategoryRouteId,
   getNavigableCategories,
 } from '../utils/categoryNavigation';
+import {
+  CATEGORY_GRID_COLUMN_GAP,
+  CATEGORY_GRID_COLUMNS,
+  CATEGORY_GRID_HORIZONTAL_PADDING,
+  getCategoryCompactTileWidth,
+} from '../utils/categoryGridLayout';
+import { CategoryCompactTile } from './CategoryCompactTile';
 
 interface CategoryGridProps {
   categories: Category[];
@@ -18,29 +27,31 @@ export function CategoryGrid({
   onCategoryPress,
   emptyMessage = 'No categories available right now.',
 }: CategoryGridProps) {
+  const { width } = useWindowDimensions();
   const visibleCategories = getNavigableCategories(categories);
+  const tileWidth = getCategoryCompactTileWidth(width);
 
   return (
     <FlatList
       data={visibleCategories}
       keyExtractor={(item) => getCategoryRouteId(item)!}
-      numColumns={2}
+      numColumns={CATEGORY_GRID_COLUMNS}
       columnWrapperStyle={styles.row}
       contentContainerStyle={styles.listContent}
       showsVerticalScrollIndicator={false}
       renderItem={({ item }) => (
-        <Pressable
-          style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+        <CategoryCompactTile
+          label={getCategoryDisplayName(item)}
+          slug={item.slug}
+          width={tileWidth}
           onPress={() => onCategoryPress(item)}
-        >
-          <Text style={styles.cardTitle} numberOfLines={2}>
-            {getCategoryDisplayName(item)}
-          </Text>
-        </Pressable>
+        />
       )}
       ListEmptyComponent={
         <View style={styles.emptyBox}>
-          <Text style={styles.emptyText}>{emptyMessage}</Text>
+          <AppText variant="bodySmall" color="textMuted" style={styles.emptyText}>
+            {emptyMessage}
+          </AppText>
         </View>
       }
     />
@@ -49,43 +60,20 @@ export function CategoryGrid({
 
 const styles = StyleSheet.create({
   listContent: {
-    padding: 16,
+    paddingHorizontal: CATEGORY_GRID_HORIZONTAL_PADDING,
+    paddingBottom: spacing.xl,
     flexGrow: 1,
   },
   row: {
-    gap: 12,
-    marginBottom: 12,
-  },
-  card: {
-    flex: 1,
-    minHeight: 96,
-    paddingVertical: 16,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    backgroundColor: '#FFEDD5',
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-    justifyContent: 'center',
-  },
-  cardPressed: {
-    opacity: 0.85,
-  },
-  cardTitle: {
-    color: '#172554',
-    fontSize: 15,
-    fontWeight: '600',
-    lineHeight: 20,
+    gap: CATEGORY_GRID_COLUMN_GAP,
+    marginBottom: CATEGORY_GRID_COLUMN_GAP,
   },
   emptyBox: {
-    padding: 24,
+    padding: spacing.xl,
     borderRadius: 12,
-    backgroundColor: '#FFEDD5',
-    borderWidth: 1,
-    borderColor: '#FED7AA',
+    backgroundColor: colors.surfaceMuted,
   },
   emptyText: {
-    color: '#475569',
-    fontSize: 14,
     textAlign: 'center',
   },
 });

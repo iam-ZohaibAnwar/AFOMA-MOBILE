@@ -17,11 +17,14 @@ import { AppText } from '../../../components/ui/AppText';
 import { HeaderBackButton } from '../../../components/ui/HeaderBackButton';
 import { completeAuthNavigation } from '../utils/authNavigation';
 import type { AuthStackParamList, RootStackParamList } from '../../../app/navigation/types';
+import {
+  marketplaceScrollProps,
+  useMarketplaceFooterContentInset,
+  useMarketplaceScrollHandler,
+} from '../../../app/navigation/marketplaceChrome';
 import { colors, spacing } from '../../../design-system';
 import { getErrorMessage } from '../../../services/api/errors';
 import { AuthErrorText, OtpInput } from '../components/AuthForm';
-import { AuthFooterTabBar } from '../components/AuthFooterTabBar';
-import { useAuthFooterTabBarInset } from '../components/authFooterTabBarLayout';
 import { OtpVerificationHeroIcon } from '../components/OtpVerificationHeroIcon';
 import { useAuth } from '../hooks/useAuth';
 import { useOtpResendCooldown } from '../hooks/useOtpResendCooldown';
@@ -34,7 +37,8 @@ export function OtpVerificationScreen({ navigation, route }: Props) {
   const { requestOtp, verifyOtp } = useAuth();
   const rootNavigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
-  const footerTabBarInset = useAuthFooterTabBarInset();
+  const footerInset = useMarketplaceFooterContentInset();
+  const onMarketplaceScroll = useMarketplaceScrollHandler();
 
   const [otpToken, setOtpToken] = useState(initialOtpToken);
   const [otp, setOtp] = useState('');
@@ -111,10 +115,12 @@ export function OtpVerificationScreen({ navigation, route }: Props) {
         <ScrollView
           contentContainerStyle={[
             styles.content,
-            { paddingBottom: footerTabBarInset + spacing.lg },
+            { paddingBottom: footerInset + spacing.lg },
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          onScroll={onMarketplaceScroll}
+          {...marketplaceScrollProps}
         >
         <View style={styles.heroIconWrap}>
           <OtpVerificationHeroIcon />
@@ -175,8 +181,6 @@ export function OtpVerificationScreen({ navigation, route }: Props) {
         </View>
       </ScrollView>
       </KeyboardAvoidingView>
-
-      <AuthFooterTabBar activeTab="account" />
     </View>
   );
 }

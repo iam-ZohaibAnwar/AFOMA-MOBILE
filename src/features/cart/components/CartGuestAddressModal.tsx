@@ -1,9 +1,18 @@
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppText } from '../../../components/ui/AppText';
-import { colors, spacing } from '../../../design-system';
+import { colors, radius, shadows, spacing } from '../../../design-system';
 import { ShippingAddressForm } from '../../checkout/components/ShippingAddressForm';
 import type { ShippingAddress, ShippingAddressField } from '../../checkout/types/shippingAddress';
 
@@ -18,6 +27,9 @@ export interface CartGuestAddressModalProps {
   onClose: () => void;
 }
 
+const SHEET_HEIGHT_RATIO = 0.88;
+const SHEET_CHROME_HEIGHT = 156;
+
 export function CartGuestAddressModal({
   visible,
   value,
@@ -29,59 +41,149 @@ export function CartGuestAddressModal({
   onClose,
 }: CartGuestAddressModalProps) {
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  const sheetMaxHeight = Math.round(windowHeight * SHEET_HEIGHT_RATIO);
+  const scrollMaxHeight = Math.max(
+    220,
+    sheetMaxHeight - SHEET_CHROME_HEIGHT - insets.bottom - spacing.md,
+  );
+
+  if (!visible) {
+    return null;
+  }
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom + spacing.md }]}>
-        <View style={styles.header}>
-          <AppText variant="h3">Delivery details</AppText>
-          <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose}>
-            <AppText variant="bodyMedium" color="textLink">
-              Close
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+      statusBarTranslucent
+      presentationStyle="overFullScreen"
+    >
+      <View style={styles.overlay}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Close" style={styles.backdrop} onPress={onClose} />
+
+        <View style={[styles.sheet, { maxHeight: sheetMaxHeight, paddingBottom: insets.bottom + spacing.md }]}>
+          <View style={styles.handle} />
+
+          <View style={styles.headerRow}>
+            <AppText variant="h3" style={styles.title}>
+              Continue as guest
             </AppText>
-          </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+              onPress={onClose}
+              style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
+            >
+              <AppText variant="bodyMedium" style={styles.closeLabel}>
+                ✕
+              </AppText>
+            </Pressable>
+          </View>
+
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.formBody}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
+          >
+            <ScrollView
+              style={[styles.scrollArea, { maxHeight: scrollMaxHeight }]}
+              contentContainerStyle={styles.content}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+              showsVerticalScrollIndicator={false}
+              nestedScrollEnabled
+              bounces
+            >
+              <AppText variant="body" color="textSecondary">
+                Enter your delivery details to continue checkout.
+              </AppText>
+
+              <ShippingAddressForm value={value} errors={errors ?? {}} onChange={onChange} />
+
+              {errorMessage ? (
+                <AppText variant="bodySmall" color="error">
+                  {errorMessage}
+                </AppText>
+              ) : null}
+            </ScrollView>
+
+            <AppButton
+              label={isSubmitting ? 'Submitting...' : 'Continue'}
+              onPress={onSubmit}
+              disabled={isSubmitting}
+              fullWidth
+              size="lg"
+              shape="pill"
+            />
+          </KeyboardAvoidingView>
         </View>
-
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <AppText variant="body" color="textSecondary">
-            Enter your delivery address so we can calculate shipping before checkout.
-          </AppText>
-
-          <ShippingAddressForm value={value} errors={errors ?? {}} onChange={onChange} />
-
-          {errorMessage ? (
-            <AppText variant="bodySmall" color="error">
-              {errorMessage}
-            </AppText>
-          ) : null}
-
-          <AppButton
-            label={isSubmitting ? 'Saving...' : 'Calculate shipping'}
-            onPress={onSubmit}
-            disabled={isSubmitting}
-            fullWidth
-          />
-        </ScrollView>
       </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  overlay: {
     flex: 1,
-    backgroundColor: colors.background,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(15, 23, 42, 0.35)',
   },
-  header: {
+  backdrop: {
+    flex: 1,
+  },
+  sheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    gap: spacing.md,
+    ...shadows.floating,
+  },
+  handle: {
+    alignSelf: 'center',
+    width: 44,
+    height: 4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.borderStrong,
+    marginBottom: spacing.xs,
+  },
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  title: {
+    flex: 1,
+    fontWeight: '700',
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceMuted,
+  },
+  closeLabel: {
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  formBody: {
+    gap: spacing.md,
+  },
+  scrollArea: {
+    flexGrow: 0,
   },
   content: {
-    paddingHorizontal: spacing.lg,
     gap: spacing.lg,
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.sm,
+  },
+  pressed: {
+    opacity: 0.88,
   },
 });

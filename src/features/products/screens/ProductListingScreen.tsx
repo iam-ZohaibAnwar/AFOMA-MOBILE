@@ -1,15 +1,20 @@
-import { useLayoutEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { FadeInContent } from '../../../components/motion';
 import { ErrorState } from '../../../components/ecommerce';
 import { AppText } from '../../../components/ui/AppText';
+import {
+  useMarketplaceFooterContentInset,
+  useMarketplaceScrollHandler,
+} from '../../../app/navigation/marketplaceChrome';
+import { CategoryBrowseScreenLayout } from '../../categories/components/CategoryBrowseScreenLayout';
 import { ProductGrid } from '../components/ProductGrid';
 import { useProductListing } from '../hooks/useProductListing';
 import { getProductRouteId } from '../utils/productDisplay';
 import type { ShoppingStackParamList } from '../../../app/navigation/types';
 import type { Product } from '../../../services/types/product';
+import { colors, spacing } from '../../../design-system';
 
 type Props = NativeStackScreenProps<ShoppingStackParamList, 'ProductListing'>;
 
@@ -55,6 +60,8 @@ function buildHeaderSubtitle(params: ShoppingStackParamList['ProductListing']): 
 }
 
 export function ProductListingScreen({ route, navigation }: Props) {
+  const footerInset = useMarketplaceFooterContentInset();
+  const onMarketplaceScroll = useMarketplaceScrollHandler();
   const {
     categoryId,
     subCategoryId,
@@ -74,10 +81,6 @@ export function ProductListingScreen({ route, navigation }: Props) {
     listingSource,
   });
 
-  useLayoutEffect(() => {
-    navigation.setOptions({ title: headerTitle });
-  }, [headerTitle, navigation]);
-
   const handleProductPress = (product: Product) => {
     const productId = getProductRouteId(product);
     navigation.navigate('ProductDetail', {
@@ -89,87 +92,99 @@ export function ProductListingScreen({ route, navigation }: Props) {
   const showBlockingError = Boolean(error) && products.length === 0 && !isRefreshing;
 
   return (
-    <View style={styles.container}>
-      {headerSubtitle ? <Text style={styles.listHeaderSubtitle}>{headerSubtitle}</Text> : null}
+    <CategoryBrowseScreenLayout navigation={navigation}>
+      <View style={styles.container}>
+        {headerTitle ? <Text style={styles.listHeaderTitle}>{headerTitle}</Text> : null}
+        {headerSubtitle ? <Text style={styles.listHeaderSubtitle}>{headerSubtitle}</Text> : null}
 
-      {error && !showBlockingError ? (
-        <Pressable style={styles.refreshBanner} onPress={() => void retry()}>
-          <AppText variant="bodySmall" color="error">
-            {error}
-          </AppText>
-          <AppText variant="bodySmall" style={styles.refreshBannerAction}>
-            Retry
-          </AppText>
-        </Pressable>
-      ) : null}
-
-      {showBlockingError ? (
-        <View style={styles.errorWrap}>
-          <ErrorState message={error ?? 'Failed to load products'} onAction={() => void retry()} />
-          <Pressable style={styles.backLink} onPress={() => navigation.goBack()}>
-            <Text style={styles.backLinkText}>Go back</Text>
+        {error && !showBlockingError ? (
+          <Pressable style={styles.refreshBanner} onPress={() => void retry()}>
+            <AppText variant="bodySmall" color="error">
+              {error}
+            </AppText>
+            <AppText variant="bodySmall" style={styles.refreshBannerAction}>
+              Retry
+            </AppText>
           </Pressable>
-        </View>
-      ) : (
-        <FadeInContent style={styles.content}>
-          <ProductGrid
-            products={products}
-            onProductPress={handleProductPress}
-            isLoading={isLoading}
-            emptyMessage={
-              searchQuery
-                ? `No products matched "${searchQuery}".`
-                : 'No products found for this category.'
-            }
-          />
-        </FadeInContent>
-      )}
-    </View>
+        ) : null}
+
+        {showBlockingError ? (
+          <View style={styles.errorWrap}>
+            <ErrorState message={error ?? 'Failed to load products'} onAction={() => void retry()} />
+            <Pressable style={styles.backLink} onPress={() => navigation.goBack()}>
+              <Text style={styles.backLinkText}>Go back</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <FadeInContent style={styles.content}>
+            <ProductGrid
+              products={products}
+              onProductPress={handleProductPress}
+              isLoading={isLoading}
+              emptyMessage={
+                searchQuery
+                  ? `No products matched "${searchQuery}".`
+                  : 'No products found for this category.'
+              }
+              onScroll={onMarketplaceScroll}
+              contentInsetBottom={footerInset}
+            />
+          </FadeInContent>
+        )}
+      </View>
+    </CategoryBrowseScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: colors.background,
   },
   content: {
     flex: 1,
   },
+  listHeaderTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+  },
   listHeaderSubtitle: {
     fontSize: 14,
-    color: '#64748B',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 4,
+    color: colors.textMuted,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
   },
   refreshBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
-    marginHorizontal: 16,
-    marginBottom: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: 12,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.surfaceMuted,
   },
   refreshBannerAction: {
-    color: '#1D4ED8',
+    color: colors.textLink,
     fontWeight: '600',
   },
   errorWrap: {
     flex: 1,
-    padding: 24,
-    gap: 12,
+    padding: spacing.xl,
+    gap: spacing.sm,
   },
   backLink: {
     alignSelf: 'center',
-    paddingVertical: 8,
+    paddingVertical: spacing.sm,
   },
   backLinkText: {
-    color: '#1D4ED8',
+    color: colors.textLink,
     fontSize: 14,
     fontWeight: '600',
   },

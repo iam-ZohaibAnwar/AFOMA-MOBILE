@@ -5,6 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppText } from '../../../components/ui/AppText';
 import { colors, radius, shadows, spacing } from '../../../design-system';
+import { useMarketplaceChromeOptional } from '../../../app/navigation/marketplaceChrome';
+import { getMarketplaceFooterContentInset } from '../../../app/navigation/marketplaceChrome/marketplaceFooterLayout';
 import { CartOrderSummary, type CartOrderSummaryProps } from '../../cart/components/CartOrderSummary';
 import { formatProductPrice } from '../../products/utils/productDisplay';
 import type { PaymentMethodId } from './PaymentMethodOption';
@@ -25,6 +27,8 @@ export interface PaymentMethodSheetProps extends CartOrderSummaryProps {
   confirmLoading?: boolean;
   onConfirm: () => void;
   style?: ViewStyle;
+  /** When true, marketplace tab bar sits below this sheet (safe area handled by footer). */
+  hasFooterTabs?: boolean;
 }
 
 function MethodBadge({ label }: { label: string }) {
@@ -88,19 +92,24 @@ export function PaymentMethodSheet({
   confirmLoading,
   onConfirm,
   style,
+  hasFooterTabs = false,
   currency = 'CAD',
   total = null,
   ...summaryProps
 }: PaymentMethodSheetProps) {
   const insets = useSafeAreaInsets();
+  const chrome = useMarketplaceChromeOptional();
+  const footerInset =
+    chrome?.footerContentInset ?? getMarketplaceFooterContentInset(insets.bottom);
   const [expanded, setExpanded] = useState(true);
   const selectedMethodConfig = methods.find((method) => method.id === selectedMethod);
   const isConfirmDisabled =
     confirmDisabled || confirmLoading || !selectedMethodConfig || selectedMethodConfig.disabled;
   const totalLabel = total == null ? '—' : formatProductPrice(total, currency);
+  const bottomPadding = hasFooterTabs ? footerInset + spacing.md : insets.bottom + spacing.md;
 
   return (
-    <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.md }, style]}>
+    <View style={[styles.sheet, { paddingBottom: bottomPadding }, style]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={expanded ? 'Collapse payment methods' : 'Expand payment methods'}

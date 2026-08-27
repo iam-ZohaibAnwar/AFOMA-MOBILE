@@ -18,6 +18,10 @@ import { AppCard } from '../../../components/ui/AppCard';
 import { AppText } from '../../../components/ui/AppText';
 import { colors, spacing } from '../../../design-system';
 import type { ShoppingStackParamList } from '../../../app/navigation/types';
+import {
+  marketplaceScrollProps,
+  useMarketplaceScrollHandler,
+} from '../../../app/navigation/marketplaceChrome';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { useRequireAuth } from '../../auth/hooks/useRequireAuth';
 import { authReturnTo } from '../../auth/utils/authNavigation';
@@ -40,6 +44,7 @@ const ADDRESS_BOOK_RETURN_TO = authReturnTo.addressBook();
 
 export function AddressBookScreen(_props: Props) {
   const insets = useSafeAreaInsets();
+  const onMarketplaceScroll = useMarketplaceScrollHandler();
   const { isAuthorized } = useRequireAuth(ADDRESS_BOOK_RETURN_TO);
   const { user } = useAuth();
   const authUserId = resolveAuthUserId(user);
@@ -169,6 +174,8 @@ export function AddressBookScreen(_props: Props) {
           contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          onScroll={onMarketplaceScroll}
+          {...marketplaceScrollProps}
         >
           <AppCard variant="flat">
             <AppText variant="label" style={styles.sectionTitle}>
@@ -215,6 +222,8 @@ export function AddressBookScreen(_props: Props) {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        onScroll={onMarketplaceScroll}
+        {...marketplaceScrollProps}
       >
         {selectionMessage ? (
           <AppCard variant="flat" style={styles.successBanner}>

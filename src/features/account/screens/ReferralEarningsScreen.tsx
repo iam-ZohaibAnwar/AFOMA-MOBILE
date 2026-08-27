@@ -14,6 +14,10 @@ import { AppCard } from '../../../components/ui/AppCard';
 import { AppText } from '../../../components/ui/AppText';
 import { colors, spacing } from '../../../design-system';
 import type { ShoppingStackParamList } from '../../../app/navigation/types';
+import {
+  marketplaceScrollProps,
+  useMarketplaceScrollHandler,
+} from '../../../app/navigation/marketplaceChrome';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { useRequireAuth } from '../../auth/hooks/useRequireAuth';
 import { authReturnTo } from '../../auth/utils/authNavigation';
@@ -27,6 +31,7 @@ const REFERRAL_EARNINGS_RETURN_TO = authReturnTo.referralEarnings();
 
 export function ReferralEarningsScreen(_props: Props) {
   const insets = useSafeAreaInsets();
+  const onMarketplaceScroll = useMarketplaceScrollHandler();
   const { isAuthorized } = useRequireAuth(REFERRAL_EARNINGS_RETURN_TO);
   const { user } = useAuth();
   const userId = resolveAuthUserId(user);
@@ -77,6 +82,8 @@ export function ReferralEarningsScreen(_props: Props) {
       style={styles.screen}
       contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
       showsVerticalScrollIndicator={false}
+      onScroll={onMarketplaceScroll}
+      {...marketplaceScrollProps}
     >
       <AppCard variant="muted">
         <AppText variant="bodyMedium" style={styles.sectionTitle}>

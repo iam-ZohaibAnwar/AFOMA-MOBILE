@@ -1,9 +1,9 @@
 import { StyleSheet, View } from 'react-native';
 
-import { ProductCard } from '../../../components/ecommerce/ProductCard';
 import { AppText } from '../../../components/ui/AppText';
 import { spacing } from '../../../design-system';
 import type { Product } from '../../../services/types/product';
+import { ProductGrid } from './ProductGrid';
 
 interface SuggestedProductsSectionProps {
   title: string;
@@ -11,6 +11,7 @@ interface SuggestedProductsSectionProps {
   onProductPress: (product: Product) => void;
   /** Removes outer horizontal padding when nested inside another padded container. */
   embedded?: boolean;
+  showSeller?: boolean;
 }
 
 export function SuggestedProductsSection({
@@ -18,14 +19,10 @@ export function SuggestedProductsSection({
   products,
   onProductPress,
   embedded = false,
+  showSeller = true,
 }: SuggestedProductsSectionProps) {
   if (products.length === 0) {
     return null;
-  }
-
-  const rows: Product[][] = [];
-  for (let index = 0; index < products.length; index += 2) {
-    rows.push(products.slice(index, index + 2));
   }
 
   return (
@@ -33,22 +30,13 @@ export function SuggestedProductsSection({
       <AppText variant="h3" style={styles.title}>
         {title}
       </AppText>
-      {rows.map((row, rowIndex) => (
-        <View key={`row-${rowIndex}`} style={styles.row}>
-          {row.map((product) => (
-            <View key={product._id ?? product.slug} style={styles.cardWrap}>
-              <ProductCard
-                product={product}
-                onPress={onProductPress}
-                variant="elevated"
-                layout="marketplace"
-                showSeller
-              />
-            </View>
-          ))}
-          {row.length === 1 ? <View style={styles.cardWrap} /> : null}
-        </View>
-      ))}
+      <ProductGrid
+        products={products}
+        onProductPress={onProductPress}
+        showSeller={showSeller}
+        scrollEnabled={false}
+        nestedInList
+      />
     </View>
   );
 }
@@ -58,7 +46,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.xxl,
-    gap: spacing.md,
   },
   sectionEmbedded: {
     paddingHorizontal: 0,
@@ -66,15 +53,6 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
   },
   title: {
-    marginBottom: spacing.xs,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    gap: spacing.md,
-  },
-  cardWrap: {
-    flex: 1,
-    alignSelf: 'stretch',
+    marginBottom: spacing.md,
   },
 });

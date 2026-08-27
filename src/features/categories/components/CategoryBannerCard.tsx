@@ -3,7 +3,7 @@ import { Image, Pressable, StyleSheet, View, type ImageSourcePropType } from 're
 
 import { AppText } from '../../../components/ui/AppText';
 import { colors, spacing } from '../../../design-system';
-import { getCategoryImageSource } from '../utils/categoryImage';
+import { getBrowseCategoryImageSource } from '../utils/categoryImage';
 import { getCategoryBannerColor } from '../utils/categoryBannerTheme';
 import {
   getCategoryPlaceholderImageUrl,
@@ -32,7 +32,7 @@ export function CategoryBannerCard({
   onPress,
 }: CategoryBannerCardProps) {
   const bannerColor = getCategoryBannerColor(colorIndex);
-  const localSource = useMemo(() => getCategoryImageSource(slug, name), [name, slug]);
+  const localSource = useMemo(() => getBrowseCategoryImageSource(slug, name), [name, slug]);
   const placeholderUri = getCategoryPlaceholderImageUrl();
   const [useRemoteFallback, setUseRemoteFallback] = useState(false);
   const [usePlaceholderFallback, setUsePlaceholderFallback] = useState(false);
@@ -63,7 +63,7 @@ export function CategoryBannerCard({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Browse ${name}`}
+      accessibilityLabel={`Open ${name}`}
       accessibilityState={{ expanded }}
       onPress={onPress}
       style={({ pressed }) => [styles.banner, pressed && styles.pressed]}

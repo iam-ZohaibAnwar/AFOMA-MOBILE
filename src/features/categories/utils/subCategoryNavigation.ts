@@ -8,6 +8,7 @@ import {
 import type { ShoppingStackParamList } from '../../../app/navigation/types';
 import type { Category } from '../../../services/types/category';
 import {
+  formatCategoryDisplayName,
   getCategoryDisplayName,
   getCategoryRouteId,
   getNavigableCategories,
@@ -27,10 +28,14 @@ export interface CategoryListingParams {
 }
 
 export function getCategoryListingTitle(params: CategoryListingParams): string {
+  const childName = params.childCategoryName?.trim();
+  const subName = params.subCategoryName?.trim();
+  const categoryName = params.categoryName?.trim();
+
   return (
-    params.childCategoryName ??
-    params.subCategoryName ??
-    params.categoryName ??
+    (childName ? formatCategoryDisplayName(childName) : undefined) ??
+    (subName ? formatCategoryDisplayName(subName) : undefined) ??
+    (categoryName ? formatCategoryDisplayName(categoryName) : undefined) ??
     'Products'
   );
 }
@@ -40,13 +45,12 @@ export function navigateToCategoryProductListing(
   params: CategoryListingParams,
 ): void {
   if (params.childCategoryId && params.subCategoryId) {
-    navigation.navigate('ChildCategory', {
+    navigation.navigate('SubCategory', {
       categoryId: params.categoryId,
       subCategoryId: params.subCategoryId,
-      childCategoryId: params.childCategoryId,
       categoryName: params.categoryName,
       subCategoryName: params.subCategoryName,
-      childCategoryName: params.childCategoryName,
+      initialChildCategoryId: params.childCategoryId,
     });
     return;
   }
@@ -85,10 +89,9 @@ export async function resolveCategoryDestination(
   return navigableSubCategories.length > 0 ? 'subCategories' : 'productListing';
 }
 
-export function navigateFromCategory(
+export function navigateToParentCategory(
   navigation: ShoppingNavigation,
   category: Category,
-  _destination: CategoryListingDestination,
 ): void {
   const categoryId = getCategoryRouteId(category);
   if (!categoryId) {
@@ -99,6 +102,14 @@ export function navigateFromCategory(
     categoryId,
     categoryName: getCategoryDisplayName(category),
   });
+}
+
+export function navigateFromCategory(
+  navigation: ShoppingNavigation,
+  category: Category,
+  _destination: CategoryListingDestination,
+): void {
+  navigateToParentCategory(navigation, category);
 }
 
 export function navigateFromSubCategorySectionChild(
@@ -116,13 +127,12 @@ export function navigateFromSubCategorySectionChild(
     return;
   }
 
-  navigation.navigate('ChildCategory', {
+  navigation.navigate('SubCategory', {
     categoryId: params.categoryId,
     categoryName: params.categoryName,
     subCategoryId,
     subCategoryName: getCategoryDisplayName(params.subCategory),
-    childCategoryId,
-    childCategoryName: getCategoryDisplayName(params.childCategory),
+    initialChildCategoryId: childCategoryId,
   });
 }
 

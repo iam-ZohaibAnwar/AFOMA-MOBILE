@@ -10,9 +10,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '../../../components/ui/AppText';
 import { HeaderBackButton } from '../../../components/ui/HeaderBackButton';
+import {
+  marketplaceScrollProps,
+  useMarketplaceFooterContentInset,
+  useMarketplaceScrollHandler,
+} from '../../../app/navigation/marketplaceChrome';
 import { colors, spacing } from '../../../design-system';
-import { AuthFooterTabBar, type AuthFooterTabName } from './AuthFooterTabBar';
-import { useAuthFooterTabBarInset } from './authFooterTabBarLayout';
 
 export interface AuthFlowScreenProps {
   title: string;
@@ -21,7 +24,6 @@ export interface AuthFlowScreenProps {
   backAccessibilityLabel?: string;
   children: ReactNode;
   footer?: ReactNode;
-  activeFooterTab?: AuthFooterTabName;
 }
 
 export function AuthFlowScreen({
@@ -31,10 +33,10 @@ export function AuthFlowScreen({
   backAccessibilityLabel = 'Go back',
   children,
   footer,
-  activeFooterTab = 'account',
 }: AuthFlowScreenProps) {
   const insets = useSafeAreaInsets();
-  const footerTabBarInset = useAuthFooterTabBarInset();
+  const footerInset = useMarketplaceFooterContentInset();
+  const onMarketplaceScroll = useMarketplaceScrollHandler();
 
   return (
     <View style={styles.flex}>
@@ -47,11 +49,13 @@ export function AuthFlowScreen({
             styles.content,
             {
               paddingTop: insets.top + spacing.lg,
-              paddingBottom: footerTabBarInset + spacing.lg,
+              paddingBottom: footerInset + spacing.lg,
             },
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          onScroll={onMarketplaceScroll}
+          {...marketplaceScrollProps}
         >
           <View style={styles.topBar}>
             <HeaderBackButton onPress={onBack} accessibilityLabel={backAccessibilityLabel} />
@@ -70,8 +74,6 @@ export function AuthFlowScreen({
           {footer ? <View style={styles.footer}>{footer}</View> : null}
         </ScrollView>
       </KeyboardAvoidingView>
-
-      <AuthFooterTabBar activeTab={activeFooterTab} />
     </View>
   );
 }

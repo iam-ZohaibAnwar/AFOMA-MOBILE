@@ -4,6 +4,7 @@ import type { Review } from '../types/review';
 import type { Seller } from '../types/seller';
 import type { SellerProfile } from '../../features/seller/types/sellerProfile';
 import type { SubCategoryBrowserSection } from '../../features/categories/types/subCategoryBrowser';
+import type { ChatSummary } from '../../features/chat/types/chat';
 
 export interface OrdersListCacheEntry {
   orders: OrderSummary[];
@@ -24,6 +25,7 @@ const listingCache = new Map<string, Product[]>();
 const categorySectionsCache = new Map<string, SubCategoryBrowserSection[]>();
 const sellerProfileCache = new Map<string, SellerProfile>();
 const ordersListCache = new Map<string, OrdersListCacheEntry>();
+const chatInboxCache = new Map<string, ChatSummary[]>();
 
 const ORDERS_LIST_CACHE_VERSION = 2;
 
@@ -37,6 +39,14 @@ export function getOrdersListCache(key: string): OrdersListCacheEntry | undefine
 
 export function setOrdersListCache(key: string, entry: OrdersListCacheEntry): void {
   ordersListCache.set(key, entry);
+}
+
+export function getChatInboxCache(userId: string): ChatSummary[] | undefined {
+  return chatInboxCache.get(userId);
+}
+
+export function setChatInboxCache(userId: string, chats: ChatSummary[]): void {
+  chatInboxCache.set(userId, chats);
 }
 
 export function getShopCache(slug: string): ShopCacheEntry | undefined {

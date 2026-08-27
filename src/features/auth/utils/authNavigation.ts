@@ -52,6 +52,7 @@ export const authReturnTo = {
   accountDetails: (): AuthReturnTo => ({ kind: 'screen', name: 'AccountDetails' }),
   addressBook: (): AuthReturnTo => ({ kind: 'screen', name: 'AddressBook' }),
   referralEarnings: (): AuthReturnTo => ({ kind: 'screen', name: 'ReferralEarnings' }),
+  messages: (): AuthReturnTo => ({ kind: 'screen', name: 'ChatList' }),
   termsConditions: (): AuthReturnTo => ({ kind: 'screen', name: 'TermsConditions' }),
   adminDashboard: (): AuthReturnTo => ({ kind: 'root', name: 'Admin', screen: 'AdminDashboard' }),
   adminProductManagement: (params?: AdminProductManagementParams): AuthReturnTo => ({
@@ -397,5 +398,5 @@ export function completeAuthNavigation(navigation: NavLike, returnTo?: AuthRetur
     return;
   }
 
-  navigateToReturnTo(root, authReturnTo.accountTab());
+  navigateToReturnTo(root, authReturnTo.homeTab());
 }

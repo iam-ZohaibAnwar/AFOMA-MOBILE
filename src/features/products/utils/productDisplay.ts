@@ -26,7 +26,24 @@ export function getProductDisplayName(product: Product): string {
 }
 
 export function getProductImageUrl(product: Product): string | undefined {
-  return product.images?.[0]?.imageUrl;
+  return getProductImageUrls(product)[0];
+}
+
+export function getProductImageUrls(product: Product): string[] {
+  const seen = new Set<string>();
+  const urls: string[] = [];
+
+  for (const image of product.images ?? []) {
+    const url = image.imageUrl?.trim();
+    if (!url || seen.has(url)) {
+      continue;
+    }
+
+    seen.add(url);
+    urls.push(url);
+  }
+
+  return urls;
 }
 
 function parseDiscountCode(product: Product): number | undefined {
@@ -239,6 +256,14 @@ export function hasSellerStorePolicy(policy: ProductStorePolicy | undefined): bo
   return isPolicyEnabled(policy.cancellationPolicy) || isPolicyEnabled(policy.returnPolicy);
 }
 
+export function hasDisplayableStorePolicy(policy: ProductStorePolicy | undefined): boolean {
+  if (!policy) {
+    return false;
+  }
+
+  return Boolean(getCancellationPolicyMessage(policy) || getReturnPolicyMessage(policy));
+}
+
 export function getCancellationPolicyMessage(policy: ProductStorePolicy): string | null {
   if (!isPolicyEnabled(policy.cancellationPolicy)) {
     return null;
@@ -261,6 +286,11 @@ export function getReturnPolicyMessage(policy: ProductStorePolicy): string | nul
     return policy.returnPolicyDetails.trim();
   }
 
+  return null;
+}
+
+/** Legacy fallback copy for contexts that still need a default when return policy is enabled without details. */
+export function getReturnPolicyFallbackMessage(): string {
   return "Returns and exchanges are subject to the seller's discretion. If you have an issue with your order, please contact the seller within 7 days of delivery. Buyers may be responsible for return shipping costs.";
 }
 

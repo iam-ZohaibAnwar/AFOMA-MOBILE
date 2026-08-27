@@ -31,6 +31,8 @@ import { persistCart } from '../utils/cartUtils';
 
 interface UseCartShippingParams {
   cart: CartMap;
+  /** Items selected for checkout — shipping rates are calculated for this subset only. */
+  checkoutCart?: CartMap;
   user: AuthUser | null;
   authUserId?: string;
   replaceCart: (cart: CartMap) => void;
@@ -39,11 +41,13 @@ interface UseCartShippingParams {
 
 export function useCartShipping({
   cart,
+  checkoutCart,
   user,
   authUserId,
   replaceCart,
   setShippingTotals,
 }: UseCartShippingParams) {
+  const ratesCart = checkoutCart ?? cart;
   const { userInfo } = usePricing();
   const guestCheckout = useGuestCheckoutIdentity(user);
   const authShipping = useAuthenticatedShippingAddress(user, authUserId);
@@ -63,6 +67,14 @@ export function useCartShipping({
         .sort()
         .join('|'),
     [cart],
+  );
+  const checkoutCompositionKey = useMemo(
+    () =>
+      Object.entries(ratesCart)
+        .map(([itemId, line]) => `${itemId}:${line.orderQuantiy ?? 1}`)
+        .sort()
+        .join('|'),
+    [ratesCart],
   );
 
   useEffect(() => {
@@ -105,7 +117,7 @@ export function useCartShipping({
     error,
     retry,
   } = useCheckoutShippingRates(
-    cart,
+    ratesCart,
     shippingAddress,
     shippingContext.identity,
     shippingContext.canFetchRates,
@@ -142,7 +154,7 @@ export function useCartShipping({
       return;
     }
 
-    const nextCart = applyShippingSelectionsToCart(cart, selectedOptions, groups);
+    const nextCart = applyShippingSelectionsToCart(cart, selectedOptions, groups, ratesCart);
     if (nextCart === cart) {
       lastAppliedSignature.current = signature;
       return;
@@ -162,12 +174,14 @@ export function useCartShipping({
     selectedOptions,
     selectedShippingCost,
     shippingContext.canFetchRates,
+    ratesCart,
   ]);
 
   useEffect(() => {
     lastAppliedSignature.current = '';
   }, [
     cartCompositionKey,
+    checkoutCompositionKey,
     shippingAddress.city,
     shippingAddress.country,
     shippingAddress.state,
@@ -259,14 +273,15 @@ export function useCartShipping({
     [authUserId, guestCheckout],
   );
 
-  const resolvedShippingCad = selectedShippingCost || getCartShippingTotal(cart);
+  const resolvedShippingCad = selectedShippingCost || getCartShippingTotal(ratesCart);
 
   const canProceedToCheckout =
     !authShipping.isLoading &&
     !shippingContext.needsDeliveryDetails &&
     !isLoading &&
     !error &&
-    !isCartShippingPending(cart, selectedOptions);
+    Object.keys(ratesCart).length > 0 &&
+    !isCartShippingPending(ratesCart, selectedOptions);
 
   return {
     shippingAddress,

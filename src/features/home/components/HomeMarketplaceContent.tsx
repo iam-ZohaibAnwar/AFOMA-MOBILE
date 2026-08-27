@@ -5,6 +5,11 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { SectionHeader } from '../../../components/ecommerce';
+import {
+  marketplaceScrollProps,
+  useMarketplaceFooterContentInset,
+  useMarketplaceScrollHandler,
+} from '../../../app/navigation/marketplaceChrome';
 import { colors, sectionGap, spacing } from '../../../design-system';
 import type { MainTabParamList, ShoppingStackParamList } from '../../../app/navigation/types';
 import { navigateToShop } from '../../../app/navigation/shoppingNavigation';
@@ -29,6 +34,8 @@ export interface HomeMarketplaceContentProps {
 }
 
 export function HomeMarketplaceContent({ navigation }: HomeMarketplaceContentProps) {
+  const footerInset = useMarketplaceFooterContentInset();
+  const onMarketplaceScroll = useMarketplaceScrollHandler();
   const {
     products: newArrivals,
     isLoading: isNewArrivalsLoading,
@@ -102,10 +109,12 @@ export function HomeMarketplaceContent({ navigation }: HomeMarketplaceContentPro
   return (
     <ScrollView
       style={styles.scroll}
-      contentContainerStyle={styles.scrollContent}
+      contentContainerStyle={[styles.scrollContent, { paddingBottom: spacing.xxl + footerInset }]}
       showsVerticalScrollIndicator={false}
       directionalLockEnabled
       nestedScrollEnabled
+      onScroll={onMarketplaceScroll}
+      {...marketplaceScrollProps}
     >
       <HomePromoCarousel slides={promoSlides} onPress={handlePromoPress} />
 

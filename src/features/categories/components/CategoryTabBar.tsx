@@ -32,9 +32,10 @@ export function CategoryTabBar({ tabs, activeTabId, onTabChange }: CategoryTabBa
           return (
             <Pressable
               key={tab.id}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: isActive }}
-              onPress={() => onTabChange(tab.id)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: isActive }}
+            accessibilityLabel={tab.label}
+            onPress={() => onTabChange(tab.id)}
               style={styles.tab}
             >
               <AppText
@@ -57,6 +58,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.borderStrong,
     backgroundColor: colors.background,
+    marginBottom: spacing.md,
   },
   scrollContent: {
     paddingHorizontal: spacing.md,

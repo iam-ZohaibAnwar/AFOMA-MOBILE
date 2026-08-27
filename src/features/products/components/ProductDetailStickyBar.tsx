@@ -2,22 +2,81 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '../../../components/ui/AppText';
-import { colors, layout, radius, shadows, spacing, withSafeAreaBottom } from '../../../design-system';
+import { useMarketplaceFooterContentInset } from '../../../app/navigation/marketplaceChrome';
+import {
+  getMarketplaceFooterSafeInset,
+  MARKETPLACE_FOOTER_BOTTOM_GAP,
+} from '../../../app/navigation/marketplaceChrome/marketplaceFooterLayout';
+import { layout, radius, shadows, spacing } from '../../../design-system';
 import type { PdpTheme } from '../../../design-system/pdpTheme';
 
-/** Reserve scroll space so content clears the overlay Add to Cart button. */
+/** Gap between the sticky CTA pill and the floating tab footer. */
+export const PRODUCT_DETAIL_STICKY_FOOTER_GAP = spacing.sm;
+
+/** Reserve scroll space so content clears the overlay Add to Cart button and floating footer. */
 export function getProductDetailStickyBarInset(
-  bottomInset = 0,
+  footerContentInset: number,
   hasFeedback = false,
 ): number {
   const feedbackHeight = hasFeedback ? 56 : 0;
-  return feedbackHeight + spacing.sm + layout.minTouchTarget + 6 + spacing.sm + bottomInset;
+  return (
+    feedbackHeight +
+    spacing.sm +
+    layout.minTouchTarget +
+    6 +
+    spacing.sm +
+    (footerContentInset > 0 ? PRODUCT_DETAIL_STICKY_FOOTER_GAP + footerContentInset : 0)
+  );
 }
 
-export interface ProductDetailStickyFeedback {
-  type: 'success' | 'error';
-  message: string;
-  onViewCart?: () => void;
+export type ProductDetailAddToCartCtaMode = 'add' | 'viewCart' | 'loading';
+
+export interface ProductDetailAddToCartCtaProps {
+  theme: PdpTheme;
+  buttonLabel: string;
+  disabled: boolean;
+  mode: ProductDetailAddToCartCtaMode;
+  onPress: () => void;
+  floating?: boolean;
+}
+
+export function ProductDetailAddToCartCta({
+  theme,
+  buttonLabel,
+  disabled,
+  mode,
+  onPress,
+  floating = false,
+}: ProductDetailAddToCartCtaProps) {
+  const isLoading = mode === 'loading';
+  const isViewCart = mode === 'viewCart';
+  const label = isViewCart ? 'View cart' : buttonLabel;
+  const backgroundColor = theme.pillSelectedBg;
+  const labelColor = theme.pillSelectedText;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled: disabled || isLoading }}
+      disabled={disabled || isLoading}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.cta,
+        { backgroundColor },
+        floating ? shadows.floating : null,
+        (disabled || isLoading) && styles.ctaDisabled,
+        pressed && !disabled && !isLoading && styles.pressed,
+      ]}
+    >
+      {isLoading ? (
+        <ActivityIndicator color={theme.pillSelectedText} />
+      ) : (
+        <AppText variant="button" style={{ color: labelColor }}>
+          {label}
+        </AppText>
+      )}
+    </Pressable>
+  );
 }
 
 export interface ProductDetailStickyBarProps {
@@ -25,8 +84,9 @@ export interface ProductDetailStickyBarProps {
   buttonLabel: string;
   disabled: boolean;
   isLoading: boolean;
-  onAddToCart: () => void;
-  feedback?: ProductDetailStickyFeedback | null;
+  ctaMode: ProductDetailAddToCartCtaMode;
+  onPress: () => void;
+  footerHidden?: boolean;
 }
 
 export function ProductDetailStickyBar({
@@ -34,72 +94,36 @@ export function ProductDetailStickyBar({
   buttonLabel,
   disabled,
   isLoading,
-  onAddToCart,
-  feedback,
+  ctaMode,
+  onPress,
+  footerHidden = false,
 }: ProductDetailStickyBarProps) {
   const insets = useSafeAreaInsets();
+  const footerInset = useMarketplaceFooterContentInset();
+  const safeBottom = getMarketplaceFooterSafeInset(insets.bottom);
+  const bottomOffset = footerHidden
+    ? safeBottom + MARKETPLACE_FOOTER_BOTTOM_GAP
+    : footerInset + PRODUCT_DETAIL_STICKY_FOOTER_GAP;
 
   return (
     <View
+      pointerEvents="box-none"
       style={[
         styles.container,
         {
-          paddingBottom: withSafeAreaBottom(spacing.sm, insets.bottom),
+          bottom: bottomOffset,
+          paddingBottom: spacing.sm,
         },
-        shadows.card,
       ]}
     >
-      {feedback ? (
-        <View
-          style={[
-            styles.feedback,
-            {
-              backgroundColor:
-                feedback.type === 'success' ? theme.deliveryBannerBg : colors.surfaceMuted,
-              borderColor: theme.border,
-            },
-          ]}
-        >
-          <AppText
-            variant="bodySmall"
-            style={{
-              flex: 1,
-              color: feedback.type === 'success' ? theme.deliveryBannerText : theme.textPrimary,
-            }}
-          >
-            {feedback.message}
-          </AppText>
-          {feedback.type === 'success' && feedback.onViewCart ? (
-            <Pressable accessibilityRole="button" onPress={feedback.onViewCart}>
-              <AppText variant="bodyMedium" style={{ color: theme.textPrimary, fontWeight: '600' }}>
-                View cart
-              </AppText>
-            </Pressable>
-          ) : null}
-        </View>
-      ) : null}
-
-      <Pressable
-        accessibilityRole="button"
-        disabled={disabled || isLoading}
-        onPress={onAddToCart}
-        style={({ pressed }) => [
-          styles.cta,
-          {
-            backgroundColor: theme.pillSelectedBg,
-          },
-          (disabled || isLoading) && styles.ctaDisabled,
-          pressed && !disabled && !isLoading && styles.pressed,
-        ]}
-      >
-        {isLoading ? (
-          <ActivityIndicator color={theme.pillSelectedText} />
-        ) : (
-          <AppText variant="button" style={{ color: theme.pillSelectedText }}>
-            {buttonLabel}
-          </AppText>
-        )}
-      </Pressable>
+      <ProductDetailAddToCartCta
+        theme={theme}
+        buttonLabel={buttonLabel}
+        disabled={disabled}
+        mode={isLoading ? 'loading' : ctaMode}
+        onPress={onPress}
+        floating
+      />
     </View>
   );
 }
@@ -112,19 +136,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
-    backgroundColor: colors.surface,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    gap: spacing.sm,
-  },
-  feedback: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    borderRadius: radius.large,
-    borderWidth: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    zIndex: 50,
   },
   cta: {
     width: '100%',

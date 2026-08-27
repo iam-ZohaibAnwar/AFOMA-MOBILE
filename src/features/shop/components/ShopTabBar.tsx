@@ -50,6 +50,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.borderStrong,
     backgroundColor: colors.background,
     marginTop: spacing.md,
+    marginBottom: spacing.lg,
   },
   tab: {
     flex: 1,

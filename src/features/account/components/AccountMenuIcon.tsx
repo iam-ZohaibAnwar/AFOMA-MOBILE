@@ -6,6 +6,7 @@ export type AccountMenuIconName =
   | 'orders'
   | 'addresses'
   | 'referral-earnings'
+  | 'messages'
   | 'shop-profile'
   | 'dashboard'
   | 'products'
@@ -37,6 +38,7 @@ const ICON_MAP: Record<AccountMenuIconName, ComponentProps<typeof Ionicons>['nam
   orders: 'bag-outline',
   addresses: 'location-outline',
   'referral-earnings': 'gift-outline',
+  messages: 'chatbubbles-outline',
   'shop-profile': 'storefront-outline',
   dashboard: 'speedometer-outline',
   products: 'cube-outline',

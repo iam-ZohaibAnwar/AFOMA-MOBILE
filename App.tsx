@@ -1,13 +1,12 @@
 import { useEffect } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { MarketplaceChromeShell } from './src/app/navigation/marketplaceChrome';
 import { AuthProvider } from './src/app/providers/AuthProvider';
 import { PricingProvider } from './src/app/providers/PricingProvider';
 import { StripeAppProvider } from './src/app/providers/StripeAppProvider';
 import { preparePayPalAuthSession } from './src/features/checkout/utils/openPayPalAuthSession';
-import { rootLinking } from './src/app/navigation/linking';
 import { RootNavigator } from './src/app/navigation/RootNavigator';
 import { prefetchCategoryTree } from './src/services/cache/categoryTreeCache';
 
@@ -23,10 +22,10 @@ export default function App() {
       <StripeAppProvider>
         <AuthProvider>
           <PricingProvider>
-            <NavigationContainer linking={rootLinking}>
+            <MarketplaceChromeShell>
               <RootNavigator />
-              <StatusBar style="dark" />
-            </NavigationContainer>
+            </MarketplaceChromeShell>
+            <StatusBar style="dark" />
           </PricingProvider>
         </AuthProvider>
       </StripeAppProvider>

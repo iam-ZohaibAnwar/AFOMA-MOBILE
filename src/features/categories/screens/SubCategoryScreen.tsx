@@ -1,8 +1,10 @@
-import { useLayoutEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import type { ShoppingStackParamList } from '../../../app/navigation/types';
-import { CategoryProductsPage } from '../components/CategoryProductsPage';
+import { CategoryBrowseScreenLayout } from '../components/CategoryBrowseScreenLayout';
+import { CategoryProductsWithHeader } from '../components/CategoryProductsWithHeader';
+import type { CategoryTabOption } from '../components/CategoryTabBar';
 import { useSubCategoryBrowserSections } from '../hooks/useSubCategoryBrowserSections';
 import {
   getCategoryDisplayName,
@@ -12,54 +14,77 @@ import {
 type Props = NativeStackScreenProps<ShoppingStackParamList, 'SubCategory'>;
 
 export function SubCategoryScreen({ route, navigation }: Props) {
-  const { categoryId, categoryName, subCategoryId, subCategoryName } = route.params;
+  const { categoryId, categoryName, subCategoryId, subCategoryName, initialChildCategoryId } =
+    route.params;
   const { sections } = useSubCategoryBrowserSections(categoryId);
+  const [activeTabId, setActiveTabId] = useState(initialChildCategoryId ?? 'all');
 
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      title: subCategoryName ?? 'Subcategory',
-    });
-  }, [navigation, subCategoryName]);
+  useEffect(() => {
+    setActiveTabId(initialChildCategoryId ?? 'all');
+  }, [initialChildCategoryId, subCategoryId]);
 
   const activeSection = useMemo(
     () => sections.find((section) => getCategoryRouteId(section.subCategory) === subCategoryId),
     [sections, subCategoryId],
   );
 
-  const childCategoryLinks = useMemo(
-    () =>
-      (activeSection?.childCategories ?? [])
-        .map((childCategory) => {
-          const childCategoryId = getCategoryRouteId(childCategory);
-          if (!childCategoryId) {
-            return null;
-          }
+  const childTabs = useMemo<CategoryTabOption[]>(() => {
+    const children = activeSection?.childCategories ?? [];
+    if (children.length === 0) {
+      return [];
+    }
 
-          return {
-            id: childCategoryId,
-            label: getCategoryDisplayName(childCategory),
-          };
-        })
-        .filter((link): link is { id: string; label: string } => link !== null),
-    [activeSection],
-  );
+    const tabs: CategoryTabOption[] = [{ id: 'all', label: 'All' }];
+    for (const childCategory of children) {
+      const childCategoryId = getCategoryRouteId(childCategory);
+      if (!childCategoryId) {
+        continue;
+      }
+
+      tabs.push({
+        id: childCategoryId,
+        label: getCategoryDisplayName(childCategory),
+      });
+    }
+
+    return tabs;
+  }, [activeSection]);
+
+  const filters = useMemo(() => {
+    if (activeTabId !== 'all') {
+      return {
+        categoryId,
+        subCategoryId,
+        childCategoryId: activeTabId,
+      };
+    }
+
+    return { categoryId, subCategoryId };
+  }, [activeTabId, categoryId, subCategoryId]);
+
+  const pageTitle = useMemo(() => {
+    if (subCategoryName?.trim()) {
+      return subCategoryName.trim();
+    }
+
+    if (activeSection?.subCategory) {
+      return getCategoryDisplayName(activeSection.subCategory);
+    }
+
+    return undefined;
+  }, [activeSection, subCategoryName]);
 
   return (
-    <CategoryProductsPage
-      navigation={navigation}
-      filters={{ categoryId, subCategoryId }}
-      categoryLinks={childCategoryLinks}
-      onCategoryLinkPress={(childCategoryId, childCategoryName) => {
-        navigation.navigate('ChildCategory', {
-          categoryId,
-          categoryName,
-          subCategoryId,
-          subCategoryName,
-          childCategoryId,
-          childCategoryName,
-        });
-      }}
-      emptyMessage="No products found in this subcategory yet."
-    />
+    <CategoryBrowseScreenLayout navigation={navigation}>
+      <CategoryProductsWithHeader
+        navigation={navigation}
+        filters={filters}
+        pageTitle={pageTitle}
+        tabs={childTabs}
+        activeTabId={activeTabId}
+        onTabChange={setActiveTabId}
+        emptyMessage="No products found in this subcategory yet."
+      />
+    </CategoryBrowseScreenLayout>
   );
 }

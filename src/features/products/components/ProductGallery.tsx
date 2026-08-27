@@ -8,24 +8,30 @@ import {
   ScrollView,
   StyleSheet,
   View,
+  type LayoutChangeEvent,
 } from 'react-native';
 
 import { AppText } from '../../../components/ui/AppText';
-import { colors, layout, spacing } from '../../../design-system';
+import { colors, spacing } from '../../../design-system';
 import type { PdpTheme } from '../../../design-system/pdpTheme';
 import type { ProductGalleryImage } from '../utils/productGallery';
+import { ProductGalleryHeroChrome, type ProductGalleryHeroChromeProps } from './ProductGalleryHeroChrome';
 import { ProductImageViewerModal } from './ProductImageViewerModal';
 
 export interface ProductGalleryProps {
   images: ProductGalleryImage[];
   productName: string;
   theme: PdpTheme;
+  onLayout?: (event: LayoutChangeEvent) => void;
+  chrome?: Omit<ProductGalleryHeroChromeProps, 'theme'> | null;
 }
 
 export function ProductGallery({
   images,
   productName,
   theme,
+  onLayout,
+  chrome,
 }: ProductGalleryProps) {
   const scrollRef = useRef<ScrollView>(null);
   const screenWidth = Dimensions.get('window').width;
@@ -49,13 +55,16 @@ export function ProductGallery({
     setSelectedIndex(nextIndex);
   };
 
+  const hasMultipleImages = galleryImages.length > 1;
+  const footerBottom = spacing.xl + 8;
+
   const openViewer = (index: number) => {
     setViewerIndex(index);
     setViewerVisible(true);
   };
 
   return (
-    <View style={{ backgroundColor: theme.background }}>
+    <View style={{ backgroundColor: theme.background }} onLayout={onLayout}>
       <View style={[styles.hero, { backgroundColor: theme.surfaceMuted }]}>
         {galleryImages.length > 0 ? (
           <ScrollView
@@ -87,11 +96,6 @@ export function ProductGallery({
                     })
                   }
                 />
-                <View style={styles.expandBadge}>
-                  <AppText variant="caption" style={styles.expandBadgeText}>
-                    Tap to zoom
-                  </AppText>
-                </View>
               </Pressable>
             ))}
           </ScrollView>
@@ -103,28 +107,37 @@ export function ProductGallery({
           </View>
         )}
 
-        {galleryImages.length > 1 ? (
-          <View style={styles.dotsRow}>
-            {galleryImages.map((image, index) => {
-              const isActive = index === selectedIndex;
+        {hasMultipleImages ? (
+          <View style={[styles.galleryFooter, { bottom: footerBottom }]}>
+            <View style={styles.dotsRow}>
+              {galleryImages.map((image, index) => {
+                const isActive = index === selectedIndex;
 
-              return (
-                <View
-                  key={image.id}
-                  style={[
-                    styles.dot,
-                    {
-                      backgroundColor: isActive ? colors.primary : colors.borderStrong,
-                      borderWidth: 0,
-                      opacity: isActive ? 1 : 0.55,
-                      width: isActive ? 18 : 8,
-                    },
-                  ]}
-                />
-              );
-            })}
+                return (
+                  <View
+                    key={image.id}
+                    style={[
+                      styles.dot,
+                      {
+                        backgroundColor: isActive ? colors.primary : colors.borderStrong,
+                        opacity: isActive ? 1 : 0.55,
+                        width: isActive ? 18 : 8,
+                      },
+                    ]}
+                  />
+                );
+              })}
+            </View>
+
+            <View style={[styles.imageCounter, { backgroundColor: theme.imageCounterBg }]}>
+              <AppText variant="caption" style={[styles.imageCounterText, { color: theme.imageCounterText }]}>
+                {selectedIndex + 1} / {galleryImages.length}
+              </AppText>
+            </View>
           </View>
         ) : null}
+
+        {chrome ? <ProductGalleryHeroChrome theme={theme} {...chrome} /> : null}
       </View>
 
       <ProductImageViewerModal
@@ -141,37 +154,41 @@ export function ProductGallery({
 const styles = StyleSheet.create({
   hero: {
     width: '100%',
-    aspectRatio: 1.05,
+    aspectRatio: 1,
     position: 'relative',
   },
   heroImage: {
-    aspectRatio: 1.05,
+    aspectRatio: 1,
   },
   heroPlaceholder: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  expandBadge: {
-    position: 'absolute',
-    right: spacing.md,
-    bottom: spacing.lg,
-    minHeight: layout.minTouchTarget - 8,
-    borderRadius: 999,
-    paddingHorizontal: spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(23, 37, 84, 0.45)',
-  },
-  expandBadgeText: {
-    color: colors.textInverse,
-    fontWeight: '700',
-  },
-  dotsRow: {
+  galleryFooter: {
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: spacing.lg,
+    minHeight: 28,
+    justifyContent: 'center',
+  },
+  imageCounter: {
+    position: 'absolute',
+    left: spacing.md,
+    top: 0,
+    bottom: 0,
+    zIndex: 1,
+    borderRadius: 999,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    minHeight: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imageCounterText: {
+    fontWeight: '700',
+  },
+  dotsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

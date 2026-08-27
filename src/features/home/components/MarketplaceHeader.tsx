@@ -1,8 +1,8 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { UserAvatarCircle } from '../../../components/ui/UserAvatarCircle';
 import { AppText } from '../../../components/ui/AppText';
-import { MenuIcon } from '../../../components/ui/MenuIcon';
 import { SearchIcon } from '../../../components/ui/SearchIcon';
 import {
   colors,
@@ -14,7 +14,7 @@ import {
 import { useAuth } from '../../auth/hooks/useAuth';
 
 export interface MarketplaceHeaderProps {
-  onMenuPress: () => void;
+  onProfilePress: () => void;
   onSearchPress: () => void;
   onNotificationsPress?: () => void;
 }
@@ -29,7 +29,7 @@ function getGreetingName(firstName?: string, email?: string): string {
 }
 
 export function MarketplaceHeader({
-  onMenuPress,
+  onProfilePress,
   onSearchPress,
   onNotificationsPress,
 }: MarketplaceHeaderProps) {
@@ -43,15 +43,12 @@ export function MarketplaceHeader({
     <View style={[styles.container, { paddingTop: insets.top + spacing.sm }]}>
       <View style={styles.row}>
         <View style={styles.leadingBlock}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Open categories menu"
-            onPress={onMenuPress}
-            hitSlop={8}
-            style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}
-          >
-            <MenuIcon color={colors.textPrimary} size={24} />
-          </Pressable>
+          <UserAvatarCircle
+            user={user}
+            isAuthenticated={isAuthenticated}
+            onPress={onProfilePress}
+            accessibilityLabel={isAuthenticated ? 'Open account' : 'Sign in'}
+          />
 
           <View style={styles.greetingBlock}>
             <AppText variant="bodyMedium" style={styles.greetingTitle}>
@@ -108,16 +105,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
     minWidth: 0,
-  },
-  menuButton: {
-    width: layout.minTouchTarget,
-    height: layout.minTouchTarget,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   greetingBlock: {
     flex: 1,

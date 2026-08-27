@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   StyleSheet,
@@ -13,7 +13,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppText } from '../../../components/ui/AppText';
 import { usePricing } from '../../../app/providers/PricingProvider';
+import {
+  marketplaceScrollProps,
+  useMarketplaceScrollHandler,
+} from '../../../app/navigation/marketplaceChrome';
 import { colors, spacing } from '../../../design-system';
+import { motion } from '../../../design-system/motion';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { authReturnTo, openAuthLogin } from '../../auth/utils/authNavigation';
 import { resolveAuthUserId } from '../../auth/utils/resolveAuthUserId';
@@ -70,9 +75,13 @@ function CartDivider() {
   return <View style={styles.divider} />;
 }
 
-export function CartScreen(_props: Props) {
+export function CartScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
+  const onMarketplaceScroll = useMarketplaceScrollHandler({ hideFooterOnScroll: false });
   const rootNavigation = useNavigation<CartNavigationProp>();
+  const pendingHighlightId = route.params?.highlightItemId;
+  const [emphasizedItemId, setEmphasizedItemId] = useState<string | null>(null);
+  const listRef = useRef<FlatList>(null);
   const { user, isAuthenticated } = useAuth();
   const authUserId = resolveAuthUserId(user);
   const { userInfo } = usePricing();
@@ -97,14 +106,6 @@ export function CartScreen(_props: Props) {
     setShippingTotals,
   } = useCart(authUserId, userInfo);
 
-  const cartShipping = useCartShipping({
-    cart,
-    user,
-    authUserId,
-    replaceCart,
-    setShippingTotals,
-  });
-
   const [modalAddress, setModalAddress] = useState(emptyShippingAddress());
   const [modalErrors, setModalErrors] = useState<Partial<Record<ShippingAddressField, string>>>({});
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
@@ -114,6 +115,62 @@ export function CartScreen(_props: Props) {
   useEffect(() => {
     setSelectedItemIds(new Set(entries.map((entry) => entry.id)));
   }, [entries]);
+
+  const filteredSelectedCart = useMemo(() => {
+    const next: typeof cart = {};
+    for (const itemId of selectedItemIds) {
+      if (cart[itemId]) {
+        next[itemId] = cart[itemId];
+      }
+    }
+    return next;
+  }, [cart, selectedItemIds]);
+
+  const cartShipping = useCartShipping({
+    cart,
+    checkoutCart: filteredSelectedCart,
+    user,
+    authUserId,
+    replaceCart,
+    setShippingTotals,
+  });
+
+  useEffect(() => {
+    if (!pendingHighlightId) {
+      return;
+    }
+
+    setEmphasizedItemId(pendingHighlightId);
+    navigation.setParams({ highlightItemId: undefined });
+  }, [navigation, pendingHighlightId]);
+
+  useEffect(() => {
+    if (!emphasizedItemId || entries.length === 0) {
+      return;
+    }
+
+    const index = entries.findIndex((entry) => entry.id === emphasizedItemId);
+    if (index < 0) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      listRef.current?.scrollToIndex({
+        index,
+        animated: true,
+        viewPosition: 0.2,
+      });
+    });
+
+    const clearTimer = setTimeout(() => {
+      setEmphasizedItemId(null);
+    }, motion.majorTransitionMs + motion.screenEnterMs + motion.contentFadeMs + 120);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(clearTimer);
+    };
+  }, [emphasizedItemId, entries]);
 
   useEffect(() => {
     if (cartShipping.addressModalVisible) {
@@ -156,16 +213,6 @@ export function CartScreen(_props: Props) {
     [entries, selectedItemIds],
   );
 
-  const filteredSelectedCart = useMemo(() => {
-    const next: typeof cart = {};
-    for (const itemId of selectedItemIds) {
-      if (cart[itemId]) {
-        next[itemId] = cart[itemId];
-      }
-    }
-    return next;
-  }, [cart, selectedItemIds]);
-
   const selectedSubTotalCad = useMemo(
     () => getCartSubtotalCad(filteredSelectedCart, userInfo),
     [filteredSelectedCart, userInfo],
@@ -179,17 +226,18 @@ export function CartScreen(_props: Props) {
   const shippingCad = useMemo(
     () =>
       resolveCartShippingCad(
-        cart,
+        filteredSelectedCart,
         totalShippingRate,
         fetchedShippingRate,
         cartShipping.selectedOptions,
       ),
-    [cart, cartShipping.selectedOptions, fetchedShippingRate, totalShippingRate],
+    [filteredSelectedCart, cartShipping.selectedOptions, fetchedShippingRate, totalShippingRate],
   );
   const shippingPending =
+    selectedItemIds.size === 0 ||
     cartShipping.shippingContext.needsDeliveryDetails ||
     cartShipping.isLoading ||
-    isCartShippingPending(cart, cartShipping.selectedOptions);
+    isCartShippingPending(filteredSelectedCart, cartShipping.selectedOptions);
 
   const totals = useMemo(
     () =>
@@ -314,10 +362,19 @@ export function CartScreen(_props: Props) {
       <CartScreenHeader onBack={handleBackFromCart} />
 
       <FlatList
+        ref={listRef}
         data={entries}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        onScroll={onMarketplaceScroll}
+        {...marketplaceScrollProps}
+        onScrollToIndexFailed={(info) => {
+          listRef.current?.scrollToOffset({
+            offset: info.averageItemLength * info.index,
+            animated: true,
+          });
+        }}
         ItemSeparatorComponent={CartDivider}
         renderItem={({ item }) => (
           <CartLineItemRow
@@ -326,6 +383,7 @@ export function CartScreen(_props: Props) {
             currency={currency}
             displayLineTotal={getCartLineDisplayAmount(item.line, cart, userInfo)}
             selected={selectedItemIds.has(item.id)}
+            emphasized={item.id === emphasizedItemId}
             onToggleSelect={toggleItemSelection}
             onRemove={(itemId) => void removeItem(itemId)}
             onQuantityChange={(itemId, nextQuantity) => void updateQuantity(itemId, nextQuantity)}
@@ -348,8 +406,6 @@ export function CartScreen(_props: Props) {
               isLoading={cartShipping.isLoading}
               error={cartShipping.error}
               selectedOptions={cartShipping.selectedOptions}
-              selectedShippingCost={cartShipping.selectedShippingCost}
-              hasMultipleSellers={cartShipping.hasMultipleSellers}
               onOpenDeliveryDetails={cartShipping.openDeliveryDetails}
               onOpenShippingOptions={cartShipping.openShippingOptions}
               onSignIn={() => openAuthLogin(rootNavigation, authReturnTo.cartTab())}
@@ -379,6 +435,7 @@ export function CartScreen(_props: Props) {
         shippingAmount={totals.displayShipping}
         serviceChargeAmount={totals.displayServiceCharge}
         total={totals.displayTotal}
+        shippingPending={shippingPending}
         onApplyPromo={applyPromoCode}
         onRemovePromo={clearCoupon}
         isApplyingCoupon={isApplyingCoupon}
@@ -386,12 +443,8 @@ export function CartScreen(_props: Props) {
         couponError={couponError}
         couponMessage={couponMessage}
         checkoutDisabled={!cartShipping.canProceedToCheckout || selectedItemCount === 0}
+        hasFooterTabs
         onCheckout={() => {
-          if (!isAuthenticated) {
-            openAuthLogin(rootNavigation, authReturnTo.payment());
-            return;
-          }
-
           rootNavigation.navigate('Payment');
         }}
       />

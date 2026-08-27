@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Image,
   Pressable,
   StyleSheet,
@@ -11,6 +12,7 @@ import { QuantityStepper } from '../../../components/ecommerce/QuantityStepper';
 import { AppText } from '../../../components/ui/AppText';
 import { DeleteIcon } from '../../../components/ui/DeleteIcon';
 import { colors, radius, spacing } from '../../../design-system';
+import { motion } from '../../../design-system/motion';
 import type { CartLineItem } from '../../../services/types/cart';
 import { getCartLineAttributes } from '../utils/cartUtils';
 import {
@@ -34,6 +36,7 @@ export interface CartLineItemRowProps {
   isUpdating?: boolean;
   showRemove?: boolean;
   showQuantityControls?: boolean;
+  emphasized?: boolean;
 }
 
 function toDisplayAmount(amount: number | undefined): number | undefined {
@@ -58,8 +61,10 @@ export function CartLineItemRow({
   isUpdating,
   showRemove = false,
   showQuantityControls = true,
+  emphasized = false,
 }: CartLineItemRowProps) {
   const [imageFailed, setImageFailed] = useState(false);
+  const highlightProgress = useRef(new Animated.Value(0)).current;
   const product = line.productData;
   const imageUrl = product ? getProductImageUrl(product) : undefined;
   const quantity = line.orderQuantiy ?? 0;
@@ -70,8 +75,55 @@ export function CartLineItemRow({
   const isCustomizable = product?.productType === 'Customizable';
   const isBusy = isRemoving || isUpdating;
 
+  useEffect(() => {
+    if (!emphasized) {
+      highlightProgress.setValue(0);
+      return;
+    }
+
+    highlightProgress.setValue(0);
+    Animated.sequence([
+      Animated.timing(highlightProgress, {
+        toValue: 1,
+        duration: motion.contentFadeMs,
+        useNativeDriver: false,
+      }),
+      Animated.timing(highlightProgress, {
+        toValue: 0.35,
+        duration: motion.majorTransitionMs,
+        useNativeDriver: false,
+      }),
+      Animated.timing(highlightProgress, {
+        toValue: 0,
+        duration: motion.screenEnterMs,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [emphasized, highlightProgress]);
+
+  const emphasisBackground = highlightProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['rgba(31, 98, 142, 0)', colors.primarySoft],
+  });
+
+  const emphasisBorder = highlightProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['rgba(31, 98, 142, 0)', colors.primary],
+  });
+
   return (
-    <View style={styles.container}>
+    <Animated.View
+      style={[
+        styles.container,
+        styles.emphasisWrap,
+        emphasized
+          ? {
+              backgroundColor: emphasisBackground,
+              borderColor: emphasisBorder,
+            }
+          : undefined,
+      ]}
+    >
       <Pressable
         accessibilityRole="checkbox"
         accessibilityState={{ checked: selected }}
@@ -167,7 +219,7 @@ export function CartLineItemRow({
           ) : null}
         </View>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -177,6 +229,13 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: spacing.sm,
     paddingVertical: spacing.lg,
+  },
+  emphasisWrap: {
+    marginHorizontal: -spacing.xs,
+    paddingHorizontal: spacing.xs,
+    borderRadius: radius.large,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   checkbox: {
     width: 22,

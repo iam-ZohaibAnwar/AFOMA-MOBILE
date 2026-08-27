@@ -4,14 +4,14 @@ import { MarketplaceHeader } from './MarketplaceHeader';
 import { colors } from '../../../design-system';
 
 export interface MarketplaceTopChromeProps {
-  onMenuPress: () => void;
+  onProfilePress: () => void;
   onSearchPress: () => void;
 }
 
-export function MarketplaceTopChrome({ onMenuPress, onSearchPress }: MarketplaceTopChromeProps) {
+export function MarketplaceTopChrome({ onProfilePress, onSearchPress }: MarketplaceTopChromeProps) {
   return (
     <View style={styles.container}>
-      <MarketplaceHeader onMenuPress={onMenuPress} onSearchPress={onSearchPress} />
+      <MarketplaceHeader onProfilePress={onProfilePress} onSearchPress={onSearchPress} />
     </View>
   );
 }

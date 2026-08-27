@@ -7,6 +7,8 @@ import { AccountDetailsScreen } from '../../features/account/screens/AccountDeta
 import { AddressBookScreen } from '../../features/account/screens/AddressBookScreen';
 import { ReferralEarningsScreen } from '../../features/account/screens/ReferralEarningsScreen';
 import { TermsConditionsScreen } from '../../features/legal/screens/TermsConditionsScreen';
+import { ChatListScreen } from '../../features/chat/screens/ChatListScreen';
+import { ChatThreadScreen } from '../../features/chat/screens/ChatThreadScreen';
 import { CheckoutScreen } from '../../features/checkout/screens/CheckoutScreen';
 import { PaymentScreen } from '../../features/checkout/screens/PaymentScreen';
 import { ChildCategoriesScreen } from '../../features/categories/screens/ChildCategoriesScreen';
@@ -18,7 +20,7 @@ import { OrdersScreen } from '../../features/orders/screens/OrdersScreen';
 import { ProductDetailScreen } from '../../features/products/screens/ProductDetailScreen';
 import { ProductListingScreen } from '../../features/products/screens/ProductListingScreen';
 import { SearchScreen } from '../../features/search/screens/SearchScreen';
-import { ShopScreen } from '../../features/shop/screens/ShopScreen';
+import { SellerShopScreen } from '../../features/shop/screens/SellerShopScreen';
 import { MainTabNavigator } from './MainTabNavigator';
 import type { ShoppingStackParamList } from './types';
 
@@ -44,36 +46,32 @@ export function ShoppingNavigator() {
       <Stack.Screen
         name="SubCategories"
         component={SubCategoriesScreen}
-        options={({ route }) => ({
-          title: route.params.categoryName ?? 'Category',
-        })}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="SubCategory"
         component={SubCategoryScreen}
-        options={({ route }) => ({
-          title: route.params.subCategoryName ?? 'Subcategory',
-        })}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="ChildCategory"
         component={ChildCategoryScreen}
-        options={({ route }) => ({
-          title: route.params.childCategoryName ?? 'Category',
-        })}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="ChildCategories"
         component={ChildCategoriesScreen}
-        options={{ title: 'Child Categories' }}
+        options={{ headerShown: false }}
       />
-      <Stack.Screen name="ProductListing" component={ProductListingScreen} options={{ title: 'Products' }} />
+      <Stack.Screen name="ProductListing" component={ProductListingScreen} options={{ headerShown: false }} />
       <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="Shop" component={ShopScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="SellerShop" component={SellerShopScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Search" component={SearchScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ title: 'Checkout' }} />
       <Stack.Screen name="Payment" component={PaymentScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Orders" component={OrdersScreen} options={{ title: 'My Orders' }} />
+      <Stack.Screen name="ChatList" component={ChatListScreen} options={{ title: 'Messages' }} />
+      <Stack.Screen name="ChatThread" component={ChatThreadScreen} options={{ title: 'Chat' }} />
       <Stack.Screen
         name="AccountDetails"
         component={AccountDetailsScreen}

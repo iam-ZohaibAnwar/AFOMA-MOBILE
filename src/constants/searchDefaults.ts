@@ -1,3 +1,5 @@
+export const SEARCH_PRODUCTS_PLACEHOLDER = 'Search products';
+
 export const TRENDING_SEARCH_TERMS = [
   'Summer dress',
   'Sneakers',

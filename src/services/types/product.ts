@@ -21,6 +21,7 @@ export interface ProductSellerRef {
   id?: string;
   uuid?: string | number;
   userId?: string;
+  userRole?: string;
   storeSlug?: string;
   storeTitle?: string;
   storeLogo?: string;

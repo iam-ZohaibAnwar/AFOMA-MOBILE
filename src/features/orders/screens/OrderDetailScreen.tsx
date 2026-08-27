@@ -10,6 +10,10 @@ import { AppDivider } from '../../../components/ui/AppDivider';
 import { AppText } from '../../../components/ui/AppText';
 import { colors, spacing } from '../../../design-system';
 import type { ShoppingStackParamList } from '../../../app/navigation/types';
+import {
+  marketplaceScrollProps,
+  useMarketplaceScrollHandler,
+} from '../../../app/navigation/marketplaceChrome';
 import { useRequireAuth } from '../../auth/hooks/useRequireAuth';
 import { authReturnTo } from '../../auth/utils/authNavigation';
 import { OrderLineItemRow } from '../components/OrderLineItemRow';
@@ -72,6 +76,7 @@ function SummaryRow({ label, value, emphasized = false }: {
 export function OrderDetailScreen({ route }: Props) {
   const { orderId } = route.params;
   const insets = useSafeAreaInsets();
+  const onMarketplaceScroll = useMarketplaceScrollHandler();
   const returnTo = useMemo(() => authReturnTo.orderDetail(orderId), [orderId]);
   const { isAuthorized } = useRequireAuth(returnTo);
   const { order, isLoading, error, isNotFound, retry } = useOrderDetail(orderId);
@@ -153,6 +158,8 @@ export function OrderDetailScreen({ route }: Props) {
         { paddingBottom: insets.bottom + spacing.xxl },
       ]}
       showsVerticalScrollIndicator={false}
+      onScroll={onMarketplaceScroll}
+      {...marketplaceScrollProps}
     >
       <View style={styles.headerRow}>
         <View style={styles.headerCopy}>

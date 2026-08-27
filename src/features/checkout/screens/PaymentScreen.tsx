@@ -18,12 +18,18 @@ import {
 } from '../../../app/utils/isStripeNativeSupported';
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppText } from '../../../components/ui/AppText';
+import { spacing, colors } from '../../../design-system';
 import { usePricing } from '../../../app/providers/PricingProvider';
+import {
+  marketplaceScrollProps,
+  useMarketplaceFooterContentInset,
+  useMarketplaceScrollHandler,
+} from '../../../app/navigation/marketplaceChrome';
 import { navigateToCartTab, navigateToHomeTab } from '../../../app/navigation/shoppingNavigation';
 import type { RootStackParamList, ShoppingStackParamList } from '../../../app/navigation/types';
 import { useAuth } from '../../auth/hooks/useAuth';
-import { useRequireAuth } from '../../auth/hooks/useRequireAuth';
 import { authReturnTo } from '../../auth/utils/authNavigation';
+import { useRequireCheckoutAccess } from '../hooks/useRequireCheckoutAccess';
 import { resolveAuthUserId } from '../../auth/utils/resolveAuthUserId';
 import { useCart } from '../../cart/hooks/useCart';
 import { useClearCartOnSuccessfulCheckout } from '../../cart/hooks/useClearCartOnSuccessfulCheckout';
@@ -67,11 +73,17 @@ type PaymentNavigationProp = CompositeNavigationProp<
 
 const PAYMENT_RETURN_TO = authReturnTo.payment();
 
-export function PaymentScreen({ route }: Props) {
+export function PaymentScreen(props: Props) {
+  return <PaymentScreenBody {...props} />;
+}
+
+function PaymentScreenBody({ route }: Props) {
   const insets = useSafeAreaInsets();
+  const footerInset = useMarketplaceFooterContentInset();
+  const onMarketplaceScroll = useMarketplaceScrollHandler();
   const navigation = useNavigation<PaymentNavigationProp>();
   const { user, isAuthenticated } = useAuth();
-  const { isAuthorized } = useRequireAuth(PAYMENT_RETURN_TO);
+  const { isAuthorized } = useRequireCheckoutAccess(PAYMENT_RETURN_TO);
   const authUserId = resolveAuthUserId(user);
   const { userInfo } = usePricing();
   const currency = userInfo.currency ?? 'CAD';
@@ -417,9 +429,11 @@ export function PaymentScreen({ route }: Props) {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: footerInset + spacing.lg }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        onScroll={onMarketplaceScroll}
+        {...marketplaceScrollProps}
       >
         <PaymentAddressSection address={shippingAddress} />
         <PaymentProductsSection entries={productEntries} currency={currency} />
@@ -468,6 +482,7 @@ export function PaymentScreen({ route }: Props) {
           confirmDisabled={totals.displayTotal == null || paymentFlowActive}
           confirmLoading={isProcessing || isEstablishingGuest}
           onConfirm={() => void handleConfirmPayment()}
+          hasFooterTabs
         />
       ) : null}
 

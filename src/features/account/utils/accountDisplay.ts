@@ -28,3 +28,29 @@ export function getAccountInitials(user: AuthUser | null | undefined): string {
 export function getAccountEmail(user: AuthUser | null | undefined): string {
   return user?.email?.trim() || 'Sign in to view your account';
 }
+
+export function getUserProfileImageUrl(user: AuthUser | null | undefined): string | undefined {
+  const url = user?.userProfile?.trim();
+  return url || undefined;
+}
+
+export function getUserAvatarLabel(
+  user: AuthUser | null | undefined,
+  isAuthenticated: boolean,
+): string {
+  if (!isAuthenticated) {
+    return 'GU';
+  }
+
+  const fromFirstName = user?.firstName?.trim()?.charAt(0);
+  if (fromFirstName) {
+    return fromFirstName.toUpperCase();
+  }
+
+  const fromEmail = user?.email?.trim()?.charAt(0);
+  if (fromEmail) {
+    return fromEmail.toUpperCase();
+  }
+
+  return getAccountDisplayName(user).charAt(0).toUpperCase() || 'A';
+}

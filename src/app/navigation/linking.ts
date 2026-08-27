@@ -27,9 +27,16 @@ export const rootLinking: LinkingOptions<RootStackParamList> = {
               cancel: String,
             },
           },
+          SellerShop: {
+            path: 'shop/:slug',
+            parse: {
+              slug: String,
+            },
+          },
           MainTabs: {
             screens: {
               MarketplaceTab: 'marketplace',
+              ShopTab: 'browse',
               CartTab: 'cart',
               AccountTab: 'account',
             },
