@@ -19,13 +19,18 @@ export function OrderSuccessSheet({
 }: OrderSuccessSheetProps) {
   const insets = useSafeAreaInsets();
 
+  if (!visible) {
+    return null;
+  }
+
   return (
     <Modal
-      visible={visible}
+      visible
       transparent
       animationType="slide"
       statusBarTranslucent
       presentationStyle="overFullScreen"
+      onRequestClose={onContinueShopping ?? onTrackOrder}
     >
       <View style={styles.overlay}>
         <Pressable style={styles.backdrop} accessibilityRole="none" />

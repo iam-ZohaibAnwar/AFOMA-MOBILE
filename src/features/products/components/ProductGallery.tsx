@@ -10,6 +10,7 @@ import {
   View,
   type LayoutChangeEvent,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '../../../components/ui/AppText';
 import { colors, spacing } from '../../../design-system';
@@ -33,6 +34,7 @@ export function ProductGallery({
   onLayout,
   chrome,
 }: ProductGalleryProps) {
+  const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
   const screenWidth = Dimensions.get('window').width;
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -65,7 +67,8 @@ export function ProductGallery({
 
   return (
     <View style={{ backgroundColor: theme.background }} onLayout={onLayout}>
-      <View style={[styles.hero, { backgroundColor: theme.surfaceMuted }]}>
+      <View style={{ paddingTop: insets.top, backgroundColor: theme.surfaceMuted }}>
+        <View style={[styles.hero, { backgroundColor: theme.surfaceMuted }]}>
         {galleryImages.length > 0 ? (
           <ScrollView
             ref={scrollRef}
@@ -137,7 +140,10 @@ export function ProductGallery({
           </View>
         ) : null}
 
-        {chrome ? <ProductGalleryHeroChrome theme={theme} {...chrome} /> : null}
+        {chrome ? (
+          <ProductGalleryHeroChrome theme={theme} overlayTop={spacing.xs} {...chrome} />
+        ) : null}
+        </View>
       </View>
 
       <ProductImageViewerModal

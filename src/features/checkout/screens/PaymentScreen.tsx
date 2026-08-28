@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import {
   ActivityIndicator,
+  InteractionManager,
   Platform,
   ScrollView,
   StyleSheet,
@@ -72,6 +73,36 @@ type PaymentNavigationProp = CompositeNavigationProp<
 >;
 
 const PAYMENT_RETURN_TO = authReturnTo.payment();
+/** iOS needs native pay sheets / Safari to finish dismissing before a second RN Modal can show. */
+const IOS_SUCCESS_SHEET_DELAY_MS = 350;
+
+function scheduleOrderSuccessSheet(onReady: () => void): () => void {
+  let cancelled = false;
+
+  const show = () => {
+    if (!cancelled) {
+      onReady();
+    }
+  };
+
+  if (Platform.OS === 'ios') {
+    const interactionTask = InteractionManager.runAfterInteractions(() => {
+      requestAnimationFrame(() => {
+        setTimeout(show, IOS_SUCCESS_SHEET_DELAY_MS);
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      interactionTask.cancel();
+    };
+  }
+
+  show();
+  return () => {
+    cancelled = true;
+  };
+}
 
 export function PaymentScreen(props: Props) {
   return <PaymentScreenBody {...props} />;
@@ -121,12 +152,17 @@ function PaymentScreenBody({ route }: Props) {
 
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethodId>('paypal');
   const [formNotice, setFormNotice] = useState<string | null>(null);
-  const [showOrderSuccess, setShowOrderSuccess] = useState(false);
+  const [orderSuccessSheetReady, setOrderSuccessSheetReady] = useState(false);
+  const [orderSuccessSheetDismissed, setOrderSuccessSheetDismissed] = useState(false);
 
   const showProcessingOverlay =
-    checkoutPayment.isPayPalCapturing === true ||
-    checkoutPayment.isStripeInitializing === true ||
-    (isCapturing && !checkoutPayment.isPayPalCapturing && selectedPayment === 'stripe');
+    !captureResult &&
+    (checkoutPayment.isPayPalCapturing === true ||
+      checkoutPayment.isStripeInitializing === true ||
+      (isCapturing && !checkoutPayment.isPayPalCapturing && selectedPayment === 'stripe'));
+
+  const showOrderSuccess =
+    Boolean(captureResult) && orderSuccessSheetReady && !orderSuccessSheetDismissed;
 
   const paymentError = getCheckoutPaymentErrorMessage(
     orderError,
@@ -140,12 +176,19 @@ function PaymentScreenBody({ route }: Props) {
   }, [resumePayPalFromRouteParams, route.params]);
 
   useEffect(() => {
-    if (captureResult) {
-      setShowOrderSuccess(true);
-      if (authUserId) {
-        void removeAppliedCoupon();
-      }
+    if (!captureResult) {
+      setOrderSuccessSheetReady(false);
+      setOrderSuccessSheetDismissed(false);
+      return;
     }
+
+    if (authUserId) {
+      void removeAppliedCoupon();
+    }
+
+    return scheduleOrderSuccessSheet(() => {
+      setOrderSuccessSheetReady(true);
+    });
   }, [authUserId, captureResult, removeAppliedCoupon]);
 
   useClearCartOnSuccessfulCheckout(captureResult, cart, authUserId);
@@ -350,7 +393,7 @@ function PaymentScreenBody({ route }: Props) {
   const capturedOrderId = useMemo(() => resolveCapturedOrderId(captureResult), [captureResult]);
 
   const handleTrackOrder = () => {
-    setShowOrderSuccess(false);
+    setOrderSuccessSheetDismissed(true);
 
     if (capturedOrderId) {
       navigation.navigate('OrderDetail', { orderId: capturedOrderId });
@@ -361,7 +404,7 @@ function PaymentScreenBody({ route }: Props) {
   };
 
   const handleContinueShopping = () => {
-    setShowOrderSuccess(false);
+    setOrderSuccessSheetDismissed(true);
     navigateToHomeTab(navigation);
   };
 

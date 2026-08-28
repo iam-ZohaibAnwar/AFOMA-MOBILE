@@ -30,9 +30,9 @@ export function ProductMeetSellerSection({
       <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }, shadows.card]}>
         <ProductSellerSection
           embedded
+          centered
           sellerName={sellerName}
           sellerLogoUrl={sellerLogoUrl}
-          onPress={onVisitShop}
         />
 
         {onVisitShop ? (

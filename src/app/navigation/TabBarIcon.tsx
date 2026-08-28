@@ -21,6 +21,7 @@ const TAB_ICON_NAMES: Record<
 };
 
 const ICON_SIZE = 26;
+const ICON_BOX = 32;
 
 interface TabBarIconProps {
   name: TabIconName;
@@ -54,24 +55,37 @@ export function TabBarIcon({ name, color, focused, badgeCount = 0 }: TabBarIconP
   }, [bumpScale]);
 
   const iconName = focused ? TAB_ICON_NAMES[name].filled : TAB_ICON_NAMES[name].outline;
+  const iconSize = name === 'cart' ? 28 : ICON_SIZE;
 
-  const icon = <Ionicons name={iconName} size={ICON_SIZE} color={color} />;
+  const icon = (
+    <View style={styles.iconBox}>
+      <Ionicons name={iconName} size={iconSize} color={color} />
+    </View>
+  );
 
   if (name === 'cart') {
     return (
-      <Animated.View style={[styles.wrap, { transform: [{ scale: bumpScale }] }]}>
-        <CartBadge count={badgeCount}>{icon}</CartBadge>
+      <Animated.View style={[styles.iconBox, { transform: [{ scale: bumpScale }] }]}>
+        <CartBadge count={badgeCount} style={styles.badgeHost}>
+          <Ionicons name={iconName} size={iconSize} color={color} />
+        </CartBadge>
       </Animated.View>
     );
   }
 
-  return <View style={styles.wrap}>{icon}</View>;
+  return icon;
 }
 
 const styles = StyleSheet.create({
-  wrap: {
-    width: 32,
-    height: 32,
+  iconBox: {
+    width: ICON_BOX,
+    height: ICON_BOX,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeHost: {
+    width: ICON_BOX,
+    height: ICON_BOX,
     alignItems: 'center',
     justifyContent: 'center',
   },

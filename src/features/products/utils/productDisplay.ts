@@ -200,17 +200,35 @@ export function getProductRouteId(product: Product): string | undefined {
   return product._id ?? product.slug;
 }
 
-export function getProductDescription(product: Product): string {
-  const raw = product.description?.trim();
-  if (!raw) {
-    return 'No description available.';
+export function formatProductDescriptionForDisplay(raw: string | undefined): string {
+  if (!raw?.trim()) {
+    return '';
   }
 
-  return raw
-    .replace(/<[^>]+>/g, ' ')
+  let text = raw
+    .replace(/<\s*br\s*\/?>/gi, '\n')
+    .replace(/<\/\s*(p|div|h[1-6]|li|tr)\s*>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
     .replace(/&nbsp;/gi, ' ')
-    .replace(/\s+/g, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'");
+
+  text = text
+    .split('\n')
+    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
+
+  return text;
+}
+
+export function getProductDescription(product: Product): string {
+  const formatted = formatProductDescriptionForDisplay(product.description);
+  return formatted || 'No description available.';
 }
 
 export function getSellerDisplayName(product: Product): string | undefined {
@@ -261,7 +279,11 @@ export function hasDisplayableStorePolicy(policy: ProductStorePolicy | undefined
     return false;
   }
 
-  return Boolean(getCancellationPolicyMessage(policy) || getReturnPolicyMessage(policy));
+  const hasFaqs = (policy.faqList ?? []).some((faq) => faq.question?.trim());
+
+  return Boolean(
+    getCancellationPolicyMessage(policy) || getReturnPolicyMessage(policy) || hasFaqs,
+  );
 }
 
 export function getCancellationPolicyMessage(policy: ProductStorePolicy): string | null {
@@ -271,10 +293,10 @@ export function getCancellationPolicyMessage(policy: ProductStorePolicy): string
 
   const hours = policy.cancellationPolicyTime;
   if (hours != null && String(hours).trim()) {
-    return `I accept order cancellations within ${hours} hours of purchase.`;
+    return `I accept order cancellations within ${hours} hours of purchase. After this timeframe, cancellations may not be possible. Feel free to contact me with any questions.`;
   }
 
-  return 'I accept order cancellations within a limited time after purchase.';
+  return 'I accept order cancellations within a limited time after purchase. After this timeframe, cancellations may not be possible. Feel free to contact me with any questions.';
 }
 
 export function getReturnPolicyMessage(policy: ProductStorePolicy): string | null {
@@ -286,7 +308,7 @@ export function getReturnPolicyMessage(policy: ProductStorePolicy): string | nul
     return policy.returnPolicyDetails.trim();
   }
 
-  return null;
+  return getReturnPolicyFallbackMessage();
 }
 
 /** Legacy fallback copy for contexts that still need a default when return policy is enabled without details. */

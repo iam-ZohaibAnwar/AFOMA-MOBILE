@@ -12,6 +12,12 @@ const TAB_ROUTE_NAMES = new Set<keyof MainTabParamList>([
 ]);
 
 type NavState = NavigationState | PartialState<NavigationState>;
+type NavRoute = NonNullable<NavState['routes']>[number];
+
+type MainTabsNestedParams = {
+  screen?: keyof MainTabParamList;
+  params?: MainTabParamList[keyof MainTabParamList];
+};
 
 function findActiveTab(state: NavState | undefined): keyof MainTabParamList | null {
   if (!state?.routes?.length) {
@@ -22,6 +28,10 @@ function findActiveTab(state: NavState | undefined): keyof MainTabParamList | nu
   const route = state.routes[index];
   if (!route) {
     return null;
+  }
+
+  if (route.name === 'MainTabs') {
+    return resolveMainTabNameFromMainTabsRoute(route);
   }
 
   if (TAB_ROUTE_NAMES.has(route.name as keyof MainTabParamList)) {
@@ -48,53 +58,141 @@ function getShoppingStackState(state: NavState | undefined): NavState | undefine
   return rootRoute.state as NavState | undefined;
 }
 
-function getMainTabsState(state: NavState | undefined): NavState | undefined {
+function getMainTabsRoute(state: NavState | undefined): NavRoute | null {
   const shoppingState = getShoppingStackState(state);
   if (!shoppingState?.routes?.length) {
-    return undefined;
-  }
-
-  const mainTabsRoute = shoppingState.routes.find((route) => route.name === 'MainTabs');
-  return mainTabsRoute?.state as NavState | undefined;
-}
-
-function getActiveMainTabRoute(state: NavState | undefined) {
-  const mainTabsState = getMainTabsState(state);
-  if (!mainTabsState?.routes?.length) {
     return null;
   }
 
-  return mainTabsState.routes[mainTabsState.index ?? 0] ?? null;
+  const activeShoppingRoute = shoppingState.routes[shoppingState.index ?? 0];
+  if (activeShoppingRoute?.name === 'MainTabs') {
+    return activeShoppingRoute;
+  }
+
+  return shoppingState.routes.find((route) => route.name === 'MainTabs') ?? null;
+}
+
+function getMainTabsState(state: NavState | undefined): NavState | undefined {
+  return getMainTabsRoute(state)?.state as NavState | undefined;
+}
+
+function resolveMainTabNameFromMainTabsRoute(mainTabsRoute: NavRoute): keyof MainTabParamList {
+  const nestedState = mainTabsRoute.state as NavState | undefined;
+  if (nestedState?.routes?.length) {
+    const tab = findActiveTab(nestedState);
+    if (tab) {
+      return tab;
+    }
+  }
+
+  const params = mainTabsRoute.params as MainTabsNestedParams | undefined;
+  if (params?.screen && TAB_ROUTE_NAMES.has(params.screen)) {
+    return params.screen;
+  }
+
+  return 'MarketplaceTab';
+}
+
+function getActiveMainTabRoute(state: NavState | undefined): NavRoute | null {
+  const mainTabsRoute = getMainTabsRoute(state);
+  if (!mainTabsRoute) {
+    return null;
+  }
+
+  const tabName = resolveMainTabNameFromMainTabsRoute(mainTabsRoute);
+  const nestedState = mainTabsRoute.state as NavState | undefined;
+
+  if (nestedState?.routes?.length) {
+    const activeRoute = nestedState.routes[nestedState.index ?? 0];
+    if (activeRoute?.name === tabName) {
+      return activeRoute;
+    }
+
+    const matchedRoute = nestedState.routes.find((route) => route.name === tabName);
+    if (matchedRoute) {
+      return matchedRoute;
+    }
+  }
+
+  const params = mainTabsRoute.params as MainTabsNestedParams | undefined;
+  if (params?.screen === tabName) {
+    return {
+      key: `${mainTabsRoute.key}-${tabName}-pending`,
+      name: tabName,
+      params: params.params,
+    };
+  }
+
+  return {
+    key: `${mainTabsRoute.key}-${tabName}-fallback`,
+    name: tabName,
+  };
 }
 
 function resolveActiveMainTab(state: NavState | undefined): keyof MainTabParamList | null {
-  const mainTabsState = getMainTabsState(state);
-  if (mainTabsState) {
-    return findActiveTab(mainTabsState);
+  const mainTabsRoute = getMainTabsRoute(state);
+  if (!mainTabsRoute) {
+    return null;
   }
 
-  const shoppingState = getShoppingStackState(state);
-  return findActiveTab(shoppingState);
+  return resolveMainTabNameFromMainTabsRoute(mainTabsRoute);
+}
+
+function resolveMarketplaceSegmentFromMainTabsRoute(
+  mainTabsRoute: NavRoute,
+  tabName: keyof MainTabParamList,
+): MarketplaceTabSegment | undefined {
+  if (tabName === 'ShopTab') {
+    return 'category';
+  }
+
+  if (tabName !== 'MarketplaceTab') {
+    return undefined;
+  }
+
+  const activeRoute = getActiveMainTabRouteFromMainTabs(mainTabsRoute, tabName);
+  const routeParams = activeRoute?.params as MainTabParamList['MarketplaceTab'];
+  if (routeParams?.segment === 'category') {
+    return 'category';
+  }
+
+  const nestedParams = (mainTabsRoute.params as MainTabsNestedParams | undefined)?.params as
+    | MainTabParamList['MarketplaceTab']
+    | undefined;
+  if (nestedParams?.segment === 'category') {
+    return 'category';
+  }
+
+  return 'home';
+}
+
+function getActiveMainTabRouteFromMainTabs(
+  mainTabsRoute: NavRoute,
+  tabName: keyof MainTabParamList,
+): NavRoute | null {
+  const nestedState = mainTabsRoute.state as NavState | undefined;
+  if (!nestedState?.routes?.length) {
+    return null;
+  }
+
+  const activeRoute = nestedState.routes[nestedState.index ?? 0];
+  if (activeRoute?.name === tabName) {
+    return activeRoute;
+  }
+
+  return nestedState.routes.find((route) => route.name === tabName) ?? null;
 }
 
 export function resolveMarketplaceTabSegment(
   state: NavState | undefined,
 ): MarketplaceTabSegment | undefined {
-  const activeRoute = getActiveMainTabRoute(state);
-  if (!activeRoute) {
+  const mainTabsRoute = getMainTabsRoute(state);
+  if (!mainTabsRoute) {
     return undefined;
   }
 
-  if (activeRoute.name === 'ShopTab') {
-    return 'category';
-  }
-
-  if (activeRoute.name !== 'MarketplaceTab') {
-    return undefined;
-  }
-
-  const params = activeRoute.params as MainTabParamList['MarketplaceTab'];
-  return params?.segment === 'category' ? 'category' : 'home';
+  const tabName = resolveMainTabNameFromMainTabsRoute(mainTabsRoute);
+  return resolveMarketplaceSegmentFromMainTabsRoute(mainTabsRoute, tabName);
 }
 
 export function resolveMarketplaceActiveTab(
@@ -186,5 +284,6 @@ export function getMarketplaceFooterNavFingerprint(state: NavState | undefined):
   const tab = resolveMarketplaceActiveTab(state) ?? '';
   const segment = resolveMarketplaceTabSegment(state) ?? '';
   const shoppingRoute = getActiveShoppingRouteName(state) ?? '';
-  return `${rootRoute?.key ?? ''}|${shoppingRoute}|${tab}|${segment}`;
+  const mainTabsParams = (getMainTabsRoute(state)?.params as MainTabsNestedParams | undefined)?.screen ?? '';
+  return `${rootRoute?.key ?? ''}|${shoppingRoute}|${tab}|${segment}|${mainTabsParams}`;
 }

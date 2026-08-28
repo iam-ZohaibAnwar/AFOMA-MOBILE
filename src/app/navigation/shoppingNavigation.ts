@@ -11,11 +11,9 @@ function navigateToMarketplaceSegment(navigation: Nav, segment: 'home' | 'catego
         screen: 'MarketplaceTab',
         params: { segment },
       },
-      merge: true,
     }),
   );
 }
-
 export function navigateToHomeTab(navigation: Nav) {
   navigateToMarketplaceSegment(navigation, 'home');
 }
@@ -33,9 +31,7 @@ export function navigateToBrowseTab(navigation: Nav) {
 
 
 export function navigateToSearch(navigation: Nav, query?: string) {
-
-  navigation.navigate('Search', query ? { query } : undefined);
-
+  navigation.navigate('Search', query ? { query } : {});
 }
 
 

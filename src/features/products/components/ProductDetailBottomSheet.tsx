@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText } from '../../../components/ui/AppText';
 import { colors, radius, spacing } from '../../../design-system';
 import type { PdpTheme } from '../../../design-system/pdpTheme';
+import { PRODUCT_DETAIL_SECTION_TITLE_WEIGHT } from '../components/ProductDetailDescriptionContent';
 
 const SHEET_HEIGHT_RATIO = 0.85;
 const SHEET_CHROME_HEIGHT = 72;
@@ -115,7 +116,7 @@ export function ProductDetailBottomSheet({
             <View style={styles.handle} />
 
             <View style={styles.headerRow}>
-              <AppText variant="h3" style={[styles.title, { color: theme.textPrimary }]}>
+              <AppText variant="h3" style={[styles.title, PRODUCT_DETAIL_SECTION_TITLE_WEIGHT, { color: theme.textPrimary }]}>
                 {title}
               </AppText>
               <Pressable
@@ -180,7 +181,7 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    fontWeight: '700',
+    ...PRODUCT_DETAIL_SECTION_TITLE_WEIGHT,
   },
   closeButton: {
     width: 32,

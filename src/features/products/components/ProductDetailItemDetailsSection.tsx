@@ -1,40 +1,44 @@
 import { useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
-import { AppButton } from '../../../components/ui/AppButton';
 import { AppText } from '../../../components/ui/AppText';
 import { spacing } from '../../../design-system';
 import type { PdpTheme } from '../../../design-system/pdpTheme';
-import {
-  shouldShowProductDescriptionSection,
-  truncateProductDetailPreview,
-} from '../utils/productDetailSections';
-import { getProductDescription } from '../utils/productDisplay';
+import type { Product } from '../../../services/types/product';
+import { shouldShowProductDescriptionSection } from '../utils/productDetailSections';
+import { formatProductDescriptionForDisplay, getProductDescription } from '../utils/productDisplay';
 import { ProductDetailBottomSheet } from './ProductDetailBottomSheet';
-import { ProductDetailDescriptionContent } from './ProductDetailDescriptionContent';
+import {
+  getProductDetailExpandActionTextStyle,
+  PRODUCT_DETAIL_SECTION_TITLE_WEIGHT,
+  ProductDetailDescriptionContent,
+} from './ProductDetailDescriptionContent';
+
+const PREVIEW_LINE_LIMIT = 4;
+const EXPAND_CHAR_THRESHOLD = 180;
+const PRODUCT_DESCRIPTION_TITLE = 'Product description';
 
 export interface ProductDetailItemDetailsSectionProps {
-  description: string;
+  product: Product;
   theme: PdpTheme;
 }
 
 export function ProductDetailItemDetailsSection({
-  description,
+  product,
   theme,
 }: ProductDetailItemDetailsSectionProps) {
   const [sheetVisible, setSheetVisible] = useState(false);
-  const normalizedDescription = useMemo(
-    () => getProductDescription({ description } as { description?: string }),
-    [description],
-  );
+  const formattedDescription = useMemo(() => getProductDescription(product), [product]);
+  const rawDescription = product.description?.trim() ?? '';
+  const hasContent = shouldShowProductDescriptionSection(rawDescription);
+  const showExpandAction = useMemo(() => {
+    if (!hasContent) {
+      return false;
+    }
 
-  const hasContent = shouldShowProductDescriptionSection(description);
-  const previewText = useMemo(
-    () => truncateProductDetailPreview(normalizedDescription),
-    [normalizedDescription],
-  );
-  const showExpandAction =
-    normalizedDescription.trim().length > previewText.replace(/…$/, '').length;
+    const plain = formatProductDescriptionForDisplay(rawDescription);
+    return plain.length > EXPAND_CHAR_THRESHOLD || plain.includes('\n\n');
+  }, [hasContent, rawDescription]);
 
   if (!hasContent) {
     return null;
@@ -43,36 +47,40 @@ export function ProductDetailItemDetailsSection({
   return (
     <>
       <View style={[styles.section, { borderTopColor: theme.border }]}>
-        <AppText variant="h3" style={[styles.title, { color: theme.textPrimary }]}>
-          Item details
+        <AppText
+          variant="h3"
+          style={[styles.title, PRODUCT_DETAIL_SECTION_TITLE_WEIGHT, { color: theme.textPrimary }]}
+        >
+          {PRODUCT_DESCRIPTION_TITLE}
         </AppText>
 
-        <AppText
-          variant="bodySmall"
-          style={[styles.preview, { color: theme.textSecondary }]}
-          numberOfLines={4}
-        >
-          {previewText}
-        </AppText>
+        <ProductDetailDescriptionContent
+          description={formattedDescription}
+          theme={theme}
+          numberOfLines={showExpandAction ? PREVIEW_LINE_LIMIT : undefined}
+        />
 
         {showExpandAction ? (
-          <AppButton
-            label="See full description"
-            variant="primary"
-            shape="pill"
-            fullWidth
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="See full description"
             onPress={() => setSheetVisible(true)}
-          />
+            style={({ pressed }) => [styles.expandAction, pressed && styles.expandActionPressed]}
+          >
+            <AppText variant="bodyMedium" style={getProductDetailExpandActionTextStyle(theme)}>
+              See full description
+            </AppText>
+          </Pressable>
         ) : null}
       </View>
 
       <ProductDetailBottomSheet
         visible={sheetVisible}
-        title="Description"
+        title={PRODUCT_DESCRIPTION_TITLE}
         theme={theme}
         onClose={() => setSheetVisible(false)}
       >
-        <ProductDetailDescriptionContent description={normalizedDescription} theme={theme} />
+        <ProductDetailDescriptionContent description={formattedDescription} theme={theme} />
       </ProductDetailBottomSheet>
     </>
   );
@@ -84,10 +92,12 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     gap: spacing.md,
   },
-  title: {
-    fontWeight: '700',
+  title: {},
+  expandAction: {
+    alignSelf: 'flex-start',
+    paddingVertical: spacing.xs,
   },
-  preview: {
-    lineHeight: 22,
+  expandActionPressed: {
+    opacity: 0.88,
   },
 });

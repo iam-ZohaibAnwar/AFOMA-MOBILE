@@ -28,6 +28,9 @@ export interface ProductGalleryHeroChromeProps {
 
   onMessagePress?: () => void;
 
+  /** When the gallery already applies safe-area padding, pass a small offset only. */
+  overlayTop?: number;
+
 }
 
 
@@ -76,17 +79,21 @@ export function ProductGalleryHeroChrome({
 
   onMessagePress,
 
+  overlayTop,
+
 }: ProductGalleryHeroChromeProps) {
 
   const insets = useSafeAreaInsets();
 
   const iconColor = theme.textPrimary;
 
+  const top = overlayTop ?? insets.top + spacing.xs;
+
 
 
   return (
 
-    <View pointerEvents="box-none" style={[styles.topRow, { top: insets.top + spacing.xs }]}>
+    <View pointerEvents="box-none" style={[styles.topRow, { top }]}>
 
       <OverlayIconButton theme={theme} onPress={onBackPress} accessibilityLabel="Go back">
         <BackChevronIcon color={iconColor} size={13} strokeWidth={2} />

@@ -51,7 +51,7 @@ const TAB_ITEMS: MarketplaceTabItem[] = [
 
   { key: 'home', label: 'Home', icon: 'home', routeName: 'MarketplaceTab', segment: 'home' },
 
-  { key: 'shop', label: 'Shop', icon: 'shop', routeName: 'MarketplaceTab', segment: 'category' },
+  { key: 'shop', label: 'Shop', icon: 'search', routeName: 'MarketplaceTab', segment: 'category' },
 
   { key: 'cart', label: 'Cart', icon: 'cart', routeName: 'CartTab' },
 
@@ -187,12 +187,10 @@ export function MarketplaceFooterNav({
                   screen: 'MarketplaceTab',
                   params: { segment: item.segment },
                 },
-                merge: true,
               }),
             );
             return;
           }
-
 
 
           navigation.navigate('MainTabs', { screen: item.routeName });

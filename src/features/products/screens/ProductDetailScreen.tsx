@@ -358,7 +358,6 @@ export function ProductDetailScreen({ route, navigation }: Props) {
     : undefined;
 
   const discountPercent = product ? getProductDiscountPercent(product) : undefined;
-  const rawProductDescription = product?.description?.trim() ?? '';
   const sellerName = product ? getSellerDisplayName(product) : undefined;
   const sellerStoreSlug = product?.seller?.storeSlug?.trim();
   const sellerLogoUrl = product?.seller?.storeLogo || product?.seller?.userProfile;
@@ -777,10 +776,9 @@ export function ProductDetailScreen({ route, navigation }: Props) {
             theme={theme}
           />
 
-          <ProductDetailItemDetailsSection
-            description={rawProductDescription}
-            theme={theme}
-          />
+          {product ? (
+            <ProductDetailItemDetailsSection product={product} theme={theme} />
+          ) : null}
 
           {showSellerPolicies && sellerStorePolicy ? (
             <ProductDetailPoliciesSection policy={sellerStorePolicy} theme={theme} />

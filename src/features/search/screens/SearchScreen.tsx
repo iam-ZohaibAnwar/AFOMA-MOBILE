@@ -7,7 +7,7 @@ import type { ShoppingStackParamList } from '../../../app/navigation/types';
 type Props = NativeStackScreenProps<ShoppingStackParamList, 'Search'>;
 
 export function SearchScreen({ route, navigation }: Props) {
-  const initialQuery = route.params.query ?? '';
+  const initialQuery = route.params?.query ?? '';
 
   return (
     <SearchScreenContent

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, View } from 'react-native';
-import { CommonActions } from '@react-navigation/native';
-
+import { useNavigationState } from '@react-navigation/native';
 
 
 import { AppText } from '../../../components/ui/AppText';
@@ -26,19 +25,14 @@ import { marketplaceNavigationRef } from './marketplaceNavigationRef';
 
 import { MARKETPLACE_FOOTER_PILL_HEIGHT } from './marketplaceFooterLayout';
 
+import { navigateMarketplaceFooterTab } from './navigateMarketplaceFooterTab';
+
 import {
-
   resolveMarketplaceActiveTab,
-
   resolveMarketplaceTabSegment,
-
   type MarketplaceTabSegment,
-
 } from './resolveMarketplaceActiveTab';
-
-import { useMarketplaceChrome } from './MarketplaceChromeProvider';
 import { registerCartTabCenter } from '../../../features/cart/utils/cartFeedback';
-
 
 
 interface MarketplaceTabItem {
@@ -61,7 +55,7 @@ const TAB_ITEMS: MarketplaceTabItem[] = [
 
   { key: 'home', label: 'Home', icon: 'home', routeName: 'MarketplaceTab', segment: 'home' },
 
-  { key: 'shop', label: 'Shop', icon: 'shop', routeName: 'MarketplaceTab', segment: 'category' },
+  { key: 'shop', label: 'Shop', icon: 'search', routeName: 'MarketplaceTab', segment: 'category' },
 
   { key: 'cart', label: 'Cart', icon: 'cart', routeName: 'CartTab' },
 
@@ -73,6 +67,9 @@ const TAB_ITEMS: MarketplaceTabItem[] = [
 
 const TAB_INDICATOR_INSET = 6;
 
+type PendingFooterSelection =
+  | { kind: 'tab'; routeName: keyof MainTabParamList }
+  | { kind: 'segment'; segment: MarketplaceTabSegment };
 
 
 function resolveFooterSegment(
@@ -154,33 +151,49 @@ export interface MarketplaceFooterPillProps {
 
 
 export function MarketplaceFooterPill({ translateY }: MarketplaceFooterPillProps) {
-
-  const { rootNavState } = useMarketplaceChrome();
-
   const { isAuthenticated, isLoading, user } = useAuth();
-
   const authUserId = resolveAuthUserId(user);
-
   const { cart } = useCart(authUserId);
-
   const cartCount = getCartItemCount(cart);
 
+  const activeRouteName = useNavigationState((state) => resolveMarketplaceActiveTab(state));
+  const marketplaceSegment = useNavigationState((state) => resolveMarketplaceTabSegment(state));
+  const [pendingSelection, setPendingSelection] = useState<PendingFooterSelection | null>(null);
 
-
-  const activeRouteName = resolveMarketplaceActiveTab(rootNavState);
-
-  const marketplaceSegment = resolveMarketplaceTabSegment(rootNavState);
-
-  const footerSegment = resolveFooterSegment(activeRouteName, marketplaceSegment);
+  const resolvedFooterSegment = resolveFooterSegment(activeRouteName, marketplaceSegment);
+  const displayRouteName =
+    pendingSelection?.kind === 'segment'
+      ? 'MarketplaceTab'
+      : pendingSelection?.kind === 'tab'
+        ? pendingSelection.routeName
+        : activeRouteName;
+  const displayFooterSegment =
+    pendingSelection?.kind === 'segment' ? pendingSelection.segment : resolvedFooterSegment;
 
   const activeTabIndex = useMemo(
-
-    () => resolveActiveTabIndex(activeRouteName, footerSegment),
-
-    [activeRouteName, footerSegment],
-
+    () => resolveActiveTabIndex(displayRouteName, displayFooterSegment),
+    [displayFooterSegment, displayRouteName],
   );
 
+  useEffect(() => {
+    if (!pendingSelection) {
+      return;
+    }
+
+    if (pendingSelection.kind === 'segment') {
+      if (
+        (activeRouteName === 'MarketplaceTab' || activeRouteName === 'ShopTab') &&
+        (marketplaceSegment ?? 'home') === pendingSelection.segment
+      ) {
+        setPendingSelection(null);
+      }
+      return;
+    }
+
+    if (activeRouteName === pendingSelection.routeName) {
+      setPendingSelection(null);
+    }
+  }, [activeRouteName, marketplaceSegment, pendingSelection]);
   const [tabRowWidth, setTabRowWidth] = useState(0);
 
   const cartTabRef = useRef<View>(null);
@@ -320,68 +333,30 @@ export function MarketplaceFooterPill({ translateY }: MarketplaceFooterPillProps
             item.routeName === 'MarketplaceTab' && item.segment != null;
 
           const isFocused = isMarketplaceSegmentItem
-
-            ? (activeRouteName === 'MarketplaceTab' || activeRouteName === 'ShopTab') &&
-
-              footerSegment === item.segment
-
-            : activeRouteName === item.routeName;
-
-
+            ? (displayRouteName === 'MarketplaceTab' || displayRouteName === 'ShopTab') &&
+              displayFooterSegment === item.segment
+            : displayRouteName === item.routeName;
 
           const color = isFocused ? colors.primary : colors.textMuted;
 
-
-
           const onPress = () => {
-
-            if (!marketplaceNavigationRef.isReady()) {
-
-              return;
-
-            }
-
-
-
             if (item.routeName === 'AccountTab' && !isLoading && !isAuthenticated) {
-
               openAuthLogin(marketplaceNavigationRef, authReturnTo.homeTab());
-
               return;
-
             }
-
-
 
             if (isMarketplaceSegmentItem && item.segment) {
-              marketplaceNavigationRef.dispatch(
-                CommonActions.navigate({
-                  name: 'Shopping',
-                  params: {
-                    screen: 'MainTabs',
-                    params: {
-                      screen: 'MarketplaceTab',
-                      params: { segment: item.segment },
-                    },
-                  },
-                  merge: true,
-                }),
-              );
+              setPendingSelection({ kind: 'segment', segment: item.segment });
+              navigateMarketplaceFooterTab({
+                routeName: 'MarketplaceTab',
+                segment: item.segment,
+              });
               return;
             }
 
-
-
-            marketplaceNavigationRef.navigate('Shopping', {
-
-              screen: 'MainTabs',
-
-              params: { screen: item.routeName },
-
-            });
-
+            setPendingSelection({ kind: 'tab', routeName: item.routeName });
+            navigateMarketplaceFooterTab({ routeName: item.routeName });
           };
-
 
 
           return (

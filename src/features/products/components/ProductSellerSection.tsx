@@ -8,6 +8,8 @@ export interface ProductSellerSectionProps {
   sellerLogoUrl?: string;
   onPress?: () => void;
   embedded?: boolean;
+  /** Stack avatar + name centered; no subtitle or chevron (use when actions live below). */
+  centered?: boolean;
 }
 
 function getSellerInitials(name: string): string {
@@ -25,6 +27,7 @@ export function ProductSellerSection({
   sellerLogoUrl,
   onPress,
   embedded = false,
+  centered = false,
 }: ProductSellerSectionProps) {
   const trimmed = sellerName.trim();
 
@@ -32,7 +35,23 @@ export function ProductSellerSection({
     return null;
   }
 
-  const content = (
+  const content = centered ? (
+    <>
+      <View style={styles.avatar}>
+        {sellerLogoUrl ? (
+          <Image source={{ uri: sellerLogoUrl }} style={styles.avatarImage} resizeMode="cover" />
+        ) : (
+          <AppText variant="label" style={styles.avatarInitials}>
+            {getSellerInitials(trimmed)}
+          </AppText>
+        )}
+      </View>
+
+      <AppText variant="bodyMedium" style={[styles.storeName, styles.storeNameCentered]} numberOfLines={2}>
+        {trimmed}
+      </AppText>
+    </>
+  ) : (
     <>
       <View style={styles.avatar}>
         {sellerLogoUrl ? (
@@ -61,9 +80,12 @@ export function ProductSellerSection({
     </>
   );
 
-  const containerStyle = [styles.container, embedded ? styles.containerEmbedded : styles.containerStandalone];
+  const containerStyle = [
+    centered ? styles.containerCentered : styles.container,
+    embedded ? styles.containerEmbedded : styles.containerStandalone,
+  ];
 
-  if (onPress) {
+  if (onPress && !centered) {
     return (
       <Pressable
         accessibilityRole="button"
@@ -84,6 +106,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+  },
+  containerCentered: {
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   containerStandalone: {
     paddingVertical: spacing.md,
@@ -119,6 +145,9 @@ const styles = StyleSheet.create({
   storeName: {
     fontWeight: '700',
     color: colors.textPrimary,
+  },
+  storeNameCentered: {
+    textAlign: 'center',
   },
   chevron: {
     color: colors.textPrimary,
