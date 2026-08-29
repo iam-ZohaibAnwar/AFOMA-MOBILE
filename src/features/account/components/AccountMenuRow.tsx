@@ -2,14 +2,13 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ChevronForwardIcon } from '../../../components/ui/ChevronForwardIcon';
 import { AppText } from '../../../components/ui/AppText';
-import { colors, spacing } from '../../../design-system';
+import { colors, radius, shadows, spacing } from '../../../design-system';
 import { AccountMenuIcon, type AccountMenuIconName } from './AccountMenuIcon';
 
 export interface AccountMenuRowProps {
   icon: AccountMenuIconName;
   label: string;
   onPress: () => void;
-  showDivider?: boolean;
   destructive?: boolean;
 }
 
@@ -17,53 +16,58 @@ export function AccountMenuRow({
   icon,
   label,
   onPress,
-  showDivider = true,
   destructive = false,
 }: AccountMenuRowProps) {
-  const iconColor = destructive ? colors.error : colors.textPrimary;
+  const iconBackgroundColor = destructive ? colors.errorBg : colors.primary;
+  const iconColor = destructive ? colors.error : colors.textInverse;
 
   return (
-    <>
-      <Pressable
-        accessibilityRole="button"
-        onPress={onPress}
-        style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+    >
+      <View style={[styles.iconWrap, { backgroundColor: iconBackgroundColor }]}>
+        <AccountMenuIcon name={icon} color={iconColor} size={20} />
+      </View>
+
+      <AppText
+        variant="bodyMedium"
+        style={[styles.label, destructive && styles.destructiveLabel]}
       >
-        <View style={styles.iconWrap}>
-          <AccountMenuIcon name={icon} color={iconColor} size={20} />
-        </View>
+        {label}
+      </AppText>
 
-        <AppText
-          variant="bodyMedium"
-          style={[styles.label, destructive && styles.destructiveLabel]}
-        >
-          {label}
-        </AppText>
-
-        {!destructive ? (
-          <ChevronForwardIcon color={colors.textMuted} size={18} />
-        ) : null}
-      </Pressable>
-      {showDivider ? <View style={styles.divider} /> : null}
-    </>
+      {!destructive ? (
+        <ChevronForwardIcon color={colors.textMuted} size={18} />
+      ) : null}
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  row: {
+  card: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xs,
+    backgroundColor: colors.surface,
+    borderRadius: radius.large,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    ...shadows.card,
   },
   pressed: {
-    opacity: 0.9,
+    opacity: 0.92,
   },
   iconWrap: {
-    width: 24,
+    width: 40,
+    height: 40,
+    borderRadius: radius.medium,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   label: {
     flex: 1,
@@ -72,10 +76,5 @@ const styles = StyleSheet.create({
   destructiveLabel: {
     color: colors.error,
     fontWeight: '600',
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.borderStrong,
-    marginLeft: 36,
   },
 });

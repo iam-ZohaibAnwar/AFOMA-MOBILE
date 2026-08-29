@@ -40,11 +40,6 @@ export function PaymentAddressSection({ address, onEdit }: PaymentAddressSection
       </View>
 
       <View style={styles.card}>
-        <View style={styles.mapPlaceholder}>
-          <AppText variant="caption" color="textMuted">
-            Map
-          </AppText>
-        </View>
         <AppText variant="body" color="textSecondary" style={styles.addressText}>
           {formattedAddress || 'Delivery address not set'}
         </AppText>
@@ -67,24 +62,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   card: {
-    flexDirection: 'row',
-    gap: spacing.md,
     padding: spacing.md,
     borderRadius: radius.large,
     backgroundColor: colors.surface,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
-  mapPlaceholder: {
-    width: 72,
-    height: 72,
-    borderRadius: radius.medium,
-    backgroundColor: colors.surfaceSecondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   addressText: {
-    flex: 1,
     lineHeight: 22,
   },
 });

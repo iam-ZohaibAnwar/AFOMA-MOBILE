@@ -27,7 +27,8 @@ export function useAdminShippingConfigEditor({ enabled }: UseAdminShippingConfig
   const [configId, setConfigId] = useState<string | null>(null);
   const [tiers, setTiers] = useState<AdminShippingTierDraft[]>([]);
   const [matrix, setMatrix] = useState<AdminShippingMatrixMap>({});
-  const [isLoading, setIsLoading] = useState(enabled);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
@@ -65,6 +66,7 @@ export function useAdminShippingConfigEditor({ enabled }: UseAdminShippingConfig
       if (!enabled) {
         setIsLoading(false);
         setIsRefreshing(false);
+        setHasLoaded(false);
         return;
       }
 
@@ -73,6 +75,7 @@ export function useAdminShippingConfigEditor({ enabled }: UseAdminShippingConfig
 
       if (mode === 'initial' && !hasCachedData) {
         setIsLoading(true);
+        setHasLoaded(false);
       } else {
         setIsRefreshing(true);
       }
@@ -100,6 +103,7 @@ export function useAdminShippingConfigEditor({ enabled }: UseAdminShippingConfig
         if (requestVersion === requestVersionRef.current) {
           setIsLoading(false);
           setIsRefreshing(false);
+          setHasLoaded(true);
         }
       }
     },
@@ -107,6 +111,10 @@ export function useAdminShippingConfigEditor({ enabled }: UseAdminShippingConfig
   );
 
   useEffect(() => {
+    if (enabled) {
+      setIsLoading(true);
+      setHasLoaded(false);
+    }
     void load('initial');
   }, [enabled]); // eslint-disable-line react-hooks/exhaustive-deps -- reload when enabled toggles
 
@@ -210,6 +218,7 @@ export function useAdminShippingConfigEditor({ enabled }: UseAdminShippingConfig
     tiers,
     matrix,
     isLoading,
+    hasLoaded,
     isRefreshing,
     isSaving,
     isDirty,

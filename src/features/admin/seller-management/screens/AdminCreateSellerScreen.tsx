@@ -64,22 +64,13 @@ export function AdminCreateSellerScreen({ navigation }: Props) {
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
-      <AppCard variant="muted">
-        <AppText variant="h3">Create seller</AppText>
-        <AppText variant="bodySmall" color="textSecondary" style={styles.introCopy}>
-          Creates a pending seller account. Approval is handled separately after creation.
-        </AppText>
-        <AppText variant="caption" color="textMuted">
-          Initial status: Pending · Initial role: customer
-        </AppText>
-      </AppCard>
-
       <AppCard>
         <AppText variant="label" style={styles.sectionTitle}>
           Basic information
         </AppText>
         <View style={styles.form}>
           <AppInput
+            tone="surface"
             label="First name *"
             value={values.firstName}
             onChangeText={(value) => updateField('firstName', value)}
@@ -87,6 +78,7 @@ export function AdminCreateSellerScreen({ navigation }: Props) {
             autoCapitalize="words"
           />
           <AppInput
+            tone="surface"
             label="Last name *"
             value={values.lastName}
             onChangeText={(value) => updateField('lastName', value)}
@@ -94,6 +86,7 @@ export function AdminCreateSellerScreen({ navigation }: Props) {
             autoCapitalize="words"
           />
           <AppInput
+            tone="surface"
             label="Email *"
             value={values.email}
             onChangeText={(value) => updateField('email', value)}
@@ -102,6 +95,7 @@ export function AdminCreateSellerScreen({ navigation }: Props) {
             autoCapitalize="none"
           />
           <AdminPasswordField
+            tone="surface"
             label="Password *"
             value={values.password}
             onChangeText={(value) => updateField('password', value)}
@@ -109,19 +103,13 @@ export function AdminCreateSellerScreen({ navigation }: Props) {
             placeholder="Minimum 5 characters"
           />
           <AppInput
+            tone="surface"
             label="Contact number *"
             value={values.phone}
             onChangeText={(value) => updateField('phone', value)}
             error={fieldErrors.phone}
             keyboardType="phone-pad"
             placeholder="+1234567890"
-          />
-          <AppInput
-            label="Web3 wallet address"
-            value={values.web3address}
-            onChangeText={(value) => updateField('web3address', value)}
-            autoCapitalize="none"
-            placeholder="Optional BNB Smart Chain address"
           />
         </View>
       </AppCard>
@@ -131,6 +119,7 @@ export function AdminCreateSellerScreen({ navigation }: Props) {
           Shop details
         </AppText>
         <AppInput
+          tone="surface"
           label="Shop title *"
           value={values.storeTitle}
           onChangeText={(value) => updateField('storeTitle', value)}
@@ -145,6 +134,7 @@ export function AdminCreateSellerScreen({ navigation }: Props) {
         </AppText>
         <View style={styles.form}>
           <CountryStateFields
+            tone="surface"
             value={createCountryStateSelection(values.country, values.state, {
               countryCode: values.countryCode,
               stateCode: values.stateCode,
@@ -162,18 +152,21 @@ export function AdminCreateSellerScreen({ navigation }: Props) {
             required
           />
           <AppInput
+            tone="surface"
             label="City *"
             value={values.city}
             onChangeText={(value) => updateField('city', value)}
             error={fieldErrors.city}
           />
           <AppInput
+            tone="surface"
             label="Zip / postal code *"
             value={values.zipCode}
             onChangeText={(value) => updateField('zipCode', value)}
             error={fieldErrors.zipCode}
           />
           <AppInput
+            tone="surface"
             label="Street address *"
             value={values.streetAddress}
             onChangeText={(value) => updateField('streetAddress', value)}
@@ -206,10 +199,6 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.lg,
     gap: spacing.lg,
-  },
-  introCopy: {
-    marginTop: spacing.xs,
-    marginBottom: spacing.xs,
   },
   sectionTitle: {
     marginBottom: spacing.md,

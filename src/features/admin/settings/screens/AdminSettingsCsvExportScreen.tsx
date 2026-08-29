@@ -5,14 +5,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
 import { AppButton } from '../../../../components/ui/AppButton';
-import { AppCard } from '../../../../components/ui/AppCard';
 import { AppInput } from '../../../../components/ui/AppInput';
 import { AppText } from '../../../../components/ui/AppText';
 import { colors, spacing } from '../../../../design-system';
 import { authReturnTo } from '../../../auth/utils/authNavigation';
+import { AdminProductDetailCardShell } from '../../product-management/components/detail/AdminProductDetailCardShell';
 import { useRequireAdmin } from '../../hooks/useRequireAdmin';
 import type { AdminStackParamList } from '../../navigation/adminTypes';
 import { AdminCsvSchemaPickerSheet } from '../components/AdminCsvSchemaPickerSheet';
+import { AdminSettingsDetailHero } from '../components/AdminSettingsDetailHero';
 import { useAdminCsvExport } from '../hooks/useAdminCsvExport';
 
 type Props = NativeStackScreenProps<AdminStackParamList, 'AdminSettingsCsvExport'>;
@@ -51,23 +52,24 @@ export function AdminSettingsCsvExportScreen(_props: Props) {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
         keyboardShouldPersistTaps="handled"
       >
-        <AppText variant="bodyMedium" color="textSecondary">
-          Export marketplace data as CSV. Optional date filters match the web admin export.
-        </AppText>
+        <AdminSettingsDetailHero
+          title="CSV Export"
+          icon="document-text-outline"
+          statusLabel={selectedLabel ? `Schema: ${selectedLabel}` : 'No schema selected'}
+          statusIcon="document-outline"
+        />
 
-        <AppCard variant="muted" style={styles.card}>
-          <AppText variant="bodyMedium" style={styles.label}>
-            Schema
-          </AppText>
+        <AdminProductDetailCardShell title="Export options" icon="options-outline" accent>
           <AppButton
             label={selectedLabel ?? 'Select schema'}
-            variant="secondary"
+            variant="outline"
             onPress={() => setSchemaPickerVisible(true)}
             fullWidth
           />
 
           <AppInput
             label="From date (optional)"
+            tone="surface"
             value={fromDate}
             onChangeText={setFromDate}
             placeholder="YYYY-MM-DD"
@@ -77,6 +79,7 @@ export function AdminSettingsCsvExportScreen(_props: Props) {
 
           <AppInput
             label="To date (optional)"
+            tone="surface"
             value={toDate}
             onChangeText={setToDate}
             placeholder="YYYY-MM-DD"
@@ -97,11 +100,7 @@ export function AdminSettingsCsvExportScreen(_props: Props) {
             disabled={!canDownload}
             fullWidth
           />
-        </AppCard>
-
-        <AppText variant="caption" color="textMuted">
-          After export is ready, use the share sheet to save or open the CSV file.
-        </AppText>
+        </AdminProductDetailCardShell>
 
         {error ? <ErrorState message={error} onAction={clearError} style={styles.error} /> : null}
       </ScrollView>
@@ -124,13 +123,6 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.lg,
     gap: spacing.lg,
-  },
-  card: {
-    gap: spacing.lg,
-  },
-  label: {
-    fontWeight: '700',
-    color: colors.textPrimary,
   },
   fieldError: {
     color: colors.error,

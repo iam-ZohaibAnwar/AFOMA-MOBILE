@@ -14,6 +14,11 @@ import {
   PRODUCT_DETAIL_SECTION_TITLE_WEIGHT,
 } from './ProductDetailDescriptionContent';
 
+export interface ProductDetailFaqContentProps {
+  faqs: Array<{ question?: string; answer?: string }>;
+  theme: PdpTheme;
+}
+
 export interface ProductDetailPolicyContentProps {
   policy: ProductStorePolicy;
   theme: PdpTheme;
@@ -42,17 +47,35 @@ function PolicyParagraph({ text, theme }: { text: string; theme: PdpTheme }) {
   );
 }
 
+export function ProductDetailFaqContent({ faqs, theme }: ProductDetailFaqContentProps) {
+  if (faqs.length === 0) {
+    return (
+      <AppText variant="body" style={getProductDetailBodyTextStyle(theme)}>
+        No FAQs available for this shop.
+      </AppText>
+    );
+  }
+
+  return (
+    <View style={styles.faqList}>
+      {faqs.map((faq, index) => (
+        <View key={`faq-${index}`} style={styles.faqItem}>
+          <AppText variant="bodyMedium" style={[styles.faqQuestion, { color: theme.textPrimary }]}>
+            {faq.question?.trim()}
+          </AppText>
+          {faq.answer?.trim() ? <PolicyParagraph text={faq.answer} theme={theme} /> : null}
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export function ProductDetailPolicyContent({ policy, theme }: ProductDetailPolicyContentProps) {
   const cancellationMessage = getCancellationPolicyMessage(policy);
   const returnMessage = getReturnPolicyMessage(policy);
-  const faqs = (policy.faqList ?? []).filter((faq) => faq.question?.trim());
 
-  if (!cancellationMessage && !returnMessage && faqs.length === 0) {
-    return (
-      <AppText variant="body" style={getProductDetailBodyTextStyle(theme)}>
-        No policy details available for this shop.
-      </AppText>
-    );
+  if (!cancellationMessage && !returnMessage) {
+    return null;
   }
 
   return (
@@ -78,27 +101,6 @@ export function ProductDetailPolicyContent({ policy, theme }: ProductDetailPolic
             Return policy
           </AppText>
           <PolicyParagraph text={returnMessage} theme={theme} />
-        </View>
-      ) : null}
-
-      {faqs.length > 0 ? (
-        <View style={styles.policyBlock}>
-          <AppText
-            variant="bodyMedium"
-            style={[styles.policyTitle, PRODUCT_DETAIL_SECTION_TITLE_WEIGHT, { color: theme.textPrimary }]}
-          >
-            FAQs
-          </AppText>
-          <View style={styles.faqList}>
-            {faqs.map((faq, index) => (
-              <View key={`faq-${index}`} style={styles.faqItem}>
-                <AppText variant="bodyMedium" style={[styles.faqQuestion, { color: theme.textPrimary }]}>
-                  {faq.question?.trim()}
-                </AppText>
-                {faq.answer?.trim() ? <PolicyParagraph text={faq.answer} theme={theme} /> : null}
-              </View>
-            ))}
-          </View>
         </View>
       ) : null}
     </View>

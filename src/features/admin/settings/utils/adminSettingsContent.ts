@@ -142,6 +142,21 @@ export function getAdminCommissionRateSettingLabel(rateType: AdminCommissionRate
   }
 }
 
+export function getAdminCommissionRateSettingDescription(
+  rateType: AdminCommissionRateSettingType,
+): string {
+  switch (rateType) {
+    case 'affiliate-commission':
+      return 'Percentage paid to affiliates on referred sales';
+    case 'seller-referral-commission':
+      return 'Reward when a seller refers another seller to the marketplace';
+    case 'buyer-referral-commission':
+      return 'Reward when a buyer refers another customer';
+    default:
+      return 'Set the commission percentage (0–9%)';
+  }
+}
+
 export const ADMIN_COMMISSION_RATE_SETTING_TYPES: AdminCommissionRateSettingType[] = [
   'affiliate-commission',
   'seller-referral-commission',

@@ -118,7 +118,7 @@ export function AdminProductMediaSection({ product }: { product: Product }) {
               {images.map((image, index) => (
                 <View key={`${image.fileName ?? 'image'}-${index}`} style={styles.imageTile}>
                   {image.imageUrl ? (
-                    <Image source={{ uri: image.imageUrl }} style={styles.image} resizeMode="cover" />
+                    <Image source={{ uri: image.imageUrl }} style={styles.image} resizeMode="contain" />
                   ) : (
                     <View style={styles.imagePlaceholder}>
                       <AppText variant="caption" color="textMuted">
@@ -238,7 +238,9 @@ export function AdminProductVariationsSection({ product }: { product: Product })
             </AppText>
 
             {row.imageUrl ? (
-              <Image source={{ uri: row.imageUrl }} style={styles.variationImage} resizeMode="cover" />
+              <View style={styles.variationImageWrap}>
+                <Image source={{ uri: row.imageUrl }} style={styles.variationImage} resizeMode="contain" />
+              </View>
             ) : null}
 
             {row.attributes.length > 0 ? (
@@ -320,11 +322,16 @@ const styles = StyleSheet.create({
   variationTitle: {
     fontWeight: '700',
   },
-  variationImage: {
+  variationImageWrap: {
     width: '100%',
-    height: 160,
+    height: 200,
     borderRadius: radius.medium,
     backgroundColor: colors.surfaceMuted,
+    overflow: 'hidden',
+  },
+  variationImage: {
+    width: '100%',
+    height: '100%',
   },
   variationGroup: {
     gap: spacing.xs,

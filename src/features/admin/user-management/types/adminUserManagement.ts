@@ -62,7 +62,6 @@ export interface AdminUserWritePayload {
   countryCode?: string;
   stateCode?: string;
   userProfile?: string;
-  web3address?: string;
 }
 
 export type AdminUserCreatePayload = Omit<AdminUserWritePayload, 'userRole'> & {

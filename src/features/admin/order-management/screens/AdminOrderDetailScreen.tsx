@@ -6,100 +6,43 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { CartLineItem } from '../../../../services/types/cart';
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
-import { AppBadge } from '../../../../components/ui/AppBadge';
-import { AppCard } from '../../../../components/ui/AppCard';
 import { AppDivider } from '../../../../components/ui/AppDivider';
 import { AppText } from '../../../../components/ui/AppText';
 import { colors, spacing } from '../../../../design-system';
 import type { AdminStackParamList } from '../../navigation/adminTypes';
 import { useRequireAdmin } from '../../hooks/useRequireAdmin';
 import { authReturnTo } from '../../../auth/utils/authNavigation';
+import { OrderDetailSection } from '../../../orders/components/OrderDetailSection';
 import {
-  formatBillingAddressLines,
-  formatCustomerEmail,
-  formatCustomerName,
-  formatOrderDate,
-  formatOrderDisplayId,
-  formatShippingAddressLines,
-} from '../../../orders/utils/orderDisplay';
+  getOrderShippingMethodLabel,
+  getOrderTrackingNumber,
+} from '../../../orders/utils/orderDetailDisplay';
 import {
   calculateOrderGrandTotal,
   calculateOrderItemsSubTotal,
   calculateOrderServiceFees,
   calculateOrderShippingTotal,
-  formatOrderMoney,
 } from '../../../orders/utils/orderPricing';
-import { AdminOrderLineItem } from '../components/AdminOrderLineItem';
-import { AdminOrderOperationsSection } from '../components/AdminOrderOperationsSection';
-import { AdminOrderShippingSection } from '../components/AdminOrderShippingSection';
+import { AdminOrderBuyerInfoSection } from '../components/AdminOrderBuyerInfoSection';
+import { AdminOrderDetailHero } from '../components/AdminOrderDetailHero';
+import { AdminOrderDetailLineRow } from '../components/AdminOrderDetailLineRow';
+import { AdminOrderLineFulfillmentSection } from '../components/AdminOrderLineFulfillmentSection';
+import { AdminOrderPaymentSummaryCard } from '../components/AdminOrderPaymentSummaryCard';
+import { AdminOrderQuickActionsSection } from '../components/AdminOrderQuickActionsSection';
 import { useAdminOrderDetail } from '../hooks/useAdminOrderDetail';
 import { useAdminOrderOperations } from '../hooks/useAdminOrderOperations';
+import { useAdminOrderShipping } from '../hooks/useAdminOrderShipping';
 import type { AdminOrderDetail } from '../types/adminOrderManagement';
 import {
-  formatAdminPaymentStatus,
-  getAdminCustomerUserId,
-} from '../utils/adminOrderDetailDisplay';
-import {
-  formatAdminOrderStatus,
-  getAdminOrderCarrierLabel,
-  orderStatusBadgeVariant,
-} from '../utils/adminOrderDisplay';
+  adminOrderHasShippingOperations,
+  canPayAdminShipment,
+  getAdminShippingSummary,
+} from '../utils/adminOrderShipping';
+import { getAdminOrderCarrierLabel } from '../utils/adminOrderDisplay';
 
 type Props = NativeStackScreenProps<AdminStackParamList, 'AdminOrderDetail'>;
 
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.detailRow}>
-      <AppText variant="caption" color="textMuted" style={styles.detailLabel}>
-        {label}
-      </AppText>
-      <AppText variant="bodyMedium" style={styles.detailValue}>
-        {value}
-      </AppText>
-    </View>
-  );
-}
-
-function SummaryRow({
-  label,
-  value,
-  emphasized = false,
-}: {
-  label: string;
-  value: string;
-  emphasized?: boolean;
-}) {
-  return (
-    <View style={styles.summaryRow}>
-      <AppText
-        variant={emphasized ? 'bodyMedium' : 'bodySmall'}
-        color={emphasized ? 'textPrimary' : 'textSecondary'}
-      >
-        {label}
-      </AppText>
-      <AppText
-        variant={emphasized ? 'bodyMedium' : 'bodySmall'}
-        color={emphasized ? 'secondary' : 'textPrimary'}
-        style={emphasized ? styles.summaryTotal : undefined}
-      >
-        {value}
-      </AppText>
-    </View>
-  );
-}
-
-function SectionHeader({ title }: { title: string }) {
-  return (
-    <View style={styles.sectionHeader}>
-      <AppText variant="label" color="textSecondary">
-        {title}
-      </AppText>
-      <AppDivider />
-    </View>
-  );
-}
-
-export function AdminOrderDetailScreen({ route }: Props) {
+export function AdminOrderDetailScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { orderId, initialOrder } = route.params;
   const returnTo = authReturnTo.adminOrderDetail(orderId, initialOrder);
@@ -119,13 +62,32 @@ export function AdminOrderDetailScreen({ route }: Props) {
     cancelShipment,
   } = useAdminOrderOperations(orderId, applyOrderUpdate);
 
+  const displayOrder = (order ?? initialOrder) as AdminOrderDetail | undefined;
+
+  const {
+    shipmentContext,
+    isPayingShipment,
+    isOpeningLabel,
+    isOpeningInvoice,
+    isGeneratingLabel,
+    payError,
+    shippingError,
+    paySuccessMessage,
+    showFreightcomLabelAction,
+    showConsignmentLabelAction,
+    showConsignmentInvoiceAction,
+    showGenerateLabelAction,
+    clearPayError,
+    clearShippingError,
+    payShipment,
+    openShippingDocument,
+  } = useAdminOrderShipping(displayOrder ?? null, applyOrderUpdate, refresh);
+
   useFocusEffect(
     useCallback(() => {
       syncSessionPatch();
     }, [syncSessionPatch]),
   );
-
-  const displayOrder = (order ?? initialOrder) as AdminOrderDetail | undefined;
 
   const handleOrderStatusChange = useCallback(
     (status: string) => {
@@ -160,6 +122,10 @@ export function AdminOrderDetailScreen({ route }: Props) {
     void cancelShipment(displayOrder);
   }, [cancelShipment, clearOperationError, displayOrder]);
 
+  const handleContactBuyer = useCallback(() => {
+    navigation.getParent()?.navigate('Shopping', { screen: 'ChatList' });
+  }, [navigation]);
+
   if (!isAuthorized) {
     return <View style={[styles.screen, { paddingTop: insets.top }]} />;
   }
@@ -191,17 +157,17 @@ export function AdminOrderDetailScreen({ route }: Props) {
   const serviceFees = calculateOrderServiceFees(displayOrder);
   const shipping = calculateOrderShippingTotal(displayOrder);
   const total = calculateOrderGrandTotal(displayOrder);
-  const shippingLines = formatShippingAddressLines(displayOrder.userInfo);
-  const billingLines = formatBillingAddressLines(displayOrder.billing_address);
-  const customerName =
-    formatCustomerName(displayOrder.userInfo) ??
-    (displayOrder.userInfo as { name?: string } | undefined)?.name?.trim() ??
-    '—';
-  const customerEmail = formatCustomerEmail(displayOrder.userInfo) ?? displayOrder.userInfo?.email ?? '—';
-  const customerUserId = getAdminCustomerUserId(displayOrder);
-  const paymentStatusLabel = formatAdminPaymentStatus(displayOrder.paymentStatus);
-  const carrier = getAdminOrderCarrierLabel(displayOrder);
   const lineItems = displayOrder.cart ?? [];
+  const itemCount = lineItems.reduce((sum, line) => sum + (line.orderQuantiy ?? 0), 0);
+  const shippingMethod = getOrderShippingMethodLabel(displayOrder);
+  const trackingNumber = getOrderTrackingNumber(displayOrder);
+  const carrier = getAdminOrderCarrierLabel(displayOrder);
+  const shippingSummary = getAdminShippingSummary(displayOrder);
+  const hasShippingOps = adminOrderHasShippingOperations(displayOrder);
+  const canDownloadLabel =
+    showConsignmentLabelAction || showFreightcomLabelAction || showGenerateLabelAction;
+  const canPrintPackingSlip = showConsignmentInvoiceAction;
+  const canPayShipment = canPayAdminShipment(displayOrder);
 
   return (
     <ScrollView
@@ -216,42 +182,27 @@ export function AdminOrderDetailScreen({ route }: Props) {
         />
       }
     >
-      <AppCard style={styles.headerCard}>
-        <View style={styles.headerRow}>
-          <View style={styles.headerCopy}>
-            <AppText variant="h3">Order {formatOrderDisplayId(displayOrder._id ?? orderId)}</AppText>
-            <AppText variant="bodySmall" color="textSecondary">
-              Placed {formatOrderDate(displayOrder.createdAt)}
-            </AppText>
-          </View>
-          <AppBadge
-            label={formatAdminOrderStatus(displayOrder.status)}
-            variant={orderStatusBadgeVariant(displayOrder.status)}
-          />
-        </View>
-
-        {isLoading ? (
-          <View style={styles.inlineLoading}>
-            <ActivityIndicator size="small" color={colors.primary} />
-            <AppText variant="caption" color="textSecondary">
-              Refreshing order details...
-            </AppText>
-          </View>
-        ) : null}
-
-        {error ? (
-          <ErrorState message={error} onAction={() => void refresh()} style={styles.inlineError} />
-        ) : null}
-      </AppCard>
-
-      <SectionHeader title="Operations" />
-      <AdminOrderOperationsSection
+      <AdminOrderDetailHero
         order={displayOrder}
+        orderId={orderId}
         isUpdatingOrderStatus={isUpdatingOrderStatus}
         isCancellingShipment={isCancellingShipment}
         onOrderStatusChange={handleOrderStatusChange}
         onCancelShipment={handleCancelShipment}
       />
+
+      {isLoading ? (
+        <View style={styles.inlineLoading}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <AppText variant="caption" color="textSecondary">
+            Refreshing order details...
+          </AppText>
+        </View>
+      ) : null}
+
+      {error ? (
+        <ErrorState message={error} onAction={() => void refresh()} style={styles.inlineError} />
+      ) : null}
 
       {operationError ? (
         <ErrorState
@@ -262,94 +213,116 @@ export function AdminOrderDetailScreen({ route }: Props) {
         />
       ) : null}
 
-      <SectionHeader title="Order summary" />
-      <AppCard>
-        <DetailRow label="Order status" value={formatAdminOrderStatus(displayOrder.status)} />
-        <DetailRow label="Payment status" value={paymentStatusLabel} />
-        <DetailRow label="Carrier" value={carrier} />
-      </AppCard>
+      {payError ? (
+        <ErrorState message={payError} actionLabel="Dismiss" onAction={clearPayError} style={styles.inlineError} />
+      ) : null}
 
-      <SectionHeader title="Customer" />
-      <AppCard>
-        <AppText variant="bodyMedium" style={styles.customerName}>
-          {customerName}
-        </AppText>
-        <AppText variant="bodySmall" color="textSecondary">
-          {customerEmail}
-        </AppText>
-        {customerUserId ? (
-          <AppText variant="caption" color="textMuted" style={styles.customerMeta}>
-            User ID: {customerUserId}
+      {shippingError ? (
+        <ErrorState
+          message={shippingError}
+          actionLabel="Dismiss"
+          onAction={clearShippingError}
+          style={styles.inlineError}
+        />
+      ) : null}
+
+      {paySuccessMessage ? (
+        <View style={styles.successBanner}>
+          <AppText variant="bodySmall" color="success">
+            {paySuccessMessage}
           </AppText>
-        ) : null}
-      </AppCard>
+        </View>
+      ) : null}
 
-      <SectionHeader title="Products" />
-      <View style={styles.productList}>
-        {lineItems.length ? (
-          lineItems.map((line: CartLineItem, index: number) => (
-            <AdminOrderLineItem
-              key={`${line.productData?._id ?? 'line'}-${index}`}
-              order={displayOrder}
-              line={line}
-              isUpdatingFulfillment={updatingProductId === line.productData?._id}
-              onFulfillmentStatusChange={handleLineFulfillmentChange}
-            />
-          ))
-        ) : (
-          <AppCard>
-            <AppText variant="bodySmall" color="textMuted">
-              No products found for this order.
+      <AdminOrderBuyerInfoSection order={displayOrder} onContactBuyer={handleContactBuyer} />
+
+      {(shippingMethod || trackingNumber || (carrier && carrier !== '—')) && (
+        <OrderDetailSection title="Shipping Info" icon="navigate-outline">
+          {shippingMethod ? (
+            <AppText variant="bodySmall" color="textSecondary">
+              Method: {shippingMethod}
             </AppText>
-          </AppCard>
-        )}
-      </View>
+          ) : null}
+          {carrier && carrier !== '—' ? (
+            <AppText variant="bodySmall" color="textSecondary">
+              Carrier: {carrier}
+            </AppText>
+          ) : null}
+          {trackingNumber ? (
+            <AppText variant="bodySmall" color="textSecondary">
+              Tracking: {trackingNumber}
+            </AppText>
+          ) : null}
+          {shipmentContext?.trackingNumber && shipmentContext.trackingNumber !== trackingNumber ? (
+            <AppText variant="bodySmall" color="textSecondary">
+              Shipment tracking: {shipmentContext.trackingNumber}
+            </AppText>
+          ) : null}
+          {shippingSummary.consignment?.shipmentId ? (
+            <AppText variant="bodySmall" color="textSecondary">
+              Consignment ID: {shippingSummary.consignment.shipmentId}
+            </AppText>
+          ) : null}
+        </OrderDetailSection>
+      )}
 
-      <SectionHeader title="Shipping operations" />
-      <AdminOrderShippingSection
+      <OrderDetailSection title={`Order Items (${lineItems.length})`} icon="cube-outline">
+        {lineItems.length ? (
+          <View style={styles.productList}>
+            {lineItems.map((line: CartLineItem, index: number) => (
+              <View key={`${line.productData?._id ?? 'line'}-${index}`}>
+                <AdminOrderDetailLineRow order={displayOrder} line={line} />
+                {index < lineItems.length - 1 ? <AppDivider style={styles.itemDivider} /> : null}
+              </View>
+            ))}
+          </View>
+        ) : (
+          <AppText variant="bodySmall" color="textMuted">
+            No products found for this order.
+          </AppText>
+        )}
+      </OrderDetailSection>
+
+      <AdminOrderLineFulfillmentSection
         order={displayOrder}
-        onOrderUpdated={applyOrderUpdate}
-        onRefresh={refresh}
+        lines={lineItems}
+        updatingProductId={updatingProductId}
+        onFulfillmentStatusChange={handleLineFulfillmentChange}
       />
 
-      <SectionHeader title="Payment details" />
-      <AppCard>
-        <SummaryRow label="Item(s) total" value={formatOrderMoney(displayOrder, subtotal)} />
-        <SummaryRow
-          label="Service fees"
-          value={serviceFees > 0 ? formatOrderMoney(displayOrder, serviceFees) : '—'}
+      {hasShippingOps ? (
+        <AdminOrderQuickActionsSection
+          shippingDisabled={displayOrder.status === 'Cancelled'}
+          canDownloadLabel={canDownloadLabel}
+          canPrintPackingSlip={canPrintPackingSlip}
+          canPayShipment={canPayShipment}
+          isOpeningLabel={isOpeningLabel}
+          isOpeningInvoice={isOpeningInvoice}
+          isGeneratingLabel={isGeneratingLabel}
+          isPayingShipment={isPayingShipment}
+          onDownloadLabel={() => {
+            clearShippingError();
+            void openShippingDocument('label');
+          }}
+          onPrintPackingSlip={() => {
+            clearShippingError();
+            void openShippingDocument('invoice');
+          }}
+          onPayShipment={() => {
+            clearPayError();
+            void payShipment();
+          }}
         />
-        <SummaryRow label="Shipping charges" value={formatOrderMoney(displayOrder, shipping)} />
-        <AppDivider style={styles.summaryDivider} />
-        <SummaryRow label="Total" value={formatOrderMoney(displayOrder, total)} emphasized />
-      </AppCard>
-
-      <SectionHeader title="Delivery address" />
-      <AppCard>
-        {shippingLines.map((line, index) => (
-          <AppText key={`${line}-${index}`} variant="bodySmall" style={styles.addressLine}>
-            {line}
-          </AppText>
-        ))}
-        {carrier && carrier !== '—' ? (
-          <AppText variant="bodySmall" color="textSecondary" style={styles.carrierLine}>
-            Carrier: {carrier}
-          </AppText>
-        ) : null}
-      </AppCard>
-
-      {billingLines.length > 0 ? (
-        <>
-          <SectionHeader title="Billing information" />
-          <AppCard>
-            {billingLines.map((line, index) => (
-              <AppText key={`${line}-${index}`} variant="bodySmall" style={styles.addressLine}>
-                {line}
-              </AppText>
-            ))}
-          </AppCard>
-        </>
       ) : null}
+
+      <AdminOrderPaymentSummaryCard
+        order={displayOrder}
+        itemCount={itemCount}
+        subtotal={subtotal}
+        shipping={shipping}
+        serviceFees={serviceFees}
+        total={total}
+      />
     </ScrollView>
   );
 }
@@ -375,19 +348,6 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     marginHorizontal: 0,
   },
-  headerCard: {
-    gap: spacing.sm,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  headerCopy: {
-    flex: 1,
-    gap: spacing.xs,
-  },
   inlineLoading: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -397,51 +357,17 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     marginHorizontal: 0,
   },
-  sectionHeader: {
-    gap: spacing.sm,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  detailLabel: {
-    flex: 1,
-  },
-  detailValue: {
-    flex: 1.2,
-    textAlign: 'right',
-  },
-  customerName: {
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  customerMeta: {
-    marginTop: spacing.sm,
+  successBanner: {
+    backgroundColor: colors.successBg,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.successSoft,
+    padding: spacing.md,
   },
   productList: {
-    gap: spacing.md,
+    gap: spacing.xs,
   },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  summaryDivider: {
-    marginVertical: spacing.sm,
-  },
-  summaryTotal: {
-    fontWeight: '700',
-  },
-  addressLine: {
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  carrierLine: {
-    marginTop: spacing.sm,
-    fontWeight: '600',
+  itemDivider: {
+    marginVertical: spacing.xs,
   },
 });

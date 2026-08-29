@@ -62,7 +62,7 @@ export function ShippingRegionSection({
       <View style={styles.divider} />
 
       <ShippingMethodRow
-        icon="🚚"
+        icon="car-outline"
         label="AFOMA Shipping"
         subtitle={
           scope === 'domestic'
@@ -85,7 +85,7 @@ export function ShippingRegionSection({
       />
 
       <ShippingMethodRow
-        icon="📦"
+        icon="cube-outline"
         label="Flat Rate"
         mode="navigate"
         valueLabel={flatRateSummary}
@@ -94,7 +94,7 @@ export function ShippingRegionSection({
       />
 
       <ShippingMethodRow
-        icon="🤝"
+        icon="hand-left-outline"
         label="Hand Delivery"
         mode="navigate"
         valueLabel={handDeliverySummary}

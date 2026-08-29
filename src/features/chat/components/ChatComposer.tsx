@@ -50,7 +50,7 @@ export function ChatComposer({ onSend, disabled = false, isSending = false }: Ch
         ]}
       >
         {isSending ? (
-          <ActivityIndicator size="small" color={colors.background} />
+          <ActivityIndicator size="small" color={colors.textInverse} />
         ) : (
           <AppText variant="bodyMedium" style={styles.sendLabel}>
             Send
@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   sendLabel: {
-    color: colors.background,
+    color: colors.textInverse,
     fontWeight: '700',
   },
   pressed: {

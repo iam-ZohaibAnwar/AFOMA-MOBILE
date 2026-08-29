@@ -43,6 +43,10 @@ export interface GetAdminCouponsParams {
   limit?: number;
 }
 
+export type AdminCouponListTabId = 'admin' | 'seller';
+
+export type AdminCouponStatusFilter = '' | 'active' | 'expired';
+
 export interface CreateAdminCouponPayload {
   couponCode: string;
   couponType: AdminCouponType;

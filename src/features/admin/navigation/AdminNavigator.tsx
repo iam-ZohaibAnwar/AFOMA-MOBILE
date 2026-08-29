@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { colors } from '../../../design-system';
+import { stackHeaderTitleStyle } from '../../../app/navigation/stackHeaderStyles';
 import { StackHeaderBackButton } from '../../../app/navigation/StackHeaderBackButton';
 import { AdminDashboardScreen } from '../dashboard/screens/AdminDashboardScreen';
 import { AdminOrderDetailScreen } from '../order-management/screens/AdminOrderDetailScreen';
@@ -11,6 +12,8 @@ import { AdminCustomizableProductScreen } from '../product-management/screens/Ad
 import { AdminDownloadableProductScreen } from '../product-management/screens/AdminDownloadableProductScreen';
 import { AdminProductDetailScreen } from '../product-management/screens/AdminProductDetailScreen';
 import { AdminProductManagementScreen } from '../product-management/screens/AdminProductManagementScreen';
+import { AdminCreateListingScreen } from '../product-management/screens/AdminCreateListingScreen';
+import { AdminProductSubtypeScreen } from '../product-management/screens/AdminProductSubtypeScreen';
 import { AdminProductTypeScreen } from '../product-management/screens/AdminProductTypeScreen';
 import { AdminProductVariationsScreen } from '../product-management/screens/AdminProductVariationsScreen';
 import { AdminStandardProductScreen } from '../product-management/screens/AdminStandardProductScreen';
@@ -26,6 +29,7 @@ import { AdminUserDetailScreen } from '../user-management/screens/AdminUserDetai
 import { AdminUserFormScreen } from '../user-management/screens/AdminUserFormScreen';
 import { AdminUserManagementScreen } from '../user-management/screens/AdminUserManagementScreen';
 import { AdminCommissionScreen } from '../commission/screens/AdminCommissionScreen';
+import { AdminCommissionDetailScreen } from '../commission/screens/AdminCommissionDetailScreen';
 import { AdminSettingsCommissionRateScreen } from '../settings/screens/AdminSettingsCommissionRateScreen';
 import { AdminSettingsCommissionRatesScreen } from '../settings/screens/AdminSettingsCommissionRatesScreen';
 import { AdminSettingsFeaturedShopsScreen } from '../settings/screens/AdminSettingsFeaturedShopsScreen';
@@ -51,6 +55,7 @@ export function AdminNavigator() {
       screenOptions={{
         headerStyle: { backgroundColor: colors.background },
         headerTintColor: colors.textPrimary,
+        headerTitleStyle: stackHeaderTitleStyle,
         headerShadowVisible: false,
         headerBackVisible: false,
         headerLeft: (props) => (
@@ -63,7 +68,7 @@ export function AdminNavigator() {
       <Stack.Screen
         name="AdminDashboard"
         component={AdminDashboardScreen}
-        options={{ title: 'Dashboard' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="AdminProductManagement"
@@ -76,9 +81,19 @@ export function AdminNavigator() {
         options={{ title: 'Product Detail' }}
       />
       <Stack.Screen
+        name="AdminCreateListing"
+        component={AdminCreateListingScreen}
+        options={{ title: 'Create Listing' }}
+      />
+      <Stack.Screen
         name="AdminProductType"
         component={AdminProductTypeScreen}
-        options={{ title: 'Add Product' }}
+        options={{ title: 'Add Listing' }}
+      />
+      <Stack.Screen
+        name="AdminProductSubtype"
+        component={AdminProductSubtypeScreen}
+        options={{ title: 'Product Format' }}
       />
       <Stack.Screen
         name="AdminStandardProduct"
@@ -109,17 +124,29 @@ export function AdminNavigator() {
       <Stack.Screen
         name="AdminProductAiListing"
         component={AdminProductAiListingScreen}
-        options={{ title: 'AI Listing' }}
+        options={{ title: 'Add Photos' }}
       />
       <Stack.Screen
         name="AdminOrderManagement"
         component={AdminOrderManagementScreen}
-        options={{ title: 'Order Management' }}
+        options={{
+          title: 'Order Management',
+          headerBackTitle: 'Order Management',
+        }}
       />
       <Stack.Screen
         name="AdminOrderDetail"
         component={AdminOrderDetailScreen}
-        options={{ title: 'Order Detail' }}
+        options={{
+          title: '',
+          headerLeft: (props) => (
+            <StackHeaderBackButton
+              canGoBack={props.canGoBack}
+              tintColor={props.tintColor}
+              title="Order Details"
+            />
+          ),
+        }}
       />
       <Stack.Screen
         name="AdminSellerManagement"
@@ -179,6 +206,11 @@ export function AdminNavigator() {
         name="AdminCommission"
         component={AdminCommissionScreen}
         options={{ title: 'Commission' }}
+      />
+      <Stack.Screen
+        name="AdminCommissionDetail"
+        component={AdminCommissionDetailScreen}
+        options={{ title: 'Commission Detail' }}
       />
       <Stack.Screen
         name="AdminSettingsHub"
@@ -245,7 +277,7 @@ export function AdminNavigator() {
       <Stack.Screen
         name="AdminCoupons"
         component={AdminCouponsScreen}
-        options={{ title: 'Coupons' }}
+        options={{ title: 'Coupon' }}
       />
       <Stack.Screen
         name="AdminCouponDetail"

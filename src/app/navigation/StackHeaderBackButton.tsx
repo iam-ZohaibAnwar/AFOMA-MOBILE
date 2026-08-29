@@ -6,9 +6,10 @@ import { colors } from '../../design-system';
 interface StackHeaderBackButtonProps {
   canGoBack?: boolean;
   tintColor?: string;
+  title?: string;
 }
 
-export function StackHeaderBackButton({ canGoBack, tintColor }: StackHeaderBackButtonProps) {
+export function StackHeaderBackButton({ canGoBack, tintColor, title }: StackHeaderBackButtonProps) {
   const navigation = useNavigation();
 
   if (!canGoBack) {
@@ -19,6 +20,7 @@ export function StackHeaderBackButton({ canGoBack, tintColor }: StackHeaderBackB
     <HeaderBackButton
       onPress={() => navigation.goBack()}
       color={tintColor ?? colors.textPrimary}
+      title={title}
     />
   );
 }

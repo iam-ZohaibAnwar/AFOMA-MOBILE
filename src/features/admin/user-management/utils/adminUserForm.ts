@@ -1,5 +1,6 @@
 import { isValidEmail } from '../../../auth/utils/validation';
 import { resolveAddressRegionCodes } from '../../../checkout/utils/resolveAddressRegionCodes';
+import { resolveUserProfileImageUrl } from '../../../../utils/resolveUserProfileImageUrl';
 import type {
   AdminUserAdminUpdatePayload,
   AdminUserCreatePayload,
@@ -39,9 +40,8 @@ export function mapAdminUserToFormValues(user: AdminUserListItem): AdminUserForm
     city: user.city ?? '',
     streetAddress: user.streetAddress ?? '',
     zipCode: user.ZipCode ?? '',
-    userProfile: user.userProfile ?? '',
+    userProfile: resolveUserProfileImageUrl(user.userProfile) ?? user.userProfile ?? '',
     profileLocalUri: '',
-    web3address: user.web3address ?? '',
   };
 }
 
@@ -144,10 +144,6 @@ function buildAdminUserWritePayload(values: AdminUserFormValues): AdminUserWrite
 
   if (values.userProfile.trim()) {
     payload.userProfile = values.userProfile.trim();
-  }
-
-  if (values.web3address.trim()) {
-    payload.web3address = values.web3address.trim();
   }
 
   if (values.userRole === 'admin') {

@@ -9,7 +9,10 @@ import type {
 } from '../../admin/product-management/types/adminProductManagement';
 import type { AdminEditableSellerSectionId, AdminSellerListItem } from '../../admin/seller-management/types/adminSellerManagement';
 import type { AdminUserFormMode, AdminUserListItem } from '../../admin/user-management/types/adminUserManagement';
-import type { AdminCommissionManagementParams } from '../../admin/commission/types/adminCommission';
+import type {
+  AdminCommissionDetailParams,
+  AdminCommissionManagementParams,
+} from '../../admin/commission/types/adminCommission';
 import type { AdminCommissionRateSettingType } from '../../admin/settings/types/adminSettings';
 import type { SellerStackParamList } from '../../../app/navigation/sellerTypes';
 
@@ -66,6 +69,12 @@ export const authReturnTo = {
     name: 'Admin',
     screen: 'AdminProductDetail',
     params: { productId, initialProduct },
+  }),
+  adminCreateListing: (sellerId?: string): AuthReturnTo => ({
+    kind: 'root',
+    name: 'Admin',
+    screen: 'AdminProductType',
+    params: sellerId ? { sellerId } : undefined,
   }),
   adminProductType: (sellerId?: string): AuthReturnTo => ({
     kind: 'root',
@@ -193,6 +202,12 @@ export const authReturnTo = {
     kind: 'root',
     name: 'Admin',
     screen: 'AdminCommission',
+    params,
+  }),
+  adminCommissionDetail: (params: AdminCommissionDetailParams): AuthReturnTo => ({
+    kind: 'root',
+    name: 'Admin',
+    screen: 'AdminCommissionDetail',
     params,
   }),
   adminSettingsHub: (): AuthReturnTo => ({

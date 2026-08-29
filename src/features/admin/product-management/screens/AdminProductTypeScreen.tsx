@@ -1,317 +1,128 @@
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
-
+import { useState } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-
-
 import { AppButton } from '../../../../components/ui/AppButton';
-
-import { AppCard } from '../../../../components/ui/AppCard';
-
 import { AppText } from '../../../../components/ui/AppText';
-
 import { colors, spacing } from '../../../../design-system';
-
 import type { AdminStackParamList } from '../../navigation/adminTypes';
-
 import { authReturnTo } from '../../../auth/utils/authNavigation';
-
 import { useRequireAdmin } from '../../hooks/useRequireAdmin';
-
-import { SellerProductTypeOption } from '../../../seller/products/components/SellerProductTypeOption';
-
-import { navigateToAdminProductAiListing } from '../utils/adminProductAiListingNavigation';
-
-
+import { AdminListingOptionCard } from '../components/AdminListingOptionCard';
+import type { AdminProductListingCategory } from '../types/adminProductCreate';
+import {
+  navigateToAdminProductSubtypePicker,
+  navigateToAdminProductWizard,
+} from '../utils/adminProductCreateNavigation';
 
 type Props = NativeStackScreenProps<AdminStackParamList, 'AdminProductType'>;
 
-
-
 const RETURN_TO = authReturnTo.adminProductManagement();
 
-
-
 export function AdminProductTypeScreen({ navigation, route }: Props) {
-
   const insets = useSafeAreaInsets();
-
   const sellerId = route.params?.sellerId;
-
   const { isAuthorized } = useRequireAdmin(RETURN_TO);
+  const [category, setCategory] = useState<AdminProductListingCategory | null>(null);
 
+  const handleContinue = () => {
+    if (!category) {
+      return;
+    }
 
+    if (category === 'physical') {
+      navigateToAdminProductSubtypePicker(navigation, sellerId);
+      return;
+    }
 
-  const handleSelectStandard = () => {
-
-    navigation.navigate('AdminStandardProduct', sellerId ? { sellerId } : undefined);
-
+    navigateToAdminProductWizard(navigation, 'Downloadable', sellerId);
   };
-
-
-
-  const handleSelectDownloadable = () => {
-
-    navigation.navigate('AdminDownloadableProduct', sellerId ? { sellerId } : undefined);
-
-  };
-
-
-
-  const handleSelectCustomizable = () => {
-
-    navigation.navigate('AdminCustomizableProduct', sellerId ? { sellerId } : undefined);
-
-  };
-
-
-
-  const handleAiStandard = () => {
-
-    navigateToAdminProductAiListing(navigation, 'Standard', sellerId);
-
-  };
-
-
-
-  const handleAiDownloadable = () => {
-
-    navigateToAdminProductAiListing(navigation, 'Downloadable', sellerId);
-
-  };
-
-
-
-  const handleAiCustomizable = () => {
-
-    navigateToAdminProductAiListing(navigation, 'Customizable', sellerId);
-
-  };
-
-
 
   if (!isAuthorized) {
-
     return (
-
       <View style={styles.centeredState}>
-
         <ActivityIndicator size="large" color={colors.primary} />
-
       </View>
-
     );
-
   }
 
-
-
   return (
+    <View style={styles.screen}>
+      <View style={styles.body}>
+        <View style={styles.intro}>
+          <AppText variant="h2" style={styles.introTitle}>
+            What are you listing?
+          </AppText>
+          <AppText variant="bodySmall" color="textSecondary">
+            Choose the type of product you want to list.
+          </AppText>
+        </View>
 
-    <ScrollView
+        <View style={styles.options}>
+          <AdminListingOptionCard
+            title="Physical product"
+            description="Items that require shipping or local pickup."
+            selected={category === 'physical'}
+            onPress={() => setCategory('physical')}
+            icon={<Ionicons name="cube-outline" size={24} color={colors.textInverse} />}
+          />
 
-      style={styles.screen}
-
-      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
-
-      showsVerticalScrollIndicator={false}
-
-    >
-
-      <View style={styles.intro}>
-
-        <AppText variant="h3" style={styles.introTitle}>
-
-          What are you listing?
-
-        </AppText>
-
-        <AppText variant="bodySmall" color="textSecondary">
-
-          Choose the product type for the seller listing you are creating. AI listing prefills the
-
-          wizard only — save still creates a Pending product.
-
-        </AppText>
-
+          <AdminListingOptionCard
+            title="Digital product"
+            description="Files, services, or downloadable content."
+            selected={category === 'digital'}
+            onPress={() => setCategory('digital')}
+            iconBackgroundColor={colors.secondary}
+            icon={<Ionicons name="cloud-download-outline" size={24} color={colors.textInverse} />}
+          />
+        </View>
       </View>
 
-
-
-      <AppCard variant="flat">
-
-        <AppText variant="bodyMedium" style={styles.groupTitle}>
-
-          Physical product
-
-        </AppText>
-
-        <AppText variant="bodySmall" color="textSecondary" style={styles.groupDescription}>
-
-          Products that require physical delivery.
-
-        </AppText>
-
-
-
-        <View style={styles.options}>
-
-          <SellerProductTypeOption
-
-            title="Standard"
-
-            description="A single item with one price and inventory."
-
-            onPress={handleSelectStandard}
-
-          />
-
-          <AppButton label="Standard with AI photos" variant="outline" onPress={handleAiStandard} />
-
-          <SellerProductTypeOption
-
-            title="Customizable"
-
-            description="A product with variations such as size, colour or material."
-
-            onPress={handleSelectCustomizable}
-
-          />
-
-          <AppButton
-
-            label="Customizable with AI photos"
-
-            variant="outline"
-
-            onPress={handleAiCustomizable}
-
-          />
-
-        </View>
-
-      </AppCard>
-
-
-
-      <AppCard variant="flat">
-
-        <AppText variant="bodyMedium" style={styles.groupTitle}>
-
-          Digital product
-
-        </AppText>
-
-        <AppText variant="bodySmall" color="textSecondary" style={styles.groupDescription}>
-
-          Products delivered digitally.
-
-        </AppText>
-
-
-
-        <View style={styles.options}>
-
-          <SellerProductTypeOption
-
-            title="Downloadable"
-
-            description="A digital file customers download after purchase."
-
-            onPress={handleSelectDownloadable}
-
-          />
-
-          <AppButton
-
-            label="Downloadable with AI photos"
-
-            variant="outline"
-
-            onPress={handleAiDownloadable}
-
-          />
-
-        </View>
-
-      </AppCard>
-
-    </ScrollView>
-
+      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.lg }]}>
+        <AppButton
+          label="Continue →"
+          onPress={handleContinue}
+          disabled={!category}
+          fullWidth
+        />
+      </View>
+    </View>
   );
-
 }
 
-
-
 const styles = StyleSheet.create({
-
   screen: {
-
     flex: 1,
-
     backgroundColor: colors.background,
-
   },
-
-  content: {
-
+  body: {
+    flex: 1,
     padding: spacing.lg,
-
-    gap: spacing.lg,
-
+    gap: spacing.xl,
   },
-
-  intro: {
-
-    gap: spacing.sm,
-
-  },
-
-  introTitle: {
-
-    color: colors.textPrimary,
-
-  },
-
-  groupTitle: {
-
-    fontWeight: '700',
-
-    color: colors.textPrimary,
-
-    marginBottom: spacing.xs,
-
-  },
-
-  groupDescription: {
-
-    marginBottom: spacing.md,
-
-    lineHeight: 20,
-
-  },
-
-  options: {
-
-    gap: spacing.md,
-
-  },
-
   centeredState: {
-
     flex: 1,
-
     alignItems: 'center',
-
     justifyContent: 'center',
-
     backgroundColor: colors.background,
-
   },
-
+  intro: {
+    gap: spacing.sm,
+    paddingTop: spacing.sm,
+  },
+  introTitle: {
+    color: colors.textPrimary,
+  },
+  options: {
+    gap: spacing.md,
+  },
+  footer: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.borderStrong,
+    backgroundColor: colors.background,
+  },
 });
-
-

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { AppButton } from '../../../components/ui/AppButton';
 import { AppText } from '../../../components/ui/AppText';
 import { spacing } from '../../../design-system';
 import type { PdpTheme } from '../../../design-system/pdpTheme';
@@ -9,7 +10,6 @@ import { shouldShowProductDescriptionSection } from '../utils/productDetailSecti
 import { formatProductDescriptionForDisplay, getProductDescription } from '../utils/productDisplay';
 import { ProductDetailBottomSheet } from './ProductDetailBottomSheet';
 import {
-  getProductDetailExpandActionTextStyle,
   PRODUCT_DETAIL_SECTION_TITLE_WEIGHT,
   ProductDetailDescriptionContent,
 } from './ProductDetailDescriptionContent';
@@ -61,16 +61,15 @@ export function ProductDetailItemDetailsSection({
         />
 
         {showExpandAction ? (
-          <Pressable
-            accessibilityRole="button"
+          <AppButton
             accessibilityLabel="See full description"
+            label="See full description"
+            variant="primary"
+            shape="pill"
+            fullWidth
             onPress={() => setSheetVisible(true)}
-            style={({ pressed }) => [styles.expandAction, pressed && styles.expandActionPressed]}
-          >
-            <AppText variant="bodyMedium" style={getProductDetailExpandActionTextStyle(theme)}>
-              See full description
-            </AppText>
-          </Pressable>
+            style={styles.expandAction}
+          />
         ) : null}
       </View>
 
@@ -94,10 +93,6 @@ const styles = StyleSheet.create({
   },
   title: {},
   expandAction: {
-    alignSelf: 'flex-start',
-    paddingVertical: spacing.xs,
-  },
-  expandActionPressed: {
-    opacity: 0.88,
+    marginTop: spacing.xs,
   },
 });

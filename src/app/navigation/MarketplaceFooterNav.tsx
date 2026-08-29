@@ -181,12 +181,9 @@ export function MarketplaceFooterNav({
 
           if (isMarketplaceSegmentItem && item.segment) {
             navigation.dispatch(
-              CommonActions.navigate({
-                name: 'MainTabs',
-                params: {
-                  screen: 'MarketplaceTab',
-                  params: { segment: item.segment },
-                },
+              CommonActions.navigate('MainTabs', {
+                screen: 'MarketplaceTab',
+                params: { segment: item.segment },
               }),
             );
             return;

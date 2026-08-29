@@ -12,16 +12,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmptyState } from '../../../../components/ecommerce/EmptyState';
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
-import { SearchBar } from '../../../../components/ecommerce/SearchBar';
-import { SelectField } from '../../../../components/forms';
 import { AppText } from '../../../../components/ui/AppText';
 import { colors, spacing } from '../../../../design-system';
 import type { SellerStackParamList } from '../../../../app/navigation/sellerTypes';
 import { authReturnTo } from '../../../auth/utils/authNavigation';
 import { useRequireSeller } from '../../hooks/useRequireSeller';
+import { OrderListSearchBar } from '../../../orders/components/OrderListSearchBar';
 import { SellerOrderCard } from '../components/SellerOrderCard';
+import { SellerOrderStatusTabs } from '../components/SellerOrderStatusTabs';
 import { useSellerOrders } from '../hooks/useSellerOrders';
-import { SELLER_ORDER_STATUS_FILTERS } from '../utils/sellerOrderMappers';
 
 type Props = NativeStackScreenProps<SellerStackParamList, 'SellerOrders'>;
 
@@ -98,20 +97,14 @@ export function SellerOrdersScreen({ navigation }: Props) {
 
   const listHeader = (
     <View style={styles.headerContent}>
-      <SearchBar
-        mode="input"
-        placeholder="Search by name..."
+      <OrderListSearchBar
         value={searchInput}
         onChangeText={setSearchInput}
+        placeholder="Search by customer name..."
+        accessibilityLabel="Search orders by customer name"
       />
 
-      <SelectField
-        label="Order status"
-        value={statusFilter}
-        options={SELLER_ORDER_STATUS_FILTERS}
-        onChange={(value) => setStatusFilter(value as typeof statusFilter)}
-        modalTitle="Filter by order status"
-      />
+      <SellerOrderStatusTabs activeStatus={statusFilter} onStatusChange={setStatusFilter} />
 
       {error ? (
         <ErrorState message={error} onAction={() => void refresh()} style={styles.inlineError} />
@@ -139,7 +132,7 @@ export function SellerOrdersScreen({ navigation }: Props) {
           title={hasActiveFilters ? 'No matching orders' : 'No orders received'}
           message={
             hasActiveFilters
-              ? 'Try adjusting your search or status filter.'
+              ? 'Try adjusting your search or status tab.'
               : 'Orders from customers will appear here.'
           }
           style={styles.emptyState}

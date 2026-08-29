@@ -98,7 +98,8 @@ export function useAdminProductVariationsWizard(
   const [selectedAttributes, setSelectedAttributes] = useState<string[]>([]);
   const [rows, setRows] = useState<VariationRow[]>([]);
   const [rowErrors, setRowErrors] = useState<Record<number, Record<string, string>>>({});
-  const [isLoading, setIsLoading] = useState(Boolean(productId) && !hasCachedContextRef.current);
+  const [isLoading, setIsLoading] = useState(Boolean(productId));
+  const [isHydrated, setIsHydrated] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -128,8 +129,6 @@ export function useAdminProductVariationsWizard(
     }
     if (initialContext?.images?.length) {
       setProductImages(initialContext.images);
-      setLoadError(null);
-      setIsLoading(false);
     }
   }, [initialContext?.images, initialContext?.productName]);
 
@@ -153,6 +152,7 @@ export function useAdminProductVariationsWizard(
       setSelectedAttributes(inferredAttributes);
       setRows(mapVariationsToRows(existingVariations, inferredAttributes));
       hasCachedContextRef.current = true;
+      setIsHydrated(true);
     },
     [sellerId],
   );
@@ -168,6 +168,7 @@ export function useAdminProductVariationsWizard(
       }
 
       setLoadError(null);
+      setIsHydrated(false);
 
       try {
         const product = await getSellerProductById(productId);
@@ -306,6 +307,7 @@ export function useAdminProductVariationsWizard(
     hasCurrency,
     resolvedSellerId: effectiveSellerId,
     isLoading,
+    isHydrated,
     loadError,
     isSaving,
     saveError,

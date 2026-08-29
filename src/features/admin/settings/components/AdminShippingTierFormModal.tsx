@@ -100,6 +100,7 @@ export function AdminShippingTierFormModal({
             <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.form}>
               <AppInput
                 label="Tier name"
+                tone="surface"
                 value={draft.tierName}
                 onChangeText={(tierName) => {
                   setDraft((previous) => ({ ...previous, tierName }));
@@ -113,7 +114,7 @@ export function AdminShippingTierFormModal({
                 <AppText variant="label">Countries</AppText>
                 <AppButton
                   label={draft.countires.length ? `${draft.countires.length} selected` : 'Select countries'}
-                  variant="secondary"
+                  variant="outline"
                   onPress={() => setCountryPickerVisible(true)}
                   fullWidth
                 />

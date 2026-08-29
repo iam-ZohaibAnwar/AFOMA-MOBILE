@@ -25,7 +25,8 @@ export function useSellerShippingConfig(
   const [profile, setProfile] = useState<SellerProfile | null>(null);
   const [form, setForm] = useState<SellerShippingFormState>(emptySellerShippingFormState());
   const [conversionRateCad, setConversionRateCad] = useState(1);
-  const [isLoading, setIsLoading] = useState(Boolean(sellerId));
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -56,10 +57,12 @@ export function useSellerShippingConfig(
       setForm(emptySellerShippingFormState());
       setError(null);
       setIsLoading(false);
+      setHasLoaded(false);
       return;
     }
 
     setIsLoading(true);
+    setHasLoaded(false);
     setError(null);
 
     try {
@@ -79,6 +82,7 @@ export function useSellerShippingConfig(
       setError(getErrorMessage(err, 'Failed to load shipping configuration'));
     } finally {
       setIsLoading(false);
+      setHasLoaded(true);
     }
   }, [applyCurrencyRate, sellerId]);
 
@@ -150,6 +154,7 @@ export function useSellerShippingConfig(
     form,
     conversionRateCad,
     isLoading,
+    hasLoaded,
     isSaving,
     error,
     saveError,

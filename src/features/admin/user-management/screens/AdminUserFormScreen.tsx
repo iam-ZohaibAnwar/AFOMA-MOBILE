@@ -107,15 +107,6 @@ export function AdminUserFormScreen({ navigation, route }: Props) {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <AppCard variant="muted">
-          <AppText variant="h3">{isEditMode ? 'Edit user' : 'Create user'}</AppText>
-          <AppText variant="bodySmall" color="textSecondary">
-            {isEditMode
-              ? 'Update profile, role, permissions, address, and Web3 details.'
-              : 'Add a customer, affiliate, or admin account. Seller accounts are created in Seller Management.'}
-          </AppText>
-        </AppCard>
-
         {isEditMode && form.isHydrating ? (
           <View style={styles.hydrationRow}>
             <ActivityIndicator size="small" color={colors.primary} />
@@ -158,6 +149,7 @@ export function AdminUserFormScreen({ navigation, route }: Props) {
                   onRemovePhoto={form.removeProfilePhoto}
                 />
                 <AppInput
+                  tone="surface"
                   label="First name *"
                   value={form.values.firstName}
                   onChangeText={(value) => form.updateField('firstName', value)}
@@ -165,6 +157,7 @@ export function AdminUserFormScreen({ navigation, route }: Props) {
                   autoCapitalize="words"
                 />
                 <AppInput
+                  tone="surface"
                   label="Last name *"
                   value={form.values.lastName}
                   onChangeText={(value) => form.updateField('lastName', value)}
@@ -172,6 +165,7 @@ export function AdminUserFormScreen({ navigation, route }: Props) {
                   autoCapitalize="words"
                 />
                 <AppInput
+                  tone="surface"
                   label="Email *"
                   value={form.values.email}
                   onChangeText={(value) => form.updateField('email', value)}
@@ -180,6 +174,7 @@ export function AdminUserFormScreen({ navigation, route }: Props) {
                   autoCapitalize="none"
                 />
                 <AppInput
+                  tone="surface"
                   label="Phone *"
                   value={form.values.phone}
                   onChangeText={(value) => form.updateField('phone', value)}
@@ -188,6 +183,7 @@ export function AdminUserFormScreen({ navigation, route }: Props) {
                   placeholder="+1234567890"
                 />
                 <AppInput
+                  tone="surface"
                   label="Date of birth"
                   value={form.values.dob}
                   onChangeText={(value) => form.updateField('dob', value)}
@@ -195,6 +191,7 @@ export function AdminUserFormScreen({ navigation, route }: Props) {
                   placeholder="YYYY-MM-DD"
                 />
                 <AccountGenderSelector
+                  tone="surface"
                   value={form.values.gender}
                   onChange={(value) => form.updateField('gender', value)}
                   error={form.fieldErrors.gender}
@@ -205,6 +202,7 @@ export function AdminUserFormScreen({ navigation, route }: Props) {
             <AppCard>
               <SectionTitle>Role</SectionTitle>
               <SelectField
+                tone="surface"
                 label="User role *"
                 value={form.values.userRole}
                 options={roleOptions}
@@ -225,6 +223,7 @@ export function AdminUserFormScreen({ navigation, route }: Props) {
                   level.
                 </AppText>
                 <SelectField
+                  tone="surface"
                   label="Full access"
                   value={form.values.fullAccess ? 'true' : 'false'}
                   options={ADMIN_USER_FULL_ACCESS_OPTIONS.map((option) => ({
@@ -241,6 +240,7 @@ export function AdminUserFormScreen({ navigation, route }: Props) {
               <SectionTitle>Address</SectionTitle>
               <View style={styles.form}>
                 <CountryStateFields
+                  tone="surface"
                   value={createCountryStateSelection(form.values.country, form.values.state, {
                     countryCode: form.values.countryCode,
                     stateCode: form.values.stateCode,
@@ -251,34 +251,27 @@ export function AdminUserFormScreen({ navigation, route }: Props) {
                   required
                 />
                 <AppInput
+                  tone="surface"
                   label="City *"
                   value={form.values.city}
                   onChangeText={(value) => form.updateField('city', value)}
                   error={form.fieldErrors.city}
                 />
                 <AppInput
+                  tone="surface"
                   label="Street address *"
                   value={form.values.streetAddress}
                   onChangeText={(value) => form.updateField('streetAddress', value)}
                   error={form.fieldErrors.streetAddress}
                 />
                 <AppInput
+                  tone="surface"
                   label="ZIP *"
                   value={form.values.zipCode}
                   onChangeText={(value) => form.updateField('zipCode', value)}
                   error={form.fieldErrors.zipCode}
                 />
               </View>
-            </AppCard>
-
-            <AppCard>
-              <SectionTitle>Web3</SectionTitle>
-              <AppInput
-                label="Wallet address"
-                value={form.values.web3address}
-                onChangeText={(value) => form.updateField('web3address', value)}
-                autoCapitalize="none"
-              />
             </AppCard>
 
             <AppButton

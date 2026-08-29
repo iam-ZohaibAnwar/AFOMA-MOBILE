@@ -1,6 +1,7 @@
 import { apiDelete, apiGet, apiPost, apiPut } from '../../../../services/api/request';
 import type {
   AdminCouponDetailRecord,
+  AdminCouponListItem,
   AdminCouponsListResponse,
   CreateAdminCouponApiResponse,
   CreateAdminCouponPayload,
@@ -8,6 +9,30 @@ import type {
   AdminCouponMutationResult,
   UpdateAdminCouponPayload,
 } from '../types/adminCoupons';
+
+/** GET /coupon — all coupons with populated createdBy. */
+export async function getAdminAllCoupons(): Promise<AdminCouponListItem[]> {
+  const response = await apiGet<AdminCouponListItem[] | { coupons?: AdminCouponListItem[] }>(
+    '/coupon',
+    undefined,
+    'Failed to load coupons',
+  );
+
+  if (Array.isArray(response)) {
+    return response;
+  }
+
+  return Array.isArray(response.coupons) ? response.coupons : [];
+}
+
+/** GET /notifications/send-all/:couponId — broadcast coupon notification. */
+export async function notifyAdminCouponUsers(couponId: string): Promise<void> {
+  await apiGet<void>(
+    `/notifications/send-all/${encodeURIComponent(couponId)}`,
+    undefined,
+    'Failed to send coupon notification',
+  );
+}
 
 export async function getAdminCouponsPage(
   adminUserId: string,

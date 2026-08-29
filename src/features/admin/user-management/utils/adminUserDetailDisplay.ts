@@ -124,17 +124,6 @@ export function hasAdminUserAddress(user: AdminUserListItem): boolean {
   return getAdminUserAddressFields(user).length > 0;
 }
 
-export function getAdminUserWeb3Fields(user: AdminUserListItem): AdminUserDetailField[] {
-  return [
-    optionalField('Wallet address', user.web3address),
-    optionalField('Network', user.networkType),
-  ].filter((field): field is AdminUserDetailField => field !== null);
-}
-
-export function hasAdminUserWeb3(user: AdminUserListItem): boolean {
-  return getAdminUserWeb3Fields(user).length > 0;
-}
-
 export function getAdminUserHeaderEmail(user: AdminUserListItem): string {
   return requiredValue(user.email, 'No email');
 }

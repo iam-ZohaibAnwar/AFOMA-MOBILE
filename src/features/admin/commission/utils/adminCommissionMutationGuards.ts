@@ -23,5 +23,9 @@ export function canUpdateAdminCommissionPayoutStatus(
   row: AdminCommissionDisplayRow,
   updatingStatusCommissionId: string | null,
 ): boolean {
+  if (row.payoutStatus === 'Paid') {
+    return false;
+  }
+
   return updatingStatusCommissionId !== row.commissionId;
 }

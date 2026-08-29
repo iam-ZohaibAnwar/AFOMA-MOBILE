@@ -3,7 +3,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import type { RootStackParamList } from '../../../../app/navigation/types';
 import type { AdminStackParamList } from '../../navigation/adminTypes';
-import type { AdminCommissionManagementParams } from '../types/adminCommission';
+import type { AdminCommissionDetailParams, AdminCommissionManagementParams } from '../types/adminCommission';
 
 type RootNavigation = NativeStackNavigationProp<RootStackParamList>;
 type AdminNavigation = NativeStackNavigationProp<AdminStackParamList>;
@@ -23,4 +23,11 @@ export function navigateToAdminCommission(
   params?: AdminCommissionManagementParams,
 ): void {
   navigation.navigate('AdminCommission', params);
+}
+
+export function navigateToAdminCommissionDetail(
+  navigation: AdminNavigation,
+  params: AdminCommissionDetailParams,
+): void {
+  navigation.navigate('AdminCommissionDetail', params);
 }

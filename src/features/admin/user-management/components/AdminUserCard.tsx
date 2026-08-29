@@ -1,154 +1,177 @@
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-import { AppBadge } from '../../../../components/ui/AppBadge';
-import { AppButton } from '../../../../components/ui/AppButton';
 import { AppText } from '../../../../components/ui/AppText';
-import { colors, radius, spacing } from '../../../../design-system';
+import { colors, radius, shadows, spacing } from '../../../../design-system';
+import { AdminProductStatusChip } from '../../product-management/components/AdminProductStatusChip';
 import type { AdminUserListItem } from '../types/adminUserManagement';
 import {
   formatAdminUserDisplayName,
-  formatAdminUserRoleLabel,
-  getAdminUserFullAccessBadgeLabel,
-} from '../utils/adminUserRoleOptions';
+  getAdminUserInitials,
+  getAdminUserListSubtitle,
+  resolveAdminUserAccentColor,
+  resolveAdminUserAvatarUrl,
+  resolveAdminUserListStatusChips,
+} from '../utils/adminUserDisplay';
 
 export interface AdminUserCardProps {
   user: AdminUserListItem;
-  isDeleting: boolean;
-  isDeleteBusy: boolean;
-  onViewPress: (user: AdminUserListItem) => void;
-  onEditPress: (user: AdminUserListItem) => void;
-  onDeletePress: (user: AdminUserListItem) => void;
+  onPress: (user: AdminUserListItem) => void;
+  onMenuPress: (user: AdminUserListItem) => void;
+  isBusy?: boolean;
 }
 
-function roleBadgeVariant(role?: string): 'primary' | 'success' | 'warning' | 'neutral' {
-  switch (role) {
-    case 'admin':
-      return 'warning';
-    case 'seller':
-      return 'success';
-    case 'affiliate':
-      return 'primary';
-    default:
-      return 'neutral';
-  }
-}
-
-export function AdminUserCard({
-  user,
-  isDeleting,
-  isDeleteBusy,
-  onViewPress,
-  onEditPress,
-  onDeletePress,
-}: AdminUserCardProps) {
+export function AdminUserCard({ user, onPress, onMenuPress, isBusy = false }: AdminUserCardProps) {
   const userId = user._id;
-  const actionsDisabled = !userId || isDeleting || isDeleteBusy;
-  const fullAccessBadge = getAdminUserFullAccessBadgeLabel(user);
+  const avatarUrl = resolveAdminUserAvatarUrl(user);
+  const accentColor = resolveAdminUserAccentColor(user.userRole);
+  const subtitle = getAdminUserListSubtitle(user);
+  const statusChips = resolveAdminUserListStatusChips(user);
+  const displayName = formatAdminUserDisplayName(user);
 
   return (
     <View style={styles.card}>
+      <View style={[styles.accent, { backgroundColor: accentColor }]} />
+
       <Pressable
         accessibilityRole="button"
-        disabled={!userId || isDeleteBusy}
-        onPress={() => onViewPress(user)}
-        style={({ pressed }) => [styles.mainPressable, pressed && styles.pressed]}
+        disabled={!userId || isBusy}
+        onPress={() => onPress(user)}
+        style={({ pressed }) => [styles.body, pressed && styles.cardPressed]}
       >
-        <AppText variant="bodyMedium" style={styles.name}>
-          {formatAdminUserDisplayName(user)}
-        </AppText>
-        <AppText variant="bodySmall" color="textSecondary" numberOfLines={1}>
-          {user.email ?? 'No email'}
-        </AppText>
+        <View style={styles.avatarWrap}>
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={styles.avatar} resizeMode="cover" />
+          ) : (
+            <View style={[styles.avatar, styles.avatarPlaceholder]}>
+              <AppText variant="bodyMedium" style={styles.initials}>
+                {getAdminUserInitials(user)}
+              </AppText>
+            </View>
+          )}
+        </View>
 
-        <View style={styles.roleRow}>
-          <AppBadge
-            label={formatAdminUserRoleLabel(user.userRole)}
-            variant={roleBadgeVariant(user.userRole)}
-          />
-          {fullAccessBadge ? (
-            <AppBadge
-              label={fullAccessBadge}
-              variant={user.fullAccess ? 'warning' : 'neutral'}
-            />
+        <View style={styles.content}>
+          <AppText variant="bodyMedium" style={styles.name} numberOfLines={1}>
+            {displayName}
+          </AppText>
+
+          <AppText variant="caption" color="textSecondary" numberOfLines={1} style={styles.subtitle}>
+            {subtitle}
+          </AppText>
+
+          {statusChips.length > 0 ? (
+            <View style={styles.chipsRow}>
+              {statusChips.map((chip) => (
+                <AdminProductStatusChip
+                  key={chip.id}
+                  label={chip.label}
+                  icon={chip.icon as keyof typeof Ionicons.glyphMap}
+                  tone={chip.tone}
+                />
+              ))}
+            </View>
           ) : null}
         </View>
       </Pressable>
 
-      <View style={styles.footer}>
-        <AppButton
-          label="Edit"
-          variant="outline"
-          disabled={actionsDisabled}
-          onPress={() => onEditPress(user)}
-        />
-        <Pressable
-          accessibilityRole="button"
-          disabled={actionsDisabled}
-          onPress={() => onDeletePress(user)}
-          style={({ pressed }) => [
-            styles.deleteButton,
-            pressed && styles.pressed,
-            actionsDisabled && styles.disabled,
-          ]}
-        >
-          {isDeleting ? (
-            <ActivityIndicator size="small" color={colors.error} />
-          ) : (
-            <AppText variant="bodySmall" style={styles.deleteLabel}>
-              Delete
-            </AppText>
-          )}
-        </Pressable>
-      </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="User actions"
+        disabled={!userId || isBusy}
+        onPress={() => onMenuPress(user)}
+        style={({ pressed }) => [styles.menuButton, pressed && styles.menuButtonPressed]}
+        hitSlop={8}
+      >
+        {isBusy ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <Ionicons name="ellipsis-vertical" size={18} color={colors.textMuted} />
+        )}
+      </Pressable>
     </View>
   );
 }
+
+const AVATAR_SIZE = 80;
 
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.large,
     borderWidth: 1,
-    borderColor: colors.borderStrong,
+    borderColor: colors.border,
     overflow: 'hidden',
+    position: 'relative',
+    ...shadows.card,
   },
-  mainPressable: {
-    padding: spacing.lg,
-    gap: spacing.sm,
+  accent: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
   },
-  name: {
-    color: colors.textPrimary,
-  },
-  roleRow: {
+  body: {
+    flex: 1,
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    alignSelf: 'flex-start',
-  },
-  footer: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     gap: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+    paddingLeft: spacing.md + 4,
+    paddingRight: spacing.md + 28,
+    minHeight: AVATAR_SIZE + spacing.md * 2,
   },
-  deleteButton: {
-    minHeight: 36,
-    paddingHorizontal: spacing.sm,
+  cardPressed: {
+    opacity: 0.92,
+  },
+  avatarWrap: {
+    flexShrink: 0,
+  },
+  avatar: {
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+  },
+  avatarPlaceholder: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  deleteLabel: {
-    color: colors.error,
-    fontWeight: '600',
+  initials: {
+    color: colors.textInverse,
+    fontWeight: '700',
   },
-  pressed: {
-    opacity: 0.88,
+  content: {
+    flex: 1,
+    gap: spacing.xs,
+    minWidth: 0,
   },
-  disabled: {
-    opacity: 0.5,
+  name: {
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  subtitle: {
+    marginTop: 2,
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  menuButton: {
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.sm,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  menuButtonPressed: {
+    opacity: 0.7,
   },
 });

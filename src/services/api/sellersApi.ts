@@ -6,6 +6,7 @@ import type { PaginationParams } from '../types/common';
 import { apiClient } from './client';
 import { apiGet, apiPost, apiPut } from './request';
 import { toApiError } from './errors';
+import { resolveUserProfileImageUrl } from '../../utils/resolveUserProfileImageUrl';
 
 /** PUT /sellers/{sellerId} — partial seller profile update (web parity). */
 export type SellerProfileUpdatePayload = Record<string, unknown> & {
@@ -37,6 +38,25 @@ export async function updateSellerProfile(
 
 interface UploadImageResponse {
   imageUrl: string;
+}
+
+interface UploadProfileImageResponse {
+  imageUrl?: string;
+  userProfile?: string;
+}
+
+function resolveUploadedProfileImageUrl(data: UploadProfileImageResponse): string {
+  const fromImageUrl = data.imageUrl?.trim();
+  if (fromImageUrl) {
+    return fromImageUrl;
+  }
+
+  const fromFilename = resolveUserProfileImageUrl(data.userProfile);
+  if (fromFilename) {
+    return fromFilename;
+  }
+
+  throw new Error('Upload response did not include a profile image URL');
 }
 
 /** PUT /sellers/seller-shop/update-status/{sellerId}?shop_status=0|1 — web parity. */
@@ -89,13 +109,13 @@ export async function uploadUserProfileImage(
   } as unknown as Blob);
 
   try {
-    const response = await apiClient.post<UploadImageResponse>(
+    const response = await apiClient.post<UploadProfileImageResponse>(
       '/users/upload-profile',
       formData,
       { headers: { 'Content-Type': 'multipart/form-data' } },
     );
 
-    return response.data.imageUrl;
+    return resolveUploadedProfileImageUrl(response.data);
   } catch (error) {
     throw toApiError(error, 'Failed to upload profile image');
   }

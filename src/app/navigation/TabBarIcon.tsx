@@ -16,7 +16,7 @@ const TAB_ICON_NAMES: Record<
   browse: { outline: 'grid-outline', filled: 'grid' },
   search: { outline: 'search-outline', filled: 'search' },
   cart: { outline: 'cart-outline', filled: 'cart' },
-  account: { outline: 'person-outline', filled: 'person-outline' },
+  account: { outline: 'person-outline', filled: 'person' },
   shop: { outline: 'storefront-outline', filled: 'storefront' },
 };
 

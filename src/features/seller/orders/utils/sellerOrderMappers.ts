@@ -2,10 +2,10 @@ import type { CartLineItem } from '../../../../services/types/cart';
 import type { SellerOrderDetail, SellerOrderStatusFilter, SellerOrderSummary } from '../types/sellerOrder';
 
 export const SELLER_ORDER_STATUS_FILTERS: Array<{ label: string; value: SellerOrderStatusFilter }> = [
-  { label: 'All statuses', value: '' },
+  { label: 'All', value: '' },
   { label: 'Processing', value: 'Processing' },
   { label: 'Pending', value: 'Pending' },
-  { label: 'Dispatched', value: 'Dispatched' },
+  { label: 'Shipped', value: 'Shipped' },
   { label: 'Delivered', value: 'Delivered' },
   { label: 'Cancelled', value: 'Cancelled' },
   { label: 'On hold', value: 'OnHold' },

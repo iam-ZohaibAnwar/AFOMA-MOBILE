@@ -15,14 +15,6 @@ export function getProductDetailBodyTextStyle(theme: PdpTheme): TextStyle {
   };
 }
 
-export function getProductDetailExpandActionTextStyle(theme: PdpTheme): TextStyle {
-  return {
-    ...(typography.bodyMedium as TextStyle),
-    color: theme.textPrimary,
-    fontWeight: '600',
-  };
-}
-
 export interface ProductDetailDescriptionContentProps {
   description: string;
   theme: PdpTheme;

@@ -1,9 +1,10 @@
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppText } from '../../../components/ui/AppText';
-import { colors, spacing } from '../../../design-system';
+import { colors, radius, spacing } from '../../../design-system';
 import type { ShoppingStackParamList } from '../../../app/navigation/types';
 import {
   marketplaceScrollProps,
@@ -57,6 +58,9 @@ export function ChatListScreen({ navigation }: Props) {
         ListEmptyComponent={
           hasLoadedOnce ? (
             <View style={styles.emptyState}>
+              <View style={styles.emptyIconWrap}>
+                <Ionicons name="chatbubbles-outline" size={28} color={colors.textInverse} />
+              </View>
               <AppText variant="h3" style={styles.emptyTitle}>
                 No messages yet
               </AppText>
@@ -93,6 +97,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     gap: spacing.sm,
     alignItems: 'center',
+  },
+  emptyIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.medium,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xs,
   },
   emptyTitle: {
     color: colors.textPrimary,

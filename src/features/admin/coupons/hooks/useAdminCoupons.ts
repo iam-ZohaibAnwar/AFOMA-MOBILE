@@ -1,144 +1,173 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Alert } from 'react-native';
 
 import { getErrorMessage } from '../../../../services/api/errors';
+import type { AdminProductCardActionId } from '../../product-management/components/AdminProductCardActionsMenu';
+import type { AdminStackParamList } from '../../navigation/adminTypes';
 import {
   createAdminCoupon,
   deleteAdminCoupon,
+  getAdminAllCoupons,
   getAdminCouponById,
-  getAdminCouponsPage,
+  notifyAdminCouponUsers,
   updateAdminCoupon,
 } from '../api/adminCouponsApi';
 import type {
   AdminCouponDetailRecord,
   AdminCouponListItem,
+  AdminCouponListTabId,
+  AdminCouponStatusFilter,
   CreateAdminCouponPayload,
   UpdateAdminCouponPayload,
 } from '../types/adminCoupons';
+import { buildAdminCouponCardActions } from '../utils/adminCouponCardActions';
+import {
+  filterAdminCouponsBySearch,
+  filterAdminCouponsByStatus,
+  filterAdminCouponsByTab,
+  getAdminCouponMenuTitle,
+} from '../utils/adminCouponListDisplay';
+import { ADMIN_COUPON_LIST_PAGE_SIZE } from '../utils/adminCouponListTabs';
 import {
   mergeAdminCouponDetail,
   patchAdminCouponInList,
   removeAdminCouponFromList,
 } from '../utils/adminCouponsContent';
+import {
+  navigateToAdminCouponDetail,
+  navigateToAdminCouponForm,
+} from '../navigation/adminCouponsNavigation';
 
-const DEFAULT_PAGE_SIZE = 10;
+const SEARCH_DEBOUNCE_MS = 300;
 
-interface UseAdminCouponsOptions {
+type AdminNavigation = NativeStackNavigationProp<AdminStackParamList>;
+
+interface UseAdminCouponListOptions {
   adminUserId?: string;
   enabled: boolean;
 }
 
-export function useAdminCoupons({ adminUserId, enabled }: UseAdminCouponsOptions) {
-  const [coupons, setCoupons] = useState<AdminCouponListItem[]>([]);
+export function useAdminCouponList({ adminUserId, enabled }: UseAdminCouponListOptions) {
+  const [allCoupons, setAllCoupons] = useState<AdminCouponListItem[]>([]);
+  const [listTab, setListTab] = useState<AdminCouponListTabId>('admin');
+  const [statusFilter, setStatusFilter] = useState<AdminCouponStatusFilter>('');
+  const [searchInput, setSearchInput] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(enabled && Boolean(adminUserId));
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isLoading, setIsLoading] = useState(enabled);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isMutating, setIsMutating] = useState(false);
   const [deletingCouponId, setDeletingCouponId] = useState<string | null>(null);
+  const [notifyingCouponId, setNotifyingCouponId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const loadingMoreRef = useRef(false);
   const requestVersionRef = useRef(0);
-  const couponsRef = useRef<AdminCouponListItem[]>([]);
+  const allCouponsRef = useRef<AdminCouponListItem[]>([]);
 
-  couponsRef.current = coupons;
+  allCouponsRef.current = allCoupons;
 
-  const applyListResponse = useCallback(
-    (response: Awaited<ReturnType<typeof getAdminCouponsPage>>, page: number, mode: 'replace' | 'append') => {
-      const nextCoupons = Array.isArray(response.coupons) ? response.coupons : [];
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchTerm(searchInput.trim());
+    }, SEARCH_DEBOUNCE_MS);
 
-      setCoupons((current) => (mode === 'append' ? [...current, ...nextCoupons] : nextCoupons));
-      setCurrentPage(response.page ?? page);
-      setTotalPages(response.totalPages ?? 1);
-      setTotalCount(response.totalCount ?? nextCoupons.length);
-    },
-    [],
-  );
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
-  const loadPage = useCallback(
-    async (page: number, mode: 'initial' | 'more' | 'refresh') => {
-      if (!enabled || !adminUserId) {
-        setCoupons([]);
-        setError(null);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [listTab, statusFilter, searchTerm]);
+
+  const filteredCoupons = useMemo(() => {
+    const byTab = filterAdminCouponsByTab(allCoupons, listTab, adminUserId);
+    const byStatus = filterAdminCouponsByStatus(byTab, statusFilter);
+    return filterAdminCouponsBySearch(byStatus, searchTerm);
+  }, [adminUserId, allCoupons, listTab, searchTerm, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredCoupons.length / ADMIN_COUPON_LIST_PAGE_SIZE));
+
+  const paginatedCoupons = useMemo(() => {
+    const start = (currentPage - 1) * ADMIN_COUPON_LIST_PAGE_SIZE;
+    return filteredCoupons.slice(start, start + ADMIN_COUPON_LIST_PAGE_SIZE);
+  }, [currentPage, filteredCoupons]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const hasActiveFilters = Boolean(searchTerm || statusFilter);
+
+  const load = useCallback(
+    async (mode: 'initial' | 'refresh') => {
+      if (!enabled) {
         setIsLoading(false);
         setIsRefreshing(false);
-        setIsLoadingMore(false);
         return;
       }
 
       const requestVersion = ++requestVersionRef.current;
-      const hasCachedCoupons = couponsRef.current.length > 0;
+      const hasCachedCoupons = allCouponsRef.current.length > 0;
 
-      if (mode === 'more') {
-        if (loadingMoreRef.current) {
-          return;
-        }
-        loadingMoreRef.current = true;
-        setIsLoadingMore(true);
+      if (mode === 'initial' && !hasCachedCoupons) {
+        setIsLoading(true);
       } else if (mode === 'refresh') {
         setIsRefreshing(true);
-      } else if (!hasCachedCoupons) {
-        setIsLoading(true);
       }
 
       setError(null);
 
       try {
-        const response = await getAdminCouponsPage(adminUserId, {
-          page,
-          limit: DEFAULT_PAGE_SIZE,
-        });
+        const nextCoupons = await getAdminAllCoupons();
 
         if (requestVersion !== requestVersionRef.current) {
           return;
         }
 
-        applyListResponse(response, page, mode === 'more' ? 'append' : 'replace');
+        setAllCoupons(Array.isArray(nextCoupons) ? nextCoupons : []);
       } catch (loadError) {
         if (requestVersion !== requestVersionRef.current) {
           return;
         }
 
-        if (mode !== 'more') {
-          if (!couponsRef.current.length) {
-            setCoupons([]);
-          }
+        if (!allCouponsRef.current.length) {
+          setAllCoupons([]);
           setError(getErrorMessage(loadError, 'Failed to load coupons'));
+        } else {
+          setError(getErrorMessage(loadError, 'Unable to refresh coupons'));
         }
       } finally {
         if (requestVersion === requestVersionRef.current) {
           setIsLoading(false);
-          setIsLoadingMore(false);
           setIsRefreshing(false);
-          loadingMoreRef.current = false;
         }
       }
     },
-    [adminUserId, applyListResponse, enabled],
+    [enabled],
   );
 
   useEffect(() => {
-    void loadPage(1, 'initial');
-  }, [loadPage]);
+    void load('initial');
+  }, [load]);
 
   const refresh = useCallback(async () => {
-    await loadPage(1, 'refresh');
-  }, [loadPage]);
-
-  const loadMore = useCallback(async () => {
-    if (currentPage >= totalPages || isLoadingMore) {
-      return;
-    }
-
-    await loadPage(currentPage + 1, 'more');
-  }, [currentPage, isLoadingMore, loadPage, totalPages]);
+    await load('refresh');
+  }, [load]);
 
   const clearActionError = useCallback(() => {
     setActionError(null);
   }, []);
+
+  const goToPreviousPage = useCallback(() => {
+    setCurrentPage((page) => Math.max(1, page - 1));
+  }, []);
+
+  const goToNextPage = useCallback(() => {
+    setCurrentPage((page) => Math.min(totalPages, page + 1));
+  }, [totalPages]);
 
   const createCoupon = useCallback(
     async (payload: CreateAdminCouponPayload): Promise<AdminCouponDetailRecord | null> => {
@@ -177,7 +206,7 @@ export function useAdminCoupons({ adminUserId, enabled }: UseAdminCouponsOptions
 
       try {
         const updated = await updateAdminCoupon(couponId, payload);
-        setCoupons((current) => patchAdminCouponInList(current, couponId, updated));
+        setAllCoupons((current) => patchAdminCouponInList(current, couponId, updated));
         return updated;
       } catch (err) {
         setActionError(getErrorMessage(err, 'Failed to update coupon'));
@@ -200,8 +229,7 @@ export function useAdminCoupons({ adminUserId, enabled }: UseAdminCouponsOptions
 
       try {
         await deleteAdminCoupon(couponId);
-        setCoupons((current) => removeAdminCouponFromList(current, couponId));
-        setTotalCount((current) => Math.max(0, current - 1));
+        setAllCoupons((current) => removeAdminCouponFromList(current, couponId));
         return true;
       } catch (err) {
         setActionError(getErrorMessage(err, 'Failed to delete coupon'));
@@ -213,24 +241,214 @@ export function useAdminCoupons({ adminUserId, enabled }: UseAdminCouponsOptions
     [deletingCouponId],
   );
 
+  const notifyCoupon = useCallback(
+    async (couponId: string): Promise<boolean> => {
+      if (!couponId || notifyingCouponId) {
+        return false;
+      }
+
+      setNotifyingCouponId(couponId);
+      setActionError(null);
+
+      try {
+        await notifyAdminCouponUsers(couponId);
+        return true;
+      } catch (err) {
+        setActionError(getErrorMessage(err, 'Failed to send coupon notification'));
+        return false;
+      } finally {
+        setNotifyingCouponId(null);
+      }
+    },
+    [notifyingCouponId],
+  );
+
   return {
-    coupons,
+    coupons: paginatedCoupons,
+    filteredCount: filteredCoupons.length,
+    listTab,
+    setListTab,
+    statusFilter,
+    setStatusFilter,
+    searchInput,
+    setSearchInput,
     currentPage,
     totalPages,
-    totalCount,
+    hasActiveFilters,
     isLoading,
-    isLoadingMore,
     isRefreshing,
     isMutating,
     deletingCouponId,
+    notifyingCouponId,
     error,
     actionError,
     refresh,
-    loadMore,
+    clearActionError,
+    goToPreviousPage,
+    goToNextPage,
+    canGoPrevious: currentPage > 1,
+    canGoNext: currentPage < totalPages,
     createCoupon,
     updateCoupon,
     deleteCoupon,
-    clearActionError,
+    notifyCoupon,
+  };
+}
+
+interface UseAdminCouponCardActionsOptions {
+  listTab: AdminCouponListTabId;
+  deletingCouponId: string | null;
+  notifyingCouponId: string | null;
+  onDeleteCoupon: (couponId: string) => Promise<boolean>;
+  onNotifyCoupon: (couponId: string) => Promise<boolean>;
+  onListChanged: () => void;
+}
+
+export function useAdminCouponCardActions(
+  navigation: AdminNavigation,
+  {
+    listTab,
+    deletingCouponId,
+    notifyingCouponId,
+    onDeleteCoupon,
+    onNotifyCoupon,
+    onListChanged,
+  }: UseAdminCouponCardActionsOptions,
+) {
+  const [menuCoupon, setMenuCoupon] = useState<AdminCouponListItem | null>(null);
+
+  const menuActions = useMemo(
+    () => (menuCoupon ? buildAdminCouponCardActions(menuCoupon) : []),
+    [menuCoupon],
+  );
+
+  const openMenu = useCallback((coupon: AdminCouponListItem) => {
+    setMenuCoupon(coupon);
+  }, []);
+
+  const closeMenu = useCallback(() => {
+    setMenuCoupon(null);
+  }, []);
+
+  const handleView = useCallback(
+    (coupon: AdminCouponListItem) => {
+      if (!coupon._id) {
+        return;
+      }
+
+      navigateToAdminCouponDetail(navigation, coupon._id, coupon);
+    },
+    [navigation],
+  );
+
+  const handleEdit = useCallback(
+    (coupon: AdminCouponListItem) => {
+      if (!coupon._id) {
+        return;
+      }
+
+      navigateToAdminCouponForm(navigation, {
+        couponId: coupon._id,
+        initialCoupon: coupon,
+      });
+    },
+    [navigation],
+  );
+
+  const handleDelete = useCallback(
+    (coupon: AdminCouponListItem) => {
+      const couponId = coupon._id;
+      if (!couponId) {
+        return;
+      }
+
+      Alert.alert(
+        'Delete coupon?',
+        `This will permanently remove ${getAdminCouponMenuTitle(coupon)}.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: () => {
+              void onDeleteCoupon(couponId).then((deleted) => {
+                if (deleted) {
+                  onListChanged();
+                }
+              });
+            },
+          },
+        ],
+      );
+    },
+    [onDeleteCoupon, onListChanged],
+  );
+
+  const handleNotify = useCallback(
+    (coupon: AdminCouponListItem) => {
+      const couponId = coupon._id;
+      if (!couponId) {
+        return;
+      }
+
+      Alert.alert(
+        'Notify users',
+        `Send a marketplace notification for ${getAdminCouponMenuTitle(coupon)}?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Notify',
+            onPress: () => {
+              void onNotifyCoupon(couponId);
+            },
+          },
+        ],
+      );
+    },
+    [onNotifyCoupon],
+  );
+
+  const handleMenuAction = useCallback(
+    (actionId: AdminProductCardActionId) => {
+      const coupon = menuCoupon;
+      closeMenu();
+
+      if (!coupon) {
+        return;
+      }
+
+      switch (actionId) {
+        case 'view':
+          handleView(coupon);
+          break;
+        case 'edit':
+          handleEdit(coupon);
+          break;
+        case 'preview':
+          handleNotify(coupon);
+          break;
+        case 'delete':
+          handleDelete(coupon);
+          break;
+        default:
+          break;
+      }
+    },
+    [closeMenu, handleDelete, handleEdit, handleNotify, handleView, menuCoupon],
+  );
+
+  const busyCouponId = deletingCouponId ?? notifyingCouponId;
+
+  return {
+    menuCoupon,
+    menuActions,
+    menuTitle: menuCoupon ? getAdminCouponMenuTitle(menuCoupon) : undefined,
+    openMenu,
+    closeMenu,
+    handleView,
+    handleMenuAction,
+    busyCouponId,
+    listTab,
   };
 }
 
@@ -306,4 +524,9 @@ export function useAdminCouponDetail({
     reload,
     applyCouponUpdate,
   };
+}
+
+/** @deprecated Use useAdminCouponList instead. */
+export function useAdminCoupons(options: UseAdminCouponListOptions) {
+  return useAdminCouponList(options);
 }

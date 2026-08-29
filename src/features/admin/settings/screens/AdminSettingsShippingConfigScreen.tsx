@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { Alert, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmptyState } from '../../../../components/ecommerce/EmptyState';
@@ -9,13 +10,16 @@ import { AppButton } from '../../../../components/ui/AppButton';
 import { AppText } from '../../../../components/ui/AppText';
 import { colors, spacing } from '../../../../design-system';
 import { authReturnTo } from '../../../auth/utils/authNavigation';
+import { AdminProductDetailCardShell } from '../../product-management/components/detail/AdminProductDetailCardShell';
 import { useRequireAdmin } from '../../hooks/useRequireAdmin';
 import type { AdminStackParamList } from '../../navigation/adminTypes';
+import { AdminSettingsDetailHero } from '../components/AdminSettingsDetailHero';
 import { AdminShippingMatrixModal } from '../components/AdminShippingMatrixModal';
 import { AdminShippingTierCard } from '../components/AdminShippingTierCard';
 import { AdminShippingTierFormModal } from '../components/AdminShippingTierFormModal';
 import { useAdminShippingConfigEditor } from '../hooks/useAdminShippingConfigEditor';
 import type { AdminShippingTierDraft } from '../types/adminShippingConfig';
+import { formatAdminShippingTiersMeta } from '../utils/adminSettingsDisplay';
 
 type Props = NativeStackScreenProps<AdminStackParamList, 'AdminSettingsShippingConfig'>;
 
@@ -29,6 +33,7 @@ export function AdminSettingsShippingConfigScreen(_props: Props) {
     tiers,
     matrix,
     isLoading,
+    hasLoaded,
     isRefreshing,
     isSaving,
     isDirty,
@@ -47,6 +52,14 @@ export function AdminSettingsShippingConfigScreen(_props: Props) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [tierDraft, setTierDraft] = useState<AdminShippingTierDraft | null>(null);
   const [matrixOriginTier, setMatrixOriginTier] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (isAuthorized) {
+        void refresh();
+      }
+    }, [isAuthorized, refresh]),
+  );
 
   const openAddTier = useCallback(() => {
     setEditingIndex(null);
@@ -71,6 +84,8 @@ export function AdminSettingsShippingConfigScreen(_props: Props) {
     return <View style={[styles.screen, { paddingTop: insets.top }]} />;
   }
 
+  const statusMeta = formatAdminShippingTiersMeta(tiers.length);
+
   return (
     <>
       <ScrollView
@@ -81,11 +96,16 @@ export function AdminSettingsShippingConfigScreen(_props: Props) {
           <RefreshControl refreshing={isRefreshing} onRefresh={() => void refresh()} tintColor={colors.primary} />
         }
       >
-        <AppText variant="bodyMedium" color="textSecondary">
-          Manage shipping tiers and origin→destination surcharges. Changes are local until you tap Save All.
-        </AppText>
+        <AdminSettingsDetailHero
+          title="Shipping Matrix"
+          icon="globe-outline"
+          statusLabel={statusMeta.label}
+          statusIcon={statusMeta.icon}
+        />
 
-        <AppButton label="Add tier" onPress={openAddTier} fullWidth />
+        <View style={styles.toolbar}>
+          <AppButton label="Add tier" onPress={openAddTier} fullWidth />
+        </View>
 
         {isDirty ? (
           <AppText variant="caption" color="textSecondary">
@@ -93,7 +113,7 @@ export function AdminSettingsShippingConfigScreen(_props: Props) {
           </AppText>
         ) : null}
 
-        {tiers.length === 0 && !isLoading ? (
+        {hasLoaded && tiers.length === 0 ? (
           <EmptyState
             title="No tiers yet"
             message="Add a tier with countries, then configure surcharges in the matrix."
@@ -102,17 +122,21 @@ export function AdminSettingsShippingConfigScreen(_props: Props) {
           />
         ) : null}
 
-        <View style={styles.tierList}>
-          {tiers.map((tier, index) => (
-            <AdminShippingTierCard
-              key={`${tier.tierName}-${index}`}
-              tier={tier}
-              onEdit={() => openEditTier(index)}
-              onMatrix={() => setMatrixOriginTier(tier.tierName)}
-              onDelete={() => void deleteTier(index)}
-            />
-          ))}
-        </View>
+        {tiers.length > 0 ? (
+          <AdminProductDetailCardShell title="Shipping tiers" icon="layers-outline" accent>
+            <View style={styles.tierList}>
+              {tiers.map((tier, index) => (
+                <AdminShippingTierCard
+                  key={`${tier.tierName}-${index}`}
+                  tier={tier}
+                  onEdit={() => openEditTier(index)}
+                  onMatrix={() => setMatrixOriginTier(tier.tierName)}
+                  onDelete={() => void deleteTier(index)}
+                />
+              ))}
+            </View>
+          </AdminProductDetailCardShell>
+        ) : null}
 
         {tiers.length > 0 ? (
           <AppButton
@@ -128,11 +152,11 @@ export function AdminSettingsShippingConfigScreen(_props: Props) {
           <ErrorState message={saveError} onAction={clearSaveError} style={styles.error} />
         ) : null}
 
-        {error && tiers.length === 0 ? (
+        {error && hasLoaded && tiers.length === 0 ? (
           <ErrorState message={error} onAction={() => void refresh()} style={styles.error} />
         ) : null}
 
-        {isLoading && tiers.length === 0 && !error ? (
+        {!hasLoaded ? (
           <AppText variant="caption" color="textMuted">
             Loading shipping configuration…
           </AppText>
@@ -168,6 +192,9 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.lg,
     gap: spacing.lg,
+  },
+  toolbar: {
+    gap: spacing.sm,
   },
   tierList: {
     gap: spacing.md,

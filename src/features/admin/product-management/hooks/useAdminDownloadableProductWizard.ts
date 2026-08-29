@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as DocumentPicker from 'expo-document-picker';
 
 import { getErrorMessage } from '../../../../services/api/errors';
@@ -79,6 +79,7 @@ export function useAdminDownloadableProductWizard(
   const [isLoadingProduct, setIsLoadingProduct] = useState(Boolean(productId) && !cacheMatch);
   const [loadProductError, setLoadProductError] = useState<string | null>(null);
   const hasCachedProductRef = useRef(cacheMatch);
+  const hydratedFromCacheIdRef = useRef<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
@@ -124,15 +125,12 @@ export function useAdminDownloadableProductWizard(
     };
   }, []);
 
-  useLayoutEffect(() => {
-    if (cachedProduct?.images.length) {
-      setImagesFromEntries(cachedProduct.images);
-    }
-  }, [cachedProduct?.images, setImagesFromEntries]);
-
   useEffect(() => {
-    hasCachedProductRef.current = isAdminProductWizardCacheMatch(productId, initialProduct);
-    if (hasCachedProductRef.current && initialProduct) {
+    const cacheMatchNow = isAdminProductWizardCacheMatch(productId, initialProduct);
+    hasCachedProductRef.current = cacheMatchNow;
+
+    if (cacheMatchNow && initialProduct && productId && hydratedFromCacheIdRef.current !== productId) {
+      hydratedFromCacheIdRef.current = productId;
       const hydrated = hydrateAdminDownloadableWizardFromProduct(initialProduct);
       setValues(hydrated.values);
       setImagesFromEntries(hydrated.images);
@@ -142,10 +140,14 @@ export function useAdminDownloadableProductWizard(
       setCurrencyRate(hydrated.currencyRate);
       setLoadProductError(null);
       setIsLoadingProduct(false);
-    } else if (productId) {
+      return;
+    }
+
+    if (productId && !cacheMatchNow) {
+      hydratedFromCacheIdRef.current = null;
       setIsLoadingProduct(true);
     }
-  }, [initialProduct, productId, setImagesFromEntries]);
+  }, [initialProduct?._id, productId, setImagesFromEntries]);
 
   const applyProductToWizard = useCallback(
     (product: AdminProductListItem) => {

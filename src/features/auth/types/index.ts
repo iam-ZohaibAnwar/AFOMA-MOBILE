@@ -76,4 +76,5 @@ export interface AuthContextValue extends AuthState {
   verifyOtp: (params: { otp: string; otpToken: string }) => Promise<void>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
+  patchUserProfile: (patch: Partial<StoredUserProfile>) => Promise<void>;
 }

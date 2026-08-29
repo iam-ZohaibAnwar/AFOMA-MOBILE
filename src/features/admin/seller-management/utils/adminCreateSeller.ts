@@ -88,10 +88,6 @@ export function buildAdminCreateSellerPayload(
     stateCode: values.stateCode.trim(),
   };
 
-  if (values.web3address.trim()) {
-    payload.web3address = values.web3address.trim();
-  }
-
   return payload;
 }
 

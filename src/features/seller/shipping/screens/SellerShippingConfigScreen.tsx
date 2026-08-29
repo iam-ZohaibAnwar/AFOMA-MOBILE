@@ -30,21 +30,21 @@ export function SellerShippingConfigScreen(_props: Props) {
     );
   }
 
-  if (shipping.isLoading && !shipping.profile) {
+  if (shipping.error && shipping.hasLoaded && !shipping.profile) {
+    return (
+      <View style={styles.centeredState}>
+        <ErrorState message={shipping.error} onAction={() => void shipping.reload()} />
+      </View>
+    );
+  }
+
+  if (!shipping.hasLoaded) {
     return (
       <View style={styles.centeredState}>
         <ActivityIndicator size="large" color={colors.primary} />
         <AppText variant="bodySmall" color="textSecondary">
           Loading shipping configuration...
         </AppText>
-      </View>
-    );
-  }
-
-  if (shipping.error && !shipping.profile) {
-    return (
-      <View style={styles.centeredState}>
-        <ErrorState message={shipping.error} onAction={() => void shipping.reload()} />
       </View>
     );
   }

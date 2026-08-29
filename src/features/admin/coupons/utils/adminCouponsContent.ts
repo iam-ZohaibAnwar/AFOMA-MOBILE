@@ -26,6 +26,24 @@ export function getAdminCouponCreatedById(
   return undefined;
 }
 
+export function getAdminCouponCreatorName(
+  coupon: Pick<AdminCouponListItem, 'createdBy'>,
+): string {
+  if (!isPopulatedAdminCouponUser(coupon.createdBy)) {
+    return 'Unknown seller';
+  }
+
+  const firstName = coupon.createdBy.firstName?.trim() ?? '';
+  const lastName = coupon.createdBy.lastName?.trim() ?? '';
+  const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
+
+  if (fullName) {
+    return fullName;
+  }
+
+  return coupon.createdBy.email?.trim() || 'Unknown seller';
+}
+
 /**
  * Preserve populated list references when patching from PUT/detail
  * (which returns string createdBy only).

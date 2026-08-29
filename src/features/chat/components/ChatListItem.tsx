@@ -87,12 +87,13 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.primarySoft,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   avatarLabel: {
-    color: colors.primary,
+    color: colors.textInverse,
     fontWeight: '700',
   },
   content: {
@@ -131,7 +132,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   badgeText: {
-    color: colors.background,
+    color: colors.textInverse,
     fontWeight: '700',
   },
 });

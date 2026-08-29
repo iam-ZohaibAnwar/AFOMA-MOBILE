@@ -50,7 +50,7 @@ export function MainTabNavigator() {
         options={{ title: 'Shop' }}
       />
 
-      <Tab.Screen name="CartTab" component={CartScreen} options={{ title: 'Cart', lazy: false }} />
+      <Tab.Screen name="CartTab" component={CartScreen} options={{ title: 'Cart' }} />
 
       <Tab.Screen
         name="AccountTab"

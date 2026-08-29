@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ApiError, getErrorMessage } from '../../../../services/api/errors';
-import { createAdminUser, getAdminUserById, updateAdminUserByAdmin } from '../api/adminUserManagementApi';
+import { createAdminUser, getAdminUserById, patchAdminUserProfilePhoto, updateAdminUserByAdmin } from '../api/adminUserManagementApi';
 import type { AdminUserFormMode, AdminUserListItem } from '../types/adminUserManagement';
 import {
   ADMIN_USER_CREATE_INITIAL_VALUES,
@@ -18,6 +18,7 @@ import {
   validateAdminUserForm,
 } from '../utils/adminUserForm';
 import { useAdminUserProfileUpload } from './useAdminUserProfileUpload';
+import { resolveUserProfileImageUrl } from '../../../../utils/resolveUserProfileImageUrl';
 
 export interface UseAdminUserFormOptions {
   mode: AdminUserFormMode;
@@ -177,6 +178,32 @@ export function useAdminUserForm({
     [markDirty],
   );
 
+  const persistProfilePhoto = useCallback(
+    async (imageUrl: string): Promise<string | null> => {
+      const normalizedUrl = resolveUserProfileImageUrl(imageUrl) ?? imageUrl.trim();
+      if (!normalizedUrl) {
+        return null;
+      }
+
+      if (isEditMode && userId) {
+        try {
+          const updated = await patchAdminUserProfilePhoto(userId, normalizedUrl);
+          const persisted =
+            resolveUserProfileImageUrl(updated.userProfile) ?? normalizedUrl;
+          setAdminUserSessionPatch(userId, { ...updated, userProfile: persisted });
+          requestAdminUserListRefresh();
+          return persisted;
+        } catch (err) {
+          setSubmitError(getErrorMessage(err, 'Failed to save profile photo'));
+          return null;
+        }
+      }
+
+      return normalizedUrl;
+    },
+    [isEditMode, userId],
+  );
+
   const pickProfilePhoto = useCallback(async () => {
     profileUpload.clearUploadError();
     const result = await profileUpload.pickProfilePhoto();
@@ -185,13 +212,35 @@ export function useAdminUserForm({
     }
 
     markDirty();
+    setSubmitError(null);
+
+    if (result.imageUrl) {
+      const persistedUrl = await persistProfilePhoto(result.imageUrl);
+      if (persistedUrl) {
+        setValues((current) => ({
+          ...current,
+          profileLocalUri: '',
+          userProfile: persistedUrl,
+        }));
+        return;
+      }
+
+      if (isEditMode && userId) {
+        setValues((current) => ({
+          ...current,
+          profileLocalUri: result.localUri,
+          userProfile: current.userProfile,
+        }));
+        return;
+      }
+    }
+
     setValues((current) => ({
       ...current,
       profileLocalUri: result.localUri,
       userProfile: result.imageUrl ?? current.userProfile,
     }));
-    setSubmitError(null);
-  }, [markDirty, profileUpload]);
+  }, [isEditMode, markDirty, persistProfilePhoto, profileUpload, userId]);
 
   const retryProfileUpload = useCallback(async () => {
     if (!values.profileLocalUri) {
@@ -200,14 +249,22 @@ export function useAdminUserForm({
 
     profileUpload.clearUploadError();
     const imageUrl = await profileUpload.uploadLocalImage(values.profileLocalUri);
-    if (imageUrl) {
-      markDirty();
-      setValues((current) => ({
-        ...current,
-        userProfile: imageUrl,
-      }));
+    if (!imageUrl) {
+      return;
     }
-  }, [markDirty, profileUpload, values.profileLocalUri]);
+
+    const persistedUrl = await persistProfilePhoto(imageUrl);
+    if (!persistedUrl) {
+      return;
+    }
+
+    markDirty();
+    setValues((current) => ({
+      ...current,
+      profileLocalUri: '',
+      userProfile: persistedUrl,
+    }));
+  }, [markDirty, persistProfilePhoto, profileUpload, values.profileLocalUri]);
 
   const removeProfilePhoto = useCallback(() => {
     if (profileUpload.isUploading) {
@@ -221,29 +278,47 @@ export function useAdminUserForm({
       profileLocalUri: '',
       userProfile: '',
     }));
-  }, [markDirty, profileUpload]);
+
+    if (isEditMode && userId) {
+      void (async () => {
+        try {
+          await patchAdminUserProfilePhoto(userId, '');
+          setAdminUserSessionPatch(userId, { userProfile: '' });
+          requestAdminUserListRefresh();
+        } catch (err) {
+          setSubmitError(getErrorMessage(err, 'Failed to remove profile photo'));
+        }
+      })();
+    }
+  }, [isEditMode, markDirty, profileUpload, userId]);
 
   const ensureProfileUploaded = useCallback(async (): Promise<string | null | undefined> => {
+    if (values.profileLocalUri) {
+      const imageUrl = await profileUpload.uploadLocalImage(values.profileLocalUri);
+      if (!imageUrl) {
+        setSubmitError('Profile photo upload failed. Retry the upload before saving.');
+        return null;
+      }
+
+      const persistedUrl = await persistProfilePhoto(imageUrl);
+      if (!persistedUrl) {
+        return null;
+      }
+
+      setValues((current) => ({
+        ...current,
+        profileLocalUri: '',
+        userProfile: persistedUrl,
+      }));
+      return persistedUrl;
+    }
+
     if (values.userProfile.trim()) {
-      return values.userProfile.trim();
+      return resolveUserProfileImageUrl(values.userProfile) ?? values.userProfile.trim();
     }
 
-    if (!values.profileLocalUri) {
-      return undefined;
-    }
-
-    const imageUrl = await profileUpload.uploadLocalImage(values.profileLocalUri);
-    if (!imageUrl) {
-      setSubmitError('Profile photo upload failed. Retry the upload before saving.');
-      return null;
-    }
-
-    setValues((current) => ({
-      ...current,
-      userProfile: imageUrl,
-    }));
-    return imageUrl;
-  }, [profileUpload, values.profileLocalUri, values.userProfile]);
+    return undefined;
+  }, [persistProfilePhoto, profileUpload, values.profileLocalUri, values.userProfile]);
 
   const submitCreateUser = useCallback(async (): Promise<AdminUserListItem | null> => {
     if (isSaving || isEditMode || profileUpload.isUploading) {

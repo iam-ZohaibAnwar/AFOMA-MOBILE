@@ -145,7 +145,7 @@ export function ProductShippingEstimateSheet({
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <SelectField
+            <SelectField tone="surface"
               label="Ship to"
               value={form.destinationCountry}
               options={destinationOptions}
@@ -164,7 +164,7 @@ export function ProductShippingEstimateSheet({
               </View>
             ) : null}
 
-            <AppInput
+            <AppInput tone="surface"
               label="Weight (kg)"
               value={form.weight}
               onChangeText={(text) => updateField('weight', text)}
@@ -173,7 +173,7 @@ export function ProductShippingEstimateSheet({
 
             <AppText variant="label">Dimensions (cm)</AppText>
             <View style={styles.dimensionRow}>
-              <AppInput
+              <AppInput tone="surface"
                 label="L"
                 value={form.length}
                 onChangeText={(text) => updateField('length', text)}
@@ -183,7 +183,7 @@ export function ProductShippingEstimateSheet({
               <AppText variant="bodyMedium" color="textSecondary" style={styles.dimensionSeparator}>
                 ×
               </AppText>
-              <AppInput
+              <AppInput tone="surface"
                 label="W"
                 value={form.width}
                 onChangeText={(text) => updateField('width', text)}
@@ -193,7 +193,7 @@ export function ProductShippingEstimateSheet({
               <AppText variant="bodyMedium" color="textSecondary" style={styles.dimensionSeparator}>
                 ×
               </AppText>
-              <AppInput
+              <AppInput tone="surface"
                 label="H"
                 value={form.height}
                 onChangeText={(text) => updateField('height', text)}
@@ -202,14 +202,14 @@ export function ProductShippingEstimateSheet({
               />
             </View>
 
-            <AppInput
+            <AppInput tone="surface"
               label="Quantity"
               value={form.quantity}
               onChangeText={(text) => updateField('quantity', text)}
               keyboardType="number-pad"
             />
 
-            <AppInput
+            <AppInput tone="surface"
               label="Dispatch days"
               value={form.dispatchDays}
               onChangeText={(text) => updateField('dispatchDays', text)}

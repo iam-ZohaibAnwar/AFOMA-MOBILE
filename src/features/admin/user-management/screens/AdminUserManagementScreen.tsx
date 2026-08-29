@@ -1,39 +1,40 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
   FlatList,
   Pressable,
   RefreshControl,
   StyleSheet,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmptyState } from '../../../../components/ecommerce/EmptyState';
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
-import { SearchBar } from '../../../../components/ecommerce/SearchBar';
-import { AppButton } from '../../../../components/ui/AppButton';
 import { AppText } from '../../../../components/ui/AppText';
-import { colors, spacing } from '../../../../design-system';
-import { useRequireFullAccess } from '../../hooks/useRequireFullAccess';
+import { colors, radius, shadows, spacing } from '../../../../design-system';
+import { OrderListSearchBar } from '../../../orders/components/OrderListSearchBar';
+import { AdminProductCardActionsMenu } from '../../product-management/components/AdminProductCardActionsMenu';
 import type { AdminStackParamList } from '../../navigation/adminTypes';
+import { useRequireFullAccess } from '../../hooks/useRequireFullAccess';
 import { authReturnTo } from '../../../auth/utils/authNavigation';
 import { AdminUserCard } from '../components/AdminUserCard';
-import { AdminUserRoleFilterSheet } from '../components/AdminUserRoleFilterSheet';
+import { AdminUserCardSkeleton } from '../components/AdminUserCardSkeleton';
+import { AdminUserFilterTabs } from '../components/AdminUserFilterTabs';
+import { useAdminUserCardActions } from '../hooks/useAdminUserCardActions';
 import { useAdminUserList } from '../hooks/useAdminUserList';
 import type { AdminUserListItem } from '../types/adminUserManagement';
-import { formatAdminUserDisplayName, formatAdminUserRoleLabel } from '../utils/adminUserRoleOptions';
+import { formatAdminUserDisplayName } from '../utils/adminUserRoleOptions';
 
 type Props = NativeStackScreenProps<AdminStackParamList, 'AdminUserManagement'>;
 
-const RETURN_TO = authReturnTo.adminUserManagement();
+const LIST_RETURN_TO = authReturnTo.adminUserManagement();
+const SKELETON_ITEMS = ['u1', 'u2', 'u3'] as const;
 
 export function AdminUserManagementScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { isAuthorized, isLoading: isGateLoading } = useRequireFullAccess(RETURN_TO);
-  const [filtersVisible, setFiltersVisible] = useState(false);
+  const { isAuthorized, isLoading: isGateLoading } = useRequireFullAccess(LIST_RETURN_TO);
 
   const {
     users,
@@ -48,7 +49,6 @@ export function AdminUserManagementScreen({ navigation }: Props) {
     roleFilter,
     hasActiveFilters,
     applyRoleFilter,
-    clearRoleFilter,
     actionError,
     clearActionError,
     reportActionError,
@@ -61,131 +61,48 @@ export function AdminUserManagementScreen({ navigation }: Props) {
     deleteUser,
   } = useAdminUserList(isAuthorized);
 
-  const activeFilterSummary = useMemo(() => {
-    if (!roleFilter) {
-      return '';
-    }
+  const {
+    menuUser,
+    menuActions,
+    openMenu,
+    closeMenu,
+    handleMenuAction,
+    handleView,
+    busyUserId,
+  } = useAdminUserCardActions(navigation, {
+    deleteUser,
+    deletingUserId,
+    reportActionError,
+  });
 
-    return `Role: ${formatAdminUserRoleLabel(roleFilter)}`;
-  }, [roleFilter]);
-
-  const handleViewPress = useCallback(
-    (user: AdminUserListItem) => {
-      if (!user._id) {
-        return;
-      }
-
-      navigation.navigate('AdminUserDetail', {
-        userId: user._id,
-        initialUser: user,
-      });
-    },
-    [navigation],
-  );
-
-  const handleEditPress = useCallback(
-    (user: AdminUserListItem) => {
-      if (!user._id) {
-        return;
-      }
-
-      navigation.navigate('AdminUserForm', {
-        userId: user._id,
-        mode: 'edit',
-        initialUser: user,
-      });
-    },
-    [navigation],
-  );
-
-  const handleDeletePress = useCallback(
-    (user: AdminUserListItem) => {
-      if (!user._id) {
-        return;
-      }
-
-      if (deletingUserId) {
-        reportActionError('Another delete is already in progress.');
-        return;
-      }
-
-      clearActionError();
-
-      Alert.alert(
-        'Delete user?',
-        `This will permanently remove ${formatAdminUserDisplayName(user)}. This action cannot be undone.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: () => {
-              void deleteUser(user._id);
-            },
-          },
-        ],
-      );
-    },
-    [clearActionError, deleteUser, deletingUserId, reportActionError],
-  );
+  const showSkeletonList = isLoading && users.length === 0 && !error;
 
   const renderItem = useCallback(
     ({ item }: { item: AdminUserListItem }) => (
       <AdminUserCard
         user={item}
-        isDeleting={deletingUserId === item._id}
-        isDeleteBusy={Boolean(deletingUserId)}
-        onViewPress={handleViewPress}
-        onEditPress={handleEditPress}
-        onDeletePress={handleDeletePress}
+        onPress={handleView}
+        onMenuPress={openMenu}
+        isBusy={Boolean(item._id && busyUserId === item._id)}
       />
     ),
-    [deletingUserId, handleDeletePress, handleEditPress, handleViewPress],
+    [busyUserId, handleView, openMenu],
   );
 
   const listHeader = (
     <View style={styles.headerContent}>
-      <View style={styles.titleBlock}>
-        <View style={styles.titleRow}>
-          <View style={styles.titleCopy}>
-            <AppText variant="h3">User Management</AppText>
-            <AppText variant="bodySmall" color="textSecondary">
-              {totalUsers} {totalUsers === 1 ? 'user' : 'users'}
-            </AppText>
-          </View>
-          <AppButton
-            label="Add user"
-            variant="outline"
-            onPress={() => navigation.navigate('AdminUserForm', { mode: 'create' })}
-          />
-        </View>
-      </View>
-
-      <SearchBar
-        mode="input"
-        placeholder="Search by user name..."
+      <OrderListSearchBar
         value={searchInput}
         onChangeText={setSearchInput}
+        placeholder="Search by name, email, or phone..."
+        accessibilityLabel="Search users by name, email, or phone"
       />
 
-      <View style={styles.filterRow}>
-        <AppButton
-          label={hasActiveFilters ? 'Filters (active)' : 'Filters'}
-          variant="outline"
-          onPress={() => setFiltersVisible(true)}
-        />
-        {hasActiveFilters ? (
-          <Pressable accessibilityRole="button" onPress={clearRoleFilter} style={styles.clearFilters}>
-            <AppText variant="bodySmall" color="textLink">
-              Clear
-            </AppText>
-          </Pressable>
-        ) : null}
-      </View>
+      <AdminUserFilterTabs roleFilter={roleFilter} onSelect={applyRoleFilter} />
 
-      {activeFilterSummary ? (
-        <AppText variant="caption" color="textSecondary">
-          {activeFilterSummary}
+      {totalUsers > 0 ? (
+        <AppText variant="bodySmall" color="textSecondary" style={styles.countText}>
+          {totalUsers} {totalUsers === 1 ? 'user' : 'users'}
         </AppText>
       ) : null}
 
@@ -198,22 +115,17 @@ export function AdminUserManagementScreen({ navigation }: Props) {
         />
       ) : null}
 
-      {error ? (
+      {error && users.length === 0 && !showSkeletonList ? (
+        <ErrorState message={error} onAction={() => void refresh()} style={styles.inlineError} />
+      ) : null}
+
+      {error && users.length > 0 ? (
         <ErrorState
           message={error}
           actionLabel="Retry"
           onAction={() => void refresh()}
           style={styles.inlineError}
         />
-      ) : null}
-
-      {isLoading && users.length === 0 && !error ? (
-        <View style={styles.inlineLoading}>
-          <ActivityIndicator size="small" color={colors.primary} />
-          <AppText variant="bodySmall" color="textSecondary">
-            Loading users...
-          </AppText>
-        </View>
       ) : null}
     </View>
   );
@@ -253,18 +165,49 @@ export function AdminUserManagementScreen({ navigation }: Props) {
     return <View style={[styles.screen, { paddingTop: insets.top }]} />;
   }
 
+  if (showSkeletonList) {
+    return (
+      <>
+        <FlatList
+          style={styles.screen}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: insets.bottom + spacing.xxl + 72 },
+          ]}
+          data={SKELETON_ITEMS}
+          keyExtractor={(item) => item}
+          renderItem={() => <AdminUserCardSkeleton />}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          ListHeaderComponent={listHeader}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        />
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Create user"
+          onPress={() => navigation.navigate('AdminUserForm', { mode: 'create' })}
+          style={[styles.fab, { bottom: insets.bottom + spacing.lg }]}
+        >
+          <Ionicons name="add" size={28} color={colors.textInverse} />
+        </Pressable>
+      </>
+    );
+  }
+
   return (
     <>
       <FlatList
         style={styles.screen}
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: insets.bottom + spacing.xxl },
+          { paddingBottom: insets.bottom + spacing.xxl + 72 },
           users.length === 0 && styles.emptyContent,
         ]}
         data={users}
         keyExtractor={(item, index) => item._id ?? `admin-user-${index}`}
         renderItem={renderItem}
+        extraData={busyUserId}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListHeaderComponent={listHeader}
         ListFooterComponent={listFooter}
@@ -288,17 +231,24 @@ export function AdminUserManagementScreen({ navigation }: Props) {
           />
         }
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       />
 
-      <AdminUserRoleFilterSheet
-        visible={filtersVisible}
-        roleFilter={roleFilter}
-        onClose={() => setFiltersVisible(false)}
-        onApply={applyRoleFilter}
-        onClear={() => {
-          clearRoleFilter();
-          setFiltersVisible(false);
-        }}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Create user"
+        onPress={() => navigation.navigate('AdminUserForm', { mode: 'create' })}
+        style={[styles.fab, { bottom: insets.bottom + spacing.lg }]}
+      >
+        <Ionicons name="add" size={28} color={colors.textInverse} />
+      </Pressable>
+
+      <AdminProductCardActionsMenu
+        visible={Boolean(menuUser)}
+        productName={menuUser ? formatAdminUserDisplayName(menuUser) : undefined}
+        actions={menuActions}
+        onClose={closeMenu}
+        onSelect={handleMenuAction}
       />
     </>
   );
@@ -318,36 +268,14 @@ const styles = StyleSheet.create({
   },
   headerContent: {
     gap: spacing.md,
-    marginBottom: spacing.sm,
+    paddingBottom: spacing.xs,
   },
-  titleBlock: {
-    gap: spacing.xs,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  titleCopy: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  clearFilters: {
-    paddingVertical: spacing.sm,
+  countText: {
+    fontWeight: '600',
   },
   inlineError: {
-    marginTop: 0,
-  },
-  inlineLoading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+    alignSelf: 'stretch',
+    marginHorizontal: 0,
   },
   separator: {
     height: spacing.md,
@@ -357,13 +285,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingTop: spacing.lg,
-    gap: spacing.md,
   },
   paginationButton: {
-    minWidth: 72,
     paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
   },
   paginationButtonDisabled: {
     opacity: 0.5,
+  },
+  fab: {
+    position: 'absolute',
+    right: spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: radius.pill,
+    backgroundColor: colors.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.floating,
   },
 });

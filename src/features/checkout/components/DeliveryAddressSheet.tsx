@@ -26,7 +26,7 @@ import {
   deliveryAddressToFormValues,
   emptySavedAddressFormValues,
 } from '../types/deliveryAddress';
-import { validateSavedAddressForm } from '../utils/deliveryAddressDisplay';
+import { validateSavedAddressForm, formatDeliveryAddressLine } from '../utils/deliveryAddressDisplay';
 
 export interface DeliveryAddressSheetProps {
   visible: boolean;
@@ -39,7 +39,14 @@ export interface DeliveryAddressSheetProps {
 type SheetMode = 'list' | 'form';
 
 const SHEET_HEIGHT_RATIO = 0.82;
-const SHEET_CHROME_HEIGHT = 132;
+/** Handle, title row, and vertical gaps above the address list. */
+const LIST_SHEET_HEADER_CHROME = 96;
+/** Footer summary + Ship here until first `onLayout`. */
+const LIST_SHEET_FOOTER_FALLBACK = 148;
+
+function formatAddressRecipient(address: DeliveryAddressListItem): string {
+  return [address.firstName, address.lastName].filter(Boolean).join(' ').trim() || 'Address';
+}
 
 export function DeliveryAddressSheet({
   visible,
@@ -52,14 +59,29 @@ export function DeliveryAddressSheet({
   const { height: windowHeight } = useWindowDimensions();
   const resolvedUserId = userId ?? resolveAuthUserId(user);
   const sheetMaxHeight = Math.round(windowHeight * SHEET_HEIGHT_RATIO);
-  const scrollMaxHeight = Math.max(
-    220,
-    sheetMaxHeight - SHEET_CHROME_HEIGHT - insets.bottom - spacing.md,
-  );
   const [mode, setMode] = useState<SheetMode>('list');
   const [editingAddress, setEditingAddress] = useState<DeliveryAddressListItem | null>(null);
   const [formValues, setFormValues] = useState<SavedAddressFormValues>(emptySavedAddressFormValues());
   const [formErrors, setFormErrors] = useState<Partial<Record<SavedAddressFormField, string>>>({});
+  const [listFooterHeight, setListFooterHeight] = useState(LIST_SHEET_FOOTER_FALLBACK);
+
+  const listScrollMaxHeight = useMemo(
+    () =>
+      Math.max(
+        160,
+        sheetMaxHeight - LIST_SHEET_HEADER_CHROME - listFooterHeight - insets.bottom - spacing.md,
+      ),
+    [insets.bottom, listFooterHeight, sheetMaxHeight],
+  );
+
+  const formScrollMaxHeight = useMemo(
+    () =>
+      Math.max(
+        220,
+        sheetMaxHeight - LIST_SHEET_HEADER_CHROME - 72 - insets.bottom - spacing.md,
+      ),
+    [insets.bottom, sheetMaxHeight],
+  );
 
   const {
     addresses,
@@ -216,7 +238,7 @@ export function DeliveryAddressSheet({
                 </View>
               ) : (
                 <ScrollView
-                  style={[styles.scrollArea, { maxHeight: scrollMaxHeight }]}
+                  style={[styles.scrollArea, { maxHeight: listScrollMaxHeight }]}
                   contentContainerStyle={styles.listContent}
                   showsVerticalScrollIndicator={false}
                   keyboardShouldPersistTaps="handled"
@@ -253,20 +275,50 @@ export function DeliveryAddressSheet({
                 </ScrollView>
               )}
 
-              {error ? (
-                <AppText variant="bodySmall" color="error">
-                  {error}
-                </AppText>
-              ) : null}
+              <View
+                style={styles.listFooterBlock}
+                onLayout={(event) => {
+                  const measuredHeight = Math.ceil(event.nativeEvent.layout.height);
+                  if (measuredHeight > 0 && measuredHeight !== listFooterHeight) {
+                    setListFooterHeight(measuredHeight);
+                  }
+                }}
+              >
+                {error ? (
+                  <AppText variant="bodySmall" color="error">
+                    {error}
+                  </AppText>
+                ) : null}
 
-              <AppButton
-                label="Ship here"
-                fullWidth
-                size="lg"
-                shape="pill"
-                disabled={!selectedAddress || isSaving || !resolvedUserId}
-                onPress={() => void handleUseAddress()}
-              />
+                <View style={styles.footerSummary}>
+                  <AppText variant="caption" color="textMuted" style={styles.footerSummaryLabel}>
+                    Selected address
+                  </AppText>
+                  {selectedAddress ? (
+                    <>
+                      <AppText variant="bodyMedium" style={styles.footerSummaryName} numberOfLines={1}>
+                        {formatAddressRecipient(selectedAddress)}
+                      </AppText>
+                      <AppText variant="bodySmall" color="textSecondary" numberOfLines={2}>
+                        {formatDeliveryAddressLine(selectedAddress)}
+                      </AppText>
+                    </>
+                  ) : (
+                    <AppText variant="bodySmall" color="textSecondary">
+                      Choose an address from your saved list.
+                    </AppText>
+                  )}
+                </View>
+
+                <AppButton
+                  label="Ship here"
+                  fullWidth
+                  size="lg"
+                  shape="pill"
+                  disabled={!selectedAddress || isSaving || !resolvedUserId}
+                  onPress={() => void handleUseAddress()}
+                />
+              </View>
             </>
           ) : (
             <KeyboardAvoidingView
@@ -275,7 +327,7 @@ export function DeliveryAddressSheet({
               keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
             >
               <ScrollView
-                style={[styles.scrollArea, { maxHeight: scrollMaxHeight }]}
+                style={[styles.scrollArea, { maxHeight: formScrollMaxHeight }]}
                 contentContainerStyle={styles.formContent}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
@@ -362,7 +414,11 @@ const styles = StyleSheet.create({
   },
   listContent: {
     gap: spacing.md,
-    paddingBottom: spacing.sm,
+    paddingBottom: spacing.lg,
+  },
+  listFooterBlock: {
+    gap: spacing.md,
+    flexShrink: 0,
   },
   addAddressButton: {
     paddingVertical: spacing.sm,
@@ -374,6 +430,19 @@ const styles = StyleSheet.create({
   formContent: {
     gap: spacing.lg,
     paddingBottom: spacing.md,
+  },
+  footerSummary: {
+    gap: 2,
+    paddingTop: spacing.xs,
+  },
+  footerSummaryLabel: {
+    fontWeight: '600',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  footerSummaryName: {
+    color: colors.textPrimary,
+    fontWeight: '700',
   },
   pressed: {
     opacity: 0.88,

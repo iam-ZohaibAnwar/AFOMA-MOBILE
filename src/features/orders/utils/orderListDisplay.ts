@@ -59,6 +59,27 @@ export function getOrderListThumbnailUrl(order: OrderSummary): string | undefine
   return getProductImageUrl(firstProduct);
 }
 
+const ORDER_LIST_PREVIEW_MAX = 3;
+
+export function getOrderListPreviewImages(
+  order: OrderSummary,
+  maxVisible = ORDER_LIST_PREVIEW_MAX,
+): { images: string[]; overflowCount: number } {
+  const lines = getOptionalOrderCartLines(order);
+  const images = lines
+    .map((line) => (line.productData ? getProductImageUrl(line.productData) : undefined))
+    .filter((url): url is string => Boolean(url));
+
+  if (images.length <= maxVisible) {
+    return { images, overflowCount: 0 };
+  }
+
+  return {
+    images: images.slice(0, maxVisible),
+    overflowCount: images.length - maxVisible,
+  };
+}
+
 /** Dev-only snapshot of the list preview data path for one order. */
 export function getOrderListPreviewDebug(order: OrderSummary) {
   const lines = getOptionalOrderCartLines(order);

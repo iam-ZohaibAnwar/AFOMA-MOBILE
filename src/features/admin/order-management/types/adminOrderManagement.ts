@@ -4,7 +4,7 @@ export type AdminOrderStatusFilter =
   | ''
   | 'Processing'
   | 'Pending'
-  | 'Dispatched'
+  | 'Shipped'
   | 'Delivered'
   | 'Cancelled'
   | 'OnHold'

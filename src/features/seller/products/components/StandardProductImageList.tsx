@@ -72,6 +72,7 @@ export function StandardProductImageList({
               </View>
 
               <AppInput
+                tone="surface"
                 label="Alt text"
                 value={image.altText}
                 onChangeText={(text) => onAltTextChange(image.id, text)}

@@ -1,4 +1,5 @@
 import type { AuthUser } from '../../auth/types';
+import { resolveUserProfileImageUrl } from '../../../utils/resolveUserProfileImageUrl';
 
 export function getAccountDisplayName(user: AuthUser | null | undefined): string {
   if (!user) {
@@ -29,9 +30,32 @@ export function getAccountEmail(user: AuthUser | null | undefined): string {
   return user?.email?.trim() || 'Sign in to view your account';
 }
 
+export function formatAccountTenure(createdAt?: string): string | undefined {
+  if (!createdAt?.trim()) {
+    return undefined;
+  }
+
+  const joinedAt = new Date(createdAt);
+  if (Number.isNaN(joinedAt.getTime())) {
+    return undefined;
+  }
+
+  const elapsedYears =
+    (Date.now() - joinedAt.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+
+  if (elapsedYears < 1) {
+    const months = Math.max(1, Math.floor(elapsedYears * 12));
+    return `${months} ${months === 1 ? 'month' : 'months'} on AFOMA`;
+  }
+
+  const roundedYears = Math.round(elapsedYears * 10) / 10;
+  const label = Number.isInteger(roundedYears) ? String(roundedYears) : roundedYears.toFixed(1);
+  const unit = roundedYears === 1 ? 'year' : 'years';
+  return `${label} ${unit} on AFOMA`;
+}
+
 export function getUserProfileImageUrl(user: AuthUser | null | undefined): string | undefined {
-  const url = user?.userProfile?.trim();
-  return url || undefined;
+  return resolveUserProfileImageUrl(user?.userProfile);
 }
 
 export function getUserAvatarLabel(

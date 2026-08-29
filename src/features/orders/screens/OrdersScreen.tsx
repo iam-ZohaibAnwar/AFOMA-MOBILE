@@ -1,5 +1,10 @@
-import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
-
+import { useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { Skeleton } from '../../../components/ecommerce';
 import { useNavigation } from '@react-navigation/native';
 import type { CompositeNavigationProp } from '@react-navigation/native';
@@ -14,14 +19,17 @@ import {
 import type { RootStackParamList, ShoppingStackParamList } from '../../../app/navigation/types';
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppText } from '../../../components/ui/AppText';
-import { colors, spacing } from '../../../design-system';
+import { colors, radius, spacing } from '../../../design-system';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { resolveAuthUserId } from '../../auth/utils/resolveAuthUserId';
 import { useRequireAuth } from '../../auth/hooks/useRequireAuth';
 import { authReturnTo } from '../../auth/utils/authNavigation';
 import { OrderListItem } from '../components/OrderListItem';
 import { OrderListPagination } from '../components/OrderListPagination';
+import { OrderListSearchBar } from '../components/OrderListSearchBar';
+import { OrderStatusTabs } from '../components/OrderStatusTabs';
 import { useOrders } from '../hooks/useOrders';
+import { filterOrdersList, type OrderStatusTabId } from '../utils/orderListFilters';
 
 type Props = NativeStackScreenProps<ShoppingStackParamList, 'Orders'>;
 
@@ -38,13 +46,14 @@ function OrderListPageSkeleton() {
   return (
     <View style={styles.pageSkeletonList}>
       {Array.from({ length: PAGE_SKELETON_ROW_COUNT }, (_, index) => (
-        <View key={`orders-page-skeleton-${index}`} style={styles.pageSkeletonRow}>
-          <Skeleton variant="rect" width={64} height={64} />
-          <View style={styles.pageSkeletonContent}>
-            <Skeleton variant="text" height={16} width="75%" />
-            <Skeleton variant="text" height={12} width="32%" />
-            <Skeleton variant="text" height={12} width="58%" />
+        <View key={`orders-page-skeleton-${index}`} style={styles.pageSkeletonCard}>
+          <Skeleton variant="text" height={12} width="42%" />
+          <View style={styles.pageSkeletonThumbs}>
+            <Skeleton variant="rect" width={52} height={52} />
+            <Skeleton variant="rect" width={52} height={52} />
+            <Skeleton variant="rect" width={52} height={52} />
           </View>
+          <Skeleton variant="text" height={24} width="38%" />
         </View>
       ))}
     </View>
@@ -57,6 +66,8 @@ export function OrdersScreen({ navigation }: Props) {
   const { user } = useAuth();
   const authUserId = resolveAuthUserId(user);
   const { isAuthorized } = useRequireAuth(ORDERS_RETURN_TO);
+  const [activeStatusTab, setActiveStatusTab] = useState<OrderStatusTabId>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const {
     orders,
     totalOrders,
@@ -74,6 +85,13 @@ export function OrdersScreen({ navigation }: Props) {
     canGoNext,
   } = useOrders(isAuthorized ? authUserId : undefined);
 
+  const filteredOrders = useMemo(
+    () => filterOrdersList(orders, activeStatusTab, searchQuery),
+    [activeStatusTab, orders, searchQuery],
+  );
+
+  const hasActiveFilters = activeStatusTab !== 'all' || searchQuery.trim().length > 0;
+
   if (!isAuthorized) {
     return (
       <View style={styles.centeredState}>
@@ -84,16 +102,32 @@ export function OrdersScreen({ navigation }: Props) {
 
   const isPageLoadingEmpty = isPageLoading && orders.length === 0;
   const showEmptyState =
-    hasLoadedOnce && orders.length === 0 && !isLoading && !isPageLoadingEmpty && !error;
+    hasLoadedOnce &&
+    filteredOrders.length === 0 &&
+    !isLoading &&
+    !isPageLoadingEmpty &&
+    !error;
   const showInlineError =
     Boolean(error) && orders.length === 0 && !isLoading && !isPageLoadingEmpty;
-  const showPagination = (orders.length > 0 || isPageLoadingEmpty) && (totalOrders > 0 || totalPages > 1);
+  const showPagination =
+    (orders.length > 0 || isPageLoadingEmpty) && (totalOrders > 0 || totalPages > 1);
 
   const listHeader = (
     <View style={styles.listHeader}>
+      <OrderListSearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder="Search orders by ID or product..."
+        accessibilityLabel="Search orders by ID or product"
+      />
+
+      <OrderStatusTabs activeTabId={activeStatusTab} onTabChange={setActiveStatusTab} />
+
       {totalOrders > 0 ? (
         <AppText variant="bodySmall" color="textSecondary" style={styles.countText}>
-          {totalOrders} {totalOrders === 1 ? 'order' : 'orders'}
+          {hasActiveFilters
+            ? `${filteredOrders.length} matching on this page · ${totalOrders} total orders`
+            : `${totalOrders} ${totalOrders === 1 ? 'order' : 'orders'}`}
         </AppText>
       ) : null}
 
@@ -120,12 +154,25 @@ export function OrdersScreen({ navigation }: Props) {
   const listEmpty = showEmptyState ? (
     <View style={styles.emptyState}>
       <AppText variant="h3" style={styles.title}>
-        No orders yet
+        {hasActiveFilters ? 'No matching orders' : 'No orders yet'}
       </AppText>
       <AppText variant="body" color="textSecondary" style={styles.subtitle}>
-        When you place an order, it will appear here.
+        {hasActiveFilters
+          ? 'Try another status tab or adjust your search.'
+          : 'When you place an order, it will appear here.'}
       </AppText>
-      <AppButton label="Continue Shopping" onPress={() => navigateToHomeTab(rootNavigation)} />
+      {hasActiveFilters ? (
+        <AppButton
+          label="Clear filters"
+          variant="secondary"
+          onPress={() => {
+            setActiveStatusTab('all');
+            setSearchQuery('');
+          }}
+        />
+      ) : (
+        <AppButton label="Continue Shopping" onPress={() => navigateToHomeTab(rootNavigation)} />
+      )}
     </View>
   ) : showInlineError ? (
     <View style={styles.emptyState}>
@@ -147,14 +194,16 @@ export function OrdersScreen({ navigation }: Props) {
 
   return (
     <FlatList
-      data={orders}
+      data={filteredOrders}
       keyExtractor={(item, index) => item._id ?? `order-${index}`}
+      style={styles.list}
       contentContainerStyle={[
         styles.listContent,
-        orders.length === 0 && styles.listContentEmpty,
+        filteredOrders.length === 0 && styles.listContentEmpty,
       ]}
       showsVerticalScrollIndicator={false}
       onScroll={onMarketplaceScroll}
+      keyboardShouldPersistTaps="handled"
       {...marketplaceScrollProps}
       renderItem={({ item }) => (
         <OrderListItem
@@ -182,6 +231,10 @@ export function OrdersScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
+  list: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   listContent: {
     padding: spacing.lg,
     gap: spacing.md,
@@ -191,11 +244,11 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   listHeader: {
-    gap: spacing.sm,
+    gap: spacing.md,
+    paddingBottom: spacing.xs,
   },
   countText: {
     fontWeight: '600',
-    marginBottom: spacing.xs,
   },
   refreshRow: {
     flexDirection: 'row',
@@ -241,14 +294,14 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingVertical: spacing.sm,
   },
-  pageSkeletonRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+  pageSkeletonCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.large,
+    padding: spacing.lg,
     gap: spacing.md,
   },
-  pageSkeletonContent: {
-    flex: 1,
+  pageSkeletonThumbs: {
+    flexDirection: 'row',
     gap: spacing.sm,
-    paddingTop: spacing.xs,
   },
 });

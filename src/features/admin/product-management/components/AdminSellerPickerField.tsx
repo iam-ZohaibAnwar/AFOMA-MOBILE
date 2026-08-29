@@ -40,6 +40,7 @@ export function AdminSellerPickerField({
   return (
     <View style={{ gap: spacing.sm }}>
       <SelectField
+        tone="surface"
         label="Seller *"
         value={value}
         options={options}

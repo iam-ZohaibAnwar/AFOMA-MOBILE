@@ -160,6 +160,7 @@ export function FlatRateSheet({
               onPress={() => setMode('fixed')}
             >
               <AppInput
+                tone="surface"
                 label={`Fixed rate (${currencyCode})`}
                 value={draft.flat_rate_rate}
                 onChangeText={(text) => setDraft((current) => ({ ...current, flat_rate_rate: text }))}
@@ -167,6 +168,7 @@ export function FlatRateSheet({
                 editable={activeMode === 'fixed'}
               />
               <AppInput
+                tone="surface"
                 label={`Additional item cost (${currencyCode})`}
                 value={draft.additional_cost}
                 onChangeText={(text) => setDraft((current) => ({ ...current, additional_cost: text }))}
@@ -181,6 +183,7 @@ export function FlatRateSheet({
               onPress={() => setMode('weighted')}
             >
               <AppInput
+                tone="surface"
                 label={`0–1 kg (${currencyCode})`}
                 value={draft.flat_rate_0_1}
                 onChangeText={(text) => setDraft((current) => ({ ...current, flat_rate_0_1: text }))}
@@ -188,6 +191,7 @@ export function FlatRateSheet({
                 editable={activeMode === 'weighted'}
               />
               <AppInput
+                tone="surface"
                 label={`1–5 kg (${currencyCode})`}
                 value={draft.flat_rate_1_5}
                 onChangeText={(text) => setDraft((current) => ({ ...current, flat_rate_1_5: text }))}
@@ -195,6 +199,7 @@ export function FlatRateSheet({
                 editable={activeMode === 'weighted'}
               />
               <AppInput
+                tone="surface"
                 label={`5+ kg (${currencyCode})`}
                 value={draft.flat_rate_5_A}
                 onChangeText={(text) => setDraft((current) => ({ ...current, flat_rate_5_A: text }))}

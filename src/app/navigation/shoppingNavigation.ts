@@ -5,12 +5,9 @@ type Nav = NavigationProp<ParamListBase>;
 
 function navigateToMarketplaceSegment(navigation: Nav, segment: 'home' | 'category') {
   navigation.dispatch(
-    CommonActions.navigate({
-      name: 'MainTabs',
-      params: {
-        screen: 'MarketplaceTab',
-        params: { segment },
-      },
+    CommonActions.navigate('MainTabs', {
+      screen: 'MarketplaceTab',
+      params: { segment },
     }),
   );
 }

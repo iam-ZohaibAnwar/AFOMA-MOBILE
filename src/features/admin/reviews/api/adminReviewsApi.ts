@@ -7,7 +7,15 @@ import type {
   AdminReviewStatusUpdateResult,
 } from '../types/adminReviews';
 
-/** GET /reviews/ — top-level populated review array. */
+function normalizeAdminReviewsListResponse(response: unknown): AdminReviewListItem[] {
+  if (!Array.isArray(response)) {
+    return [];
+  }
+
+  return [...response].reverse();
+}
+
+/** GET /reviews/ — customer reviews (non-replies), populated references. */
 export async function getAdminReviewsList(): Promise<AdminReviewListItem[]> {
   const response = await apiGet<AdminReviewListItem[]>(
     '/reviews/',
@@ -15,7 +23,18 @@ export async function getAdminReviewsList(): Promise<AdminReviewListItem[]> {
     'Failed to load reviews',
   );
 
-  return Array.isArray(response) ? response : [];
+  return normalizeAdminReviewsListResponse(response);
+}
+
+/** GET /reviews/all/replies — seller replies only, populated references. */
+export async function getAdminReviewRepliesList(): Promise<AdminReviewListItem[]> {
+  const response = await apiGet<AdminReviewListItem[]>(
+    '/reviews/all/replies',
+    undefined,
+    'Failed to load seller replies',
+  );
+
+  return normalizeAdminReviewsListResponse(response);
 }
 
 /** GET /reviews/:id — unpopulated id references. */

@@ -89,6 +89,7 @@ export function AdminSellerSectionEditForm({
       return (
         <View style={styles.form}>
           <CountryStateFields
+            tone="surface"
             value={createCountryStateSelection(form.country, form.state, {
               countryCode: form.countryCode,
               stateCode: form.stateCode,
@@ -106,18 +107,21 @@ export function AdminSellerSectionEditForm({
             required
           />
           <AppInput
+            tone="surface"
             label="City *"
             value={form.city}
             onChangeText={(value) => onFieldChange('city', value)}
             error={fieldErrors.city}
           />
           <AppInput
+            tone="surface"
             label="Zip / postal code *"
             value={form.zipCode}
             onChangeText={(value) => onFieldChange('zipCode', value)}
             error={fieldErrors.zipCode}
           />
           <AppInput
+            tone="surface"
             label="Street address *"
             value={form.streetAddress}
             onChangeText={(value) => onFieldChange('streetAddress', value)}
@@ -166,11 +170,13 @@ export function AdminSellerSectionEditForm({
             onPick={handleImagePick}
           />
           <AppInput
+            tone="surface"
             label="Shop title"
             value={form.storeTitle}
             onChangeText={(value) => onFieldChange('storeTitle', value)}
           />
           <AppInput
+            tone="surface"
             label="Shop description"
             value={form.storeDesc}
             onChangeText={(value) => onFieldChange('storeDesc', value)}
@@ -178,24 +184,28 @@ export function AdminSellerSectionEditForm({
             numberOfLines={4}
           />
           <AppInput
+            tone="surface"
             label="Twitter URL"
             value={form.twitter}
             onChangeText={(value) => onFieldChange('twitter', value)}
             autoCapitalize="none"
           />
           <AppInput
+            tone="surface"
             label="Facebook URL"
             value={form.facebook}
             onChangeText={(value) => onFieldChange('facebook', value)}
             autoCapitalize="none"
           />
           <AppInput
+            tone="surface"
             label="Instagram URL"
             value={form.instagram}
             onChangeText={(value) => onFieldChange('instagram', value)}
             autoCapitalize="none"
           />
           <AppInput
+            tone="surface"
             label="Tax / VAT number"
             value={form.taxVatNumber}
             onChangeText={(value) => onFieldChange('taxVatNumber', value)}
@@ -203,6 +213,7 @@ export function AdminSellerSectionEditForm({
             keyboardType="number-pad"
           />
           <AppInput
+            tone="surface"
             label="Product gallery URL"
             value={form.productGallery}
             onChangeText={(value) => onFieldChange('productGallery', value)}
@@ -216,12 +227,14 @@ export function AdminSellerSectionEditForm({
       return (
         <View style={styles.form}>
           <AppInput
+            tone="surface"
             label="Account holder name *"
             value={form.accountHolderName}
             onChangeText={(value) => onFieldChange('accountHolderName', value)}
             error={fieldErrors.accountHolderName}
           />
           <AppInput
+            tone="surface"
             label="Account number *"
             value={form.accountNumber}
             onChangeText={(value) => onFieldChange('accountNumber', value)}
@@ -229,11 +242,13 @@ export function AdminSellerSectionEditForm({
             keyboardType="number-pad"
           />
           <AppInput
+            tone="surface"
             label="Bank name"
             value={form.bankName}
             onChangeText={(value) => onFieldChange('bankName', value)}
           />
           <AppInput
+            tone="surface"
             label="SWIFT code"
             value={form.swiftCode}
             onChangeText={(value) => onFieldChange('swiftCode', value)}
@@ -241,17 +256,12 @@ export function AdminSellerSectionEditForm({
             autoCapitalize="characters"
           />
           <AppInput
+            tone="surface"
             label="IBAN"
             value={form.ibanNumber}
             onChangeText={(value) => onFieldChange('ibanNumber', value)}
             error={fieldErrors.ibanNumber}
             autoCapitalize="characters"
-          />
-          <AppInput
-            label="Web3 wallet"
-            value={form.web3address}
-            onChangeText={(value) => onFieldChange('web3address', value)}
-            autoCapitalize="none"
           />
         </View>
       );
@@ -290,6 +300,7 @@ export function AdminSellerSectionEditForm({
           />
           {form.cancellationPolicy ? (
             <SelectField
+              tone="surface"
               label="Cancellation window *"
               value={form.cancellationPolicyTime}
               options={ADMIN_CANCELLATION_TIME_OPTIONS}
@@ -305,6 +316,7 @@ export function AdminSellerSectionEditForm({
           />
           {form.returnPolicy ? (
             <SelectField
+              tone="surface"
               label="Return policy details *"
               value={form.returnPolicyDetails}
               options={ADMIN_RETURN_POLICY_OPTIONS}
@@ -314,6 +326,7 @@ export function AdminSellerSectionEditForm({
             />
           ) : null}
           <SellerPolicyFaqEditor
+            tone="surface"
             faqList={form.faqList}
             draftQuestion={faqDraftQuestion}
             draftAnswer={faqDraftAnswer}

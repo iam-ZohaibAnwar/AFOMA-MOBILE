@@ -9,7 +9,7 @@ export interface AdminPasswordFieldProps extends Omit<AppInputProps, 'secureText
   label: string;
 }
 
-export function AdminPasswordField({ label, style, ...inputProps }: AdminPasswordFieldProps) {
+export function AdminPasswordField({ label, tone = 'default', style, ...inputProps }: AdminPasswordFieldProps) {
   const [isVisible, setIsVisible] = useState(false);
 
   return (
@@ -17,6 +17,7 @@ export function AdminPasswordField({ label, style, ...inputProps }: AdminPasswor
       <AppInput
         {...inputProps}
         label={label}
+        tone={tone}
         secureTextEntry={!isVisible}
         autoCapitalize="none"
         autoCorrect={false}

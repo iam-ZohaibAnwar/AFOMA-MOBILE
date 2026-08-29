@@ -34,10 +34,20 @@ export function adminReviewStatusBadgeVariant(
   return 'neutral';
 }
 
-export function getAdminReviewsEmptyStateMessage(statusFilter: AdminReviewStatusFilter): {
+export function getAdminReviewsEmptyStateMessage(
+  statusFilter: AdminReviewStatusFilter,
+  listTab: import('../types/adminReviews').AdminReviewListTabId = 'customer',
+): {
   title: string;
   message: string;
 } {
+  if (listTab === 'seller-replies') {
+    return {
+      title: 'No seller replies',
+      message: 'Seller replies to customer reviews will appear here.',
+    };
+  }
+
   switch (statusFilter) {
     case 'Pending':
       return {

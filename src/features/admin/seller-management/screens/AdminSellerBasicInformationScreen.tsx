@@ -1,20 +1,19 @@
-import { useCallback } from 'react';
+import { useCallback, useLayoutEffect } from 'react';
 import {
-  ActivityIndicator,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
-import { AppButton } from '../../../../components/ui/AppButton';
-import { AppCard } from '../../../../components/ui/AppCard';
-import { AppText } from '../../../../components/ui/AppText';
 import { colors, spacing } from '../../../../design-system';
+import { AdminProductDetailCardShell } from '../../product-management/components/detail/AdminProductDetailCardShell';
 import type { AdminStackParamList } from '../../navigation/adminTypes';
 import { useRequireAdmin } from '../../hooks/useRequireAdmin';
 import { authReturnTo } from '../../../auth/utils/authNavigation';
@@ -23,7 +22,6 @@ import { AdminSellerBasicInfoReadOnly } from '../components/AdminSellerBasicInfo
 import { useAdminSellerApproval } from '../hooks/useAdminSellerApproval';
 import { useAdminSellerDetail } from '../hooks/useAdminSellerDetail';
 import type { AdminSellerApprovalChoice } from '../types/adminSellerManagement';
-import { getAdminSellerDisplayName } from '../utils/adminSellerDisplay';
 
 type Props = NativeStackScreenProps<AdminStackParamList, 'AdminSellerBasicInformation'>;
 
@@ -33,7 +31,7 @@ export function AdminSellerBasicInformationScreen({ navigation, route }: Props) 
   const returnTo = authReturnTo.adminSellerBasicInformation(sellerId, initialSeller);
   const { isAuthorized } = useRequireAdmin(returnTo);
 
-  const { seller, isLoading, isRefreshing, error, refresh, syncSessionPatch, applySellerUpdate } =
+  const { seller, isRefreshing, error, refresh, syncSessionPatch, applySellerUpdate } =
     useAdminSellerDetail(isAuthorized ? sellerId : undefined, initialSeller);
 
   const {
@@ -73,6 +71,22 @@ export function AdminSellerBasicInformationScreen({ navigation, route }: Props) 
     });
   }, [displaySeller, navigation, sellerId]);
 
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Edit basic information"
+          onPress={handleEditPress}
+          hitSlop={8}
+          style={styles.headerAction}
+        >
+          <Ionicons name="create-outline" size={22} color={colors.primary} />
+        </Pressable>
+      ),
+    });
+  }, [handleEditPress, navigation]);
+
   if (!isAuthorized) {
     return <View style={[styles.screen, { paddingTop: insets.top }]} />;
   }
@@ -94,26 +108,8 @@ export function AdminSellerBasicInformationScreen({ navigation, route }: Props) 
       ) : null}
 
       {displaySeller ? (
-        <>
-          <AppCard style={styles.headerCard}>
-            <AppText variant="h3">{getAdminSellerDisplayName(displaySeller)}</AppText>
-            <AppText variant="bodySmall" color="textSecondary">
-              {displaySeller.email ?? 'No email'}
-            </AppText>
-            {isLoading ? (
-              <View style={styles.inlineLoading}>
-                <ActivityIndicator size="small" color={colors.primary} />
-                <AppText variant="caption" color="textSecondary">
-                  Refreshing seller details...
-                </AppText>
-              </View>
-            ) : null}
-            {error ? (
-              <ErrorState message={error} onAction={() => void refresh()} style={styles.inlineError} />
-            ) : null}
-          </AppCard>
-
-          <AppCard>
+        <View style={styles.cards}>
+          <AdminProductDetailCardShell title="Approval Status" icon="shield-checkmark-outline" accent iconVariant="solid">
             <AdminSellerApprovalControl
               value={displaySeller.status}
               isUpdating={isApprovalUpdating}
@@ -122,22 +118,15 @@ export function AdminSellerBasicInformationScreen({ navigation, route }: Props) 
                 void handleApprovalChange(nextStatus);
               }}
             />
-          </AppCard>
+          </AdminProductDetailCardShell>
 
-          <AppCard>
-            <View style={styles.sectionHeader}>
-              <AppText variant="label">Basic information</AppText>
-              <AppButton label="Edit" variant="outline" onPress={handleEditPress} />
-            </View>
+          <AdminProductDetailCardShell title="Basic Information" icon="person-outline" iconVariant="solid">
             <AdminSellerBasicInfoReadOnly seller={displaySeller} />
-          </AppCard>
-        </>
-      ) : isLoading ? (
-        <View style={styles.centeredLoading}>
-          <ActivityIndicator size="small" color={colors.primary} />
-          <AppText variant="bodySmall" color="textSecondary">
-            Loading basic information...
-          </AppText>
+          </AdminProductDetailCardShell>
+
+          {error ? (
+            <ErrorState message={error} onAction={() => void refresh()} style={styles.inlineError} />
+          ) : null}
         </View>
       ) : null}
     </ScrollView>
@@ -151,32 +140,17 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
-    gap: spacing.lg,
-  },
-  headerCard: {
-    gap: spacing.xs,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     gap: spacing.md,
-    marginBottom: spacing.md,
   },
-  inlineLoading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
+  cards: {
+    gap: spacing.md,
   },
   inlineError: {
-    marginTop: spacing.sm,
     alignSelf: 'stretch',
     marginHorizontal: 0,
   },
-  centeredLoading: {
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.xl,
+  headerAction: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
 });

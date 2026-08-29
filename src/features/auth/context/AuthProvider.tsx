@@ -1,13 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { requestOtp as requestOtpApi, verifyOtp as verifyOtpApi } from '../api/authApi';
-import type { AuthContextValue, AuthState } from '../types';
+import type { AuthContextValue, AuthState, StoredUserProfile } from '../types';
 import { mergeGuestCartIntoAccount } from '../../cart/utils/mergeGuestCartIntoAccount';
 import { resolveAuthUserId } from '../utils/resolveAuthUserId';
 import {
   clearAuthenticatedSession,
   loadAuthenticatedSession,
   saveAuthenticatedSession,
+  updateStoredProfile,
 } from '../../../services/auth/authSession';
 import { getStoredUserPricingInfo, clearStoredUserPricingInfo } from '../../../services/storage/userPricingStorage';
 import { ApiError } from '../../../services/api/errors';
@@ -112,6 +113,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const patchUserProfile = useCallback(async (patch: Partial<StoredUserProfile>) => {
+    let nextStoredProfile: StoredUserProfile | null = null;
+
+    setState((current) => {
+      if (!current.user) {
+        return current;
+      }
+
+      const { accessToken, ...storedProfile } = current.user;
+      nextStoredProfile = { ...storedProfile, ...patch };
+
+      return {
+        ...current,
+        user: {
+          ...nextStoredProfile,
+          accessToken,
+        },
+      };
+    });
+
+    if (nextStoredProfile) {
+      await updateStoredProfile(nextStoredProfile);
+    }
+  }, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       ...state,
@@ -119,8 +145,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       verifyOtp,
       logout,
       refreshSession,
+      patchUserProfile,
     }),
-    [state, requestOtp, verifyOtp, logout, refreshSession],
+    [state, requestOtp, verifyOtp, logout, refreshSession, patchUserProfile],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -30,7 +30,6 @@ export function AdminProductVariationsScreen({ navigation, route }: Props) {
     initialProductName,
     initialImages,
   } = route.params;
-  const hasInitialContext = Boolean(initialProductName?.trim() || initialImages?.length);
   const insets = useSafeAreaInsets();
   const { isAuthorized } = useRequireAdmin(RETURN_TO);
   const wizard = useAdminProductVariationsWizard(routeSellerId, productId, {
@@ -91,7 +90,7 @@ export function AdminProductVariationsScreen({ navigation, route }: Props) {
     );
   }
 
-  if (wizard.isLoading && !hasInitialContext) {
+  if (wizard.isLoading || !wizard.isHydrated) {
     return (
       <View style={styles.centeredState}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -102,7 +101,7 @@ export function AdminProductVariationsScreen({ navigation, route }: Props) {
     );
   }
 
-  if (wizard.loadError && !hasInitialContext) {
+  if (wizard.loadError) {
     return (
       <View style={styles.centeredState}>
         <ErrorState
@@ -173,7 +172,7 @@ export function AdminProductVariationsScreen({ navigation, route }: Props) {
               </AppText>
 
               {wizard.selectedAttributes.map((attribute) => (
-                <AppInput
+                <AppInput tone="surface"
                   key={`${row.id}-${attribute}`}
                   label={`${attribute} *`}
                   value={row[attribute] ?? ''}
@@ -182,7 +181,7 @@ export function AdminProductVariationsScreen({ navigation, route }: Props) {
                 />
               ))}
 
-              <SelectField
+              <SelectField tone="surface"
                 label="Inventory *"
                 value={row.inventory}
                 options={VARIATION_INVENTORY_OPTIONS.map((option) => ({
@@ -194,7 +193,7 @@ export function AdminProductVariationsScreen({ navigation, route }: Props) {
                 modalTitle="Inventory"
               />
 
-              <AppInput
+              <AppInput tone="surface"
                 label="Quantity"
                 value={row.quantity}
                 onChangeText={(text) => wizard.updateRowField(row.id, 'quantity', text)}
@@ -203,7 +202,7 @@ export function AdminProductVariationsScreen({ navigation, route }: Props) {
                 error={wizard.rowErrors[index]?.quantity}
               />
 
-              <AppInput
+              <AppInput tone="surface"
                 label="Price (CAD) *"
                 value={row.price}
                 onChangeText={(text) => wizard.updateRowField(row.id, 'price', text)}
@@ -212,7 +211,7 @@ export function AdminProductVariationsScreen({ navigation, route }: Props) {
               />
 
               {wizard.hasCurrency ? (
-                <AppInput
+                <AppInput tone="surface"
                   label="Price in selected currency *"
                   value={row.currencyPrice}
                   onChangeText={(text) => wizard.updateRowField(row.id, 'currencyPrice', text)}
@@ -222,7 +221,7 @@ export function AdminProductVariationsScreen({ navigation, route }: Props) {
               ) : null}
 
               {wizard.imageOptions.length > 0 ? (
-                <SelectField
+                <SelectField tone="surface"
                   label="Image *"
                   value={row.image}
                   options={wizard.imageOptions}

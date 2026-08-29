@@ -5,7 +5,7 @@ export type SellerOrderStatusFilter =
   | ''
   | 'Processing'
   | 'Pending'
-  | 'Dispatched'
+  | 'Shipped'
   | 'Delivered'
   | 'Cancelled'
   | 'OnHold'

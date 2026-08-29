@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '../../../../components/ui/AppText';
-import { colors, radius, spacing } from '../../../../design-system';
+import { colors, radius, shadows, spacing } from '../../../../design-system';
 import type { AdminFeaturedShopSeller } from '../types/adminSettings';
 import { formatAdminFeaturedShopDisplayName } from '../utils/adminSettingsDisplay';
 import { getAdminFeaturedShopSellerId } from '../utils/adminSettingsContent';
@@ -52,25 +52,29 @@ export function AdminFeaturedShopRow({
 
   return (
     <View style={styles.card}>
-      <View style={styles.header}>
-        <AppText variant="caption" color="textMuted">
-          #{index + 1}
-        </AppText>
-        <AppText variant="bodyMedium" style={styles.name} numberOfLines={2}>
-          {formatAdminFeaturedShopDisplayName(shop, index)}
-        </AppText>
-      </View>
+      <View style={styles.accent} />
 
-      {shop.email ? (
-        <AppText variant="caption" color="textSecondary" numberOfLines={1}>
-          {shop.email}
-        </AppText>
-      ) : null}
+      <View style={styles.body}>
+        <View style={styles.header}>
+          <AppText variant="caption" color="textMuted">
+            #{index + 1}
+          </AppText>
+          <AppText variant="bodyMedium" style={styles.name} numberOfLines={2}>
+            {formatAdminFeaturedShopDisplayName(shop, index)}
+          </AppText>
+        </View>
 
-      <View style={styles.actions}>
-        <ActionButton label="Up" onPress={onMoveUp} disabled={disabled || index === 0} />
-        <ActionButton label="Down" onPress={onMoveDown} disabled={disabled || index >= total - 1} />
-        <ActionButton label="Remove" onPress={onRemove} disabled={disabled || !shopId} />
+        {shop.email ? (
+          <AppText variant="caption" color="textSecondary" numberOfLines={1}>
+            {shop.email}
+          </AppText>
+        ) : null}
+
+        <View style={styles.actions}>
+          <ActionButton label="Up" onPress={onMoveUp} disabled={disabled || index === 0} />
+          <ActionButton label="Down" onPress={onMoveDown} disabled={disabled || index >= total - 1} />
+          <ActionButton label="Remove" onPress={onRemove} disabled={disabled || !shopId} />
+        </View>
       </View>
     </View>
   );
@@ -78,12 +82,22 @@ export function AdminFeaturedShopRow({
 
 const styles = StyleSheet.create({
   card: {
-    gap: spacing.xs,
-    padding: spacing.md,
-    borderRadius: radius.small,
-    backgroundColor: colors.surface,
+    flexDirection: 'row',
+    borderRadius: radius.large,
     borderWidth: 1,
     borderColor: colors.borderStrong,
+    backgroundColor: colors.surface,
+    overflow: 'hidden',
+    ...shadows.card,
+  },
+  accent: {
+    width: 4,
+    backgroundColor: colors.primary,
+  },
+  body: {
+    flex: 1,
+    gap: spacing.xs,
+    padding: spacing.md,
   },
   header: {
     gap: spacing.xs,

@@ -1,4 +1,4 @@
-import type { AdminCommissionManagementParams } from '../commission/types/adminCommission';
+import type { AdminCommissionDetailParams, AdminCommissionManagementParams } from '../commission/types/adminCommission';
 import type { AdminProductManagementParams } from '../product-management/types/adminProductManagement';
 import type { AdminCommissionRateSettingType } from '../settings/types/adminSettings';
 import type { AdminEditableSellerSectionId, AdminSellerListItem } from '../seller-management/types/adminSellerManagement';
@@ -15,7 +15,9 @@ export type AdminStackParamList = {
     productType?: string;
     initialProduct?: import('../product-management/types/adminProductManagement').AdminProductListItem;
   };
-  AdminProductType: { sellerId?: string } | undefined;
+  AdminCreateListing: { sellerId?: string } | undefined;
+  AdminProductType: import('../product-management/types/adminProductCreate').AdminProductCreateParams;
+  AdminProductSubtype: import('../product-management/types/adminProductCreate').AdminProductSubtypeParams;
   AdminStandardProduct:
     | {
         productId?: string;
@@ -87,6 +89,7 @@ export type AdminStackParamList = {
     initialUser?: AdminUserListItem;
   };
   AdminCommission: AdminCommissionManagementParams | undefined;
+  AdminCommissionDetail: AdminCommissionDetailParams;
   AdminSettingsHub: undefined;
   AdminSettingsCommissionRates: undefined;
   AdminSettingsCommissionRate: {
@@ -105,6 +108,7 @@ export type AdminStackParamList = {
   AdminReviewDetail: {
     reviewId: string;
     initialReview?: import('../reviews/types/adminReviews').AdminReviewListItem;
+    listTab?: import('../reviews/types/adminReviews').AdminReviewListTabId;
   };
   AdminCoupons: { notice?: string } | undefined;
   AdminCouponDetail: {

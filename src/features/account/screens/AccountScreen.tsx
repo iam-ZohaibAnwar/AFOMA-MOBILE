@@ -13,15 +13,20 @@ import {
 } from '../../../app/navigation/marketplaceChrome';
 import type { SellerStackParamList } from '../../../app/navigation/sellerTypes';
 import { navigateToAdminScreen } from '../../../features/admin/navigation/adminNavigation';
+import { ADMIN_ACCOUNT_MENU_ITEMS } from '../../../features/admin/navigation/adminAccountMenuItems';
 import { colors, spacing } from '../../../design-system';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { useRequireAuth } from '../../auth/hooks/useRequireAuth';
 import { authReturnTo } from '../../auth/utils/authNavigation';
 import { resolveAuthSellerId } from '../../auth/utils/resolveAuthSellerId';
+import { resolveAuthUserId } from '../../auth/utils/resolveAuthUserId';
 import { getContinueSetupSection } from '../../seller/utils/sellerSetupSections';
 import { useSellerProfile } from '../../seller/hooks/useSellerProfile';
+import { useAccountMemberSince } from '../hooks/useAccountMemberSince';
+import { useAccountProfilePhoto } from '../hooks/useAccountProfilePhoto';
 import { AccountMenuRow } from '../components/AccountMenuRow';
-import { AccountMenuSection } from '../components/AccountMenuSection';
+import { AccountMenuSectionLabel } from '../components/AccountMenuSectionLabel';
+import type { AccountMenuIconName } from '../components/AccountMenuIcon';
 import { AccountProfileHeader } from '../components/AccountProfileHeader';
 import { AccountSellerSetupCard } from '../components/AccountSellerSetupCard';
 import type { MainTabParamList, RootStackParamList, ShoppingStackParamList } from '../../../app/navigation/types';
@@ -32,6 +37,14 @@ type AccountNavigationProp = CompositeNavigationProp<
   NativeStackNavigationProp<ShoppingStackParamList>,
   NativeStackNavigationProp<RootStackParamList>
 >;
+
+type AccountMenuItem = {
+  key: string;
+  icon: AccountMenuIconName;
+  label: string;
+  onPress: () => void;
+  destructive?: boolean;
+};
 
 const ACCOUNT_RETURN_TO = authReturnTo.accountTab();
 
@@ -47,6 +60,12 @@ export function AccountScreen(_props: Props) {
   const stackNavigation = useNavigation<AccountNavigationProp>();
   const { user, logout, role, fullAccess, isAuthenticated, isLoading: isAuthLoading } = useAuth();
   useRequireAuth(ACCOUNT_RETURN_TO);
+
+  const authUserId = resolveAuthUserId(user);
+  const memberSince = useAccountMemberSince(isAuthenticated ? authUserId : undefined);
+  const { isUploading: isPhotoUploading, openPhotoActions } = useAccountProfilePhoto(
+    isAuthenticated ? authUserId : undefined,
+  );
 
   const sellerId = resolveAuthSellerId(user);
   const isSeller = role === 'seller' && Boolean(sellerId);
@@ -78,6 +97,162 @@ export function AccountScreen(_props: Props) {
     stackNavigation.navigate('AccountDetails');
   };
 
+  const personalItems: AccountMenuItem[] = [
+    {
+      key: 'account-details',
+      icon: 'account-details',
+      label: isSeller ? 'Personal information' : 'Account details',
+      onPress: handlePersonalInfoPress,
+    },
+    {
+      key: 'orders',
+      icon: 'orders',
+      label: 'My orders',
+      onPress: () => stackNavigation.navigate('Orders'),
+    },
+    {
+      key: 'messages',
+      icon: 'messages',
+      label: 'Messages',
+      onPress: () => stackNavigation.navigate('ChatList'),
+    },
+  ];
+
+  if (!isSeller) {
+    personalItems.push({
+      key: 'addresses',
+      icon: 'addresses',
+      label: 'Addresses',
+      onPress: () => stackNavigation.navigate('AddressBook'),
+    });
+  }
+
+  personalItems.push({
+    key: 'referral-earnings',
+    icon: 'referral-earnings',
+    label: 'Referral earnings',
+    onPress: () => stackNavigation.navigate('ReferralEarnings'),
+  });
+
+  const sellerItems: AccountMenuItem[] = [];
+
+  if (isSeller) {
+    sellerItems.push(
+      {
+        key: 'shop-profile',
+        icon: 'shop-profile',
+        label: 'Shop profile',
+        onPress: () => goSeller('SellerShopProfile'),
+      },
+      {
+        key: 'dashboard',
+        icon: 'dashboard',
+        label: 'Dashboard',
+        onPress: () => goSeller('SellerDashboard'),
+      },
+      {
+        key: 'products',
+        icon: 'products',
+        label: 'Products',
+        onPress: () => goSeller('SellerProducts'),
+      },
+      {
+        key: 'seller-orders',
+        icon: 'seller-orders',
+        label: 'Orders',
+        onPress: () => goSeller('SellerOrders'),
+      },
+      {
+        key: 'shipping',
+        icon: 'shipping',
+        label: 'Shipping',
+        onPress: () => goSeller('SellerShippingConfig'),
+      },
+      {
+        key: 'shop-settings',
+        icon: 'shop-settings',
+        label: 'Shop settings',
+        onPress: () => goSeller('SellerShopSettings'),
+      },
+      {
+        key: 'seller-earnings',
+        icon: 'seller-earnings',
+        label: 'Seller earnings',
+        onPress: () => goSeller('SellerEarnings', {}),
+      },
+      {
+        key: 'coupons',
+        icon: 'coupons',
+        label: 'Coupons',
+        onPress: () => goSeller('SellerCoupons'),
+      },
+      {
+        key: 'attributes',
+        icon: 'attributes',
+        label: 'Custom attributes',
+        onPress: () => goSeller('SellerAttributes'),
+      },
+      {
+        key: 'reviews',
+        icon: 'reviews',
+        label: 'Reviews',
+        onPress: () => goSeller('SellerReviews'),
+      },
+    );
+  }
+
+  const adminItems: AccountMenuItem[] = [];
+
+  if (isAdmin) {
+    ADMIN_ACCOUNT_MENU_ITEMS.filter((item) => !item.requiresFullAccess || fullAccess).forEach((item) => {
+      adminItems.push({
+        key: `admin-${item.screen}`,
+        icon: item.icon,
+        label: item.label,
+        onPress: () => navigateToAdminScreen(rootNavigation, item.screen),
+      });
+    });
+  }
+
+  const preferenceItems: AccountMenuItem[] = [
+    {
+      key: 'notifications',
+      icon: 'notifications',
+      label: 'Notifications',
+      onPress: () => showComingSoon('Notifications'),
+    },
+    {
+      key: 'help',
+      icon: 'help',
+      label: 'Help & support',
+      onPress: () => showComingSoon('Help and support'),
+    },
+    {
+      key: 'terms',
+      icon: 'terms',
+      label: 'Terms & Conditions',
+      onPress: () => stackNavigation.navigate('TermsConditions'),
+    },
+    {
+      key: 'logout',
+      icon: 'logout',
+      label: 'Log out',
+      onPress: () => void logout(),
+      destructive: true,
+    },
+  ];
+
+  const renderMenuItems = (items: AccountMenuItem[]) =>
+    items.map((item) => (
+      <AccountMenuRow
+        key={item.key}
+        icon={item.icon}
+        label={item.label}
+        onPress={item.onPress}
+        destructive={item.destructive}
+      />
+    ));
+
   if (!isAuthLoading && !isAuthenticated) {
     return <View style={[styles.screen, { paddingTop: insets.top }]} />;
   }
@@ -93,140 +268,39 @@ export function AccountScreen(_props: Props) {
       onScroll={onMarketplaceScroll}
       {...marketplaceScrollProps}
     >
-      <AccountProfileHeader user={user} onEditPress={handlePersonalInfoPress} />
+      <AccountProfileHeader
+        user={user}
+        isAuthenticated={isAuthenticated}
+        memberSince={memberSince}
+        isPhotoUploading={isPhotoUploading}
+        onAvatarPress={openPhotoActions}
+      />
 
-      <AccountMenuSection title="Personal">
-        <AccountMenuRow
-          icon="account-details"
-          label={isSeller ? 'Personal information' : 'Account details'}
-          onPress={handlePersonalInfoPress}
+      {showSellerSetupCard ? (
+        <AccountSellerSetupCard
+          profileSetup={profile?.profileSetup}
+          onContinueSetup={handleContinueSellerSetup}
         />
-        <AccountMenuRow icon="orders" label="My orders" onPress={() => stackNavigation.navigate('Orders')} />
-        <AccountMenuRow icon="messages" label="Messages" onPress={() => stackNavigation.navigate('ChatList')} />
-        {!isSeller ? (
-          <AccountMenuRow icon="addresses" label="Addresses" onPress={() => stackNavigation.navigate('AddressBook')} />
-        ) : null}
-        <AccountMenuRow
-          icon="referral-earnings"
-          label="Referral earnings"
-          onPress={() => stackNavigation.navigate('ReferralEarnings')}
-          showDivider={false}
-        />
-      </AccountMenuSection>
+      ) : null}
 
-      {isSeller ? (
-        <View style={styles.sellerSection}>
-          {showSellerSetupCard ? (
-            <AccountSellerSetupCard
-              profileSetup={profile?.profileSetup}
-              onContinueSetup={handleContinueSellerSetup}
-            />
-          ) : null}
-
-          <AccountMenuSection title="Seller">
-            <AccountMenuRow icon="shop-profile" label="Shop profile" onPress={() => goSeller('SellerShopProfile')} />
-            <AccountMenuRow icon="dashboard" label="Dashboard" onPress={() => goSeller('SellerDashboard')} />
-            <AccountMenuRow icon="products" label="Products" onPress={() => goSeller('SellerProducts')} />
-            <AccountMenuRow icon="messages" label="Messages" onPress={() => stackNavigation.navigate('ChatList')} />
-            <AccountMenuRow icon="seller-orders" label="Orders" onPress={() => goSeller('SellerOrders')} />
-            <AccountMenuRow icon="shipping" label="Shipping" onPress={() => goSeller('SellerShippingConfig')} />
-            <AccountMenuRow icon="shop-settings" label="Shop settings" onPress={() => goSeller('SellerShopSettings')} />
-            <AccountMenuRow icon="seller-earnings" label="Seller earnings" onPress={() => goSeller('SellerEarnings', {})} />
-            <AccountMenuRow icon="coupons" label="Coupons" onPress={() => goSeller('SellerCoupons')} />
-            <AccountMenuRow icon="attributes" label="Custom attributes" onPress={() => goSeller('SellerAttributes')} />
-            <AccountMenuRow icon="reviews" label="Reviews" onPress={() => goSeller('SellerReviews')} showDivider={false} />
-          </AccountMenuSection>
+      <View style={styles.menuList}>
+        <View style={styles.section}>
+          <AccountMenuSectionLabel title="Personal" />
+          {renderMenuItems(personalItems)}
+          {renderMenuItems(sellerItems)}
         </View>
-      ) : null}
 
-      {isAdmin ? (
-        <AccountMenuSection title="Admin">
-          <AccountMenuRow
-            icon="admin-dashboard"
-            label="Dashboard"
-            onPress={() => navigateToAdminScreen(rootNavigation, 'AdminDashboard')}
-          />
-          <AccountMenuRow
-            icon="seller-management"
-            label="Seller management"
-            onPress={() => navigateToAdminScreen(rootNavigation, 'AdminSellerManagement')}
-          />
-          <AccountMenuRow
-            icon="order-management"
-            label="Order management"
-            onPress={() => navigateToAdminScreen(rootNavigation, 'AdminOrderManagement')}
-          />
-          <AccountMenuRow
-            icon="product-management"
-            label="Product management"
-            onPress={() => navigateToAdminScreen(rootNavigation, 'AdminProductManagement')}
-          />
-          <AccountMenuRow
-            icon="global-attributes"
-            label="Global attributes"
-            onPress={() => navigateToAdminScreen(rootNavigation, 'AdminGlobalAttributes')}
-          />
-          <AccountMenuRow
-            icon="admin-reviews"
-            label="Reviews"
-            onPress={() => navigateToAdminScreen(rootNavigation, 'AdminReviews')}
-          />
-          <AccountMenuRow
-            icon="admin-coupons"
-            label="Coupons"
-            onPress={() => navigateToAdminScreen(rootNavigation, 'AdminCoupons')}
-          />
-          <AccountMenuRow
-            icon="admin-settings"
-            label="Settings"
-            onPress={() => navigateToAdminScreen(rootNavigation, 'AdminSettingsHub')}
-            showDivider={Boolean(fullAccess)}
-          />
-          {fullAccess ? (
-            <>
-              <AccountMenuRow
-                icon="user-management"
-                label="User management"
-                onPress={() => navigateToAdminScreen(rootNavigation, 'AdminUserManagement')}
-              />
-              <AccountMenuRow
-                icon="commission"
-                label="Commission"
-                onPress={() => navigateToAdminScreen(rootNavigation, 'AdminCommission')}
-                showDivider={false}
-              />
-            </>
-          ) : null}
-        </AccountMenuSection>
-      ) : null}
+        {adminItems.length > 0 ? (
+          <View style={styles.section}>
+            <AccountMenuSectionLabel title="Admin" />
+            {renderMenuItems(adminItems)}
+          </View>
+        ) : null}
 
-      <AccountMenuSection title="Preferences">
-        <AccountMenuRow
-          icon="notifications"
-          label="Notifications"
-          onPress={() => showComingSoon('Notifications')}
-        />
-        <AccountMenuRow
-          icon="help"
-          label="Help & support"
-          onPress={() => showComingSoon('Help and support')}
-        />
-        <AccountMenuRow
-          icon="terms"
-          label="Terms & Conditions"
-          onPress={() => stackNavigation.navigate('TermsConditions')}
-          showDivider={false}
-        />
-      </AccountMenuSection>
-
-      <View style={styles.logoutPanel}>
-        <AccountMenuRow
-          icon="logout"
-          label="Log out"
-          onPress={() => void logout()}
-          showDivider={false}
-          destructive
-        />
+        <View style={styles.section}>
+          <AccountMenuSectionLabel title="Preferences" />
+          {renderMenuItems(preferenceItems)}
+        </View>
       </View>
     </ScrollView>
   );
@@ -241,15 +315,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     gap: spacing.lg,
   },
-  sellerSection: {
-    gap: spacing.md,
+  menuList: {
+    gap: spacing.lg,
   },
-  logoutPanel: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    paddingHorizontal: spacing.md,
-    overflow: 'hidden',
+  section: {
+    gap: spacing.sm,
   },
 });

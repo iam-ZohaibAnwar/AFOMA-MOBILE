@@ -123,7 +123,7 @@ function PaymentScreenBody({ route }: Props) {
   const applePayBuildReady = isStripePlatformPaySupported();
 
   const { cart, entries, isLoading, error, retry, totalShippingRate, fetchedShippingRate } =
-    useCart(authUserId, userInfo);
+    useCart();
   const { appliedCoupon, removeAppliedCoupon } = useAppliedCoupon(authUserId);
   const { shippingAddress } = useCheckoutShippingAddress(user);
   const { resolveIdentityForAddress, establishGuestCheckout, isEstablishingGuest, guestError } =

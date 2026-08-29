@@ -58,11 +58,11 @@ export function AdminProductAiListingScreen({ navigation, route }: Props) {
     >
       <View style={styles.intro}>
         <AppText variant="h3" style={styles.introTitle}>
-          AI listing from photos
+          Add product photos
         </AppText>
         <AppText variant="bodySmall" color="textSecondary">
-          {PRODUCT_TYPE_LABELS[productType]} — upload photos, generate draft listing data, then
-          review and save through the normal create flow. AI prefill never approves a product.
+          {PRODUCT_TYPE_LABELS[productType]} — upload photos and AI will draft the title,
+          description, and SEO fields. You review everything before saving a Pending product.
         </AppText>
       </View>
 
@@ -132,7 +132,7 @@ export function AdminProductAiListingScreen({ navigation, route }: Props) {
           />
 
           <AppButton
-            label="Create manually instead"
+            label="Skip — enter details manually"
             variant="outline"
             onPress={() => navigateToAdminProductWizardAfterAiPrefill(navigation, productType, sellerId, true)}
             fullWidth

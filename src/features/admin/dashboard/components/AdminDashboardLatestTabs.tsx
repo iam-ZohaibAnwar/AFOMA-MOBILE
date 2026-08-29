@@ -6,6 +6,8 @@ import { ErrorState } from '../../../../components/ecommerce/ErrorState';
 import { AppCard } from '../../../../components/ui/AppCard';
 import { AppText } from '../../../../components/ui/AppText';
 import { colors, radius, spacing } from '../../../../design-system';
+import { adminDashboardTheme } from '../utils/adminDashboardTheme';
+import { AdminSectionTitle } from './AdminSectionTitle';
 import type {
   AdminDashboardLatestTab,
   AdminLatestProduct,
@@ -55,9 +57,7 @@ export function AdminDashboardLatestTabs({
 
   return (
     <View style={styles.section}>
-      <AppText variant="bodyMedium" style={styles.title}>
-        Latest
-      </AppText>
+      <AdminSectionTitle title="Latest activity" showIcon={false} />
 
       <View style={styles.tabRow}>
         {TABS.map((tab) => {
@@ -83,7 +83,7 @@ export function AdminDashboardLatestTabs({
         })}
       </View>
 
-      <AppCard variant="flat">
+      <AppCard variant="flat" style={styles.panel}>
         {activeError ? (
           <ErrorState message={activeError} onAction={onRetry} style={styles.error} />
         ) : null}
@@ -154,11 +154,14 @@ export function AdminDashboardLatestTabs({
 
 const styles = StyleSheet.create({
   section: {
-    gap: spacing.sm,
+    gap: spacing.md,
   },
-  title: {
-    color: colors.textPrimary,
-    fontWeight: '700',
+  panel: {
+    backgroundColor: adminDashboardTheme.cardBackground,
+    borderRadius: adminDashboardTheme.cardRadius,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: adminDashboardTheme.cardBorder,
+    ...adminDashboardTheme.cardShadow,
   },
   tabRow: {
     flexDirection: 'row',
@@ -171,8 +174,8 @@ const styles = StyleSheet.create({
     minHeight: 40,
     borderRadius: radius.pill,
     borderWidth: 1,
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.surface,
+    borderColor: adminDashboardTheme.cardBorder,
+    backgroundColor: colors.background,
   },
   tabChipActive: {
     backgroundColor: colors.primary,

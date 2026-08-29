@@ -1,17 +1,17 @@
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
 import { AppCard } from '../../../../components/ui/AppCard';
 import { AppText } from '../../../../components/ui/AppText';
-import { colors, spacing } from '../../../../design-system';
+import { spacing } from '../../../../design-system';
 import type { AdminTotalSalesSummary } from '../types/adminDashboard';
 import { formatAdminCount, formatAdminCurrency } from '../utils/adminDashboardDisplay';
 import { AdminDashboardKpiCard } from './AdminDashboardKpiCard';
+import { AdminSectionTitle } from './AdminSectionTitle';
 
 export interface AdminDashboardKpiRowProps {
   totalSales: AdminTotalSalesSummary | null;
   fullAccess: boolean;
-  isLoading: boolean;
   error?: string;
   onRetry?: () => void;
 }
@@ -19,7 +19,6 @@ export interface AdminDashboardKpiRowProps {
 export function AdminDashboardKpiRow({
   totalSales,
   fullAccess,
-  isLoading,
   error,
   onRetry,
 }: AdminDashboardKpiRowProps) {
@@ -33,29 +32,28 @@ export function AdminDashboardKpiRow({
 
   return (
     <View style={styles.section}>
-      {isLoading && !totalSales && fullAccess ? (
-        <View style={styles.loadingRow}>
-          <ActivityIndicator size="small" color={colors.primary} />
-        </View>
-      ) : (
-        <View style={styles.row}>
-          <AdminDashboardKpiCard
-            label="Total Sales"
-            value={salesValue}
-            restricted={!fullAccess}
-          />
-          <AdminDashboardKpiCard
-            label="Orders"
-            value={ordersValue}
-            restricted={!fullAccess}
-          />
-          <AdminDashboardKpiCard
-            label="Avg Order"
-            value={avgValue}
-            restricted={!fullAccess}
-          />
-        </View>
-      )}
+      <AdminSectionTitle title="Business Overview" showIcon={false} />
+
+      <View style={styles.stack}>
+        <AdminDashboardKpiCard
+          label="Total Sales"
+          value={salesValue}
+          icon="cash-outline"
+          restricted={!fullAccess}
+        />
+        <AdminDashboardKpiCard
+          label="Total Orders"
+          value={ordersValue}
+          icon="bag-handle-outline"
+          restricted={!fullAccess}
+        />
+        <AdminDashboardKpiCard
+          label="Avg. Order Value"
+          value={avgValue}
+          icon="receipt-outline"
+          restricted={!fullAccess}
+        />
+      </View>
 
       {error ? <ErrorState message={error} onAction={onRetry} style={styles.error} /> : null}
 
@@ -72,16 +70,10 @@ export function AdminDashboardKpiRow({
 
 const styles = StyleSheet.create({
   section: {
-    gap: spacing.sm,
+    gap: spacing.md,
   },
-  row: {
-    flexDirection: 'row',
+  stack: {
     gap: spacing.sm,
-  },
-  loadingRow: {
-    minHeight: 72,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   error: {
     marginHorizontal: 0,

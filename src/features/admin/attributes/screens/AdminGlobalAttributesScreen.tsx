@@ -1,6 +1,9 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -8,6 +11,7 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
+import { useHeaderHeight } from '@react-navigation/elements';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmptyState } from '../../../../components/ecommerce/EmptyState';
@@ -54,6 +58,9 @@ function ActionErrorBanner({
 
 export function AdminGlobalAttributesScreen(_props: Props) {
   const insets = useSafeAreaInsets();
+  const headerHeight = useHeaderHeight();
+  const scrollRef = useRef<ScrollView>(null);
+  const [keyboardInset, setKeyboardInset] = useState(0);
   const { isAuthorized } = useRequireAdmin(RETURN_TO);
   const {
     documentId,
@@ -85,6 +92,36 @@ export function AdminGlobalAttributesScreen(_props: Props) {
       }
     }, [isAuthorized, refresh]),
   );
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (event) => {
+      if (Platform.OS === 'android') {
+        setKeyboardInset(event.endCoordinates.height);
+      }
+
+      requestAnimationFrame(() => {
+        scrollRef.current?.scrollToEnd({ animated: true });
+      });
+    });
+
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardInset(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const scrollAddFieldIntoView = useCallback(() => {
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    });
+  }, []);
 
   const closeRenameModal = useCallback(() => {
     setRenameTarget(null);
@@ -203,19 +240,30 @@ export function AdminGlobalAttributesScreen(_props: Props) {
 
   return (
     <>
-      <ScrollView
+      <KeyboardAvoidingView
         style={styles.screen}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={() => void refresh()}
-            tintColor={colors.primary}
-          />
-        }
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}
       >
+        <ScrollView
+          ref={scrollRef}
+          style={styles.screen}
+          contentContainerStyle={[
+            styles.content,
+            {
+              paddingBottom: insets.bottom + spacing.xxl + keyboardInset,
+            },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={() => void refresh()}
+              tintColor={colors.primary}
+            />
+          }
+        >
         <AppText variant="bodyMedium" color="textSecondary" style={styles.lead}>
           Manage the attributes available across the marketplace.
         </AppText>
@@ -263,11 +311,13 @@ export function AdminGlobalAttributesScreen(_props: Props) {
         <View style={styles.addBlock}>
           <AppInput
             value={newAttributeName}
+            tone="surface"
             onChangeText={(text) => {
               setNewAttributeName(text);
               setAddError(null);
               clearActionError();
             }}
+            onFocus={scrollAddFieldIntoView}
             placeholder="Attribute name"
             editable={!isMutationBusy && Boolean(documentId)}
             error={addError ?? undefined}
@@ -281,7 +331,8 @@ export function AdminGlobalAttributesScreen(_props: Props) {
             fullWidth
           />
         </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <AdminGlobalAttributeRenameModal
         visible={renameTarget != null}

@@ -53,6 +53,10 @@ export interface OrderDetail extends OrderSummary {
   serviceFees?: number | string;
   userInfo?: OrderUserInfo;
   billing_address?: OrderBillingAddress;
+  shippingMethod?: string;
+  shipmentId?: string;
+  paymentMethod?: string;
+  paymentStatus?: string;
 }
 
 /** Payload traced from web checkout POST /paypal/createorder. */

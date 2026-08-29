@@ -12,10 +12,10 @@ import {
 export { orderStatusBadgeVariant };
 
 export const ADMIN_ORDER_STATUS_FILTERS = [
-  { label: 'All statuses', value: '' as const },
+  { label: 'All', value: '' as const },
   { label: 'Processing', value: 'Processing' as const },
   { label: 'Pending', value: 'Pending' as const },
-  { label: 'Dispatched', value: 'Dispatched' as const },
+  { label: 'Shipped', value: 'Shipped' as const },
   { label: 'Delivered', value: 'Delivered' as const },
   { label: 'Cancelled', value: 'Cancelled' as const },
   { label: 'On hold', value: 'OnHold' as const },

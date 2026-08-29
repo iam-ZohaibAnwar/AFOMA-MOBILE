@@ -1,9 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
   FlatList,
-  Pressable,
   RefreshControl,
   StyleSheet,
   View,
@@ -13,36 +10,34 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmptyState } from '../../../../components/ecommerce/EmptyState';
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
-import { SearchBar } from '../../../../components/ecommerce/SearchBar';
-import { AppButton } from '../../../../components/ui/AppButton';
 import { AppText } from '../../../../components/ui/AppText';
 import { colors, spacing } from '../../../../design-system';
+import { OrderListPagination } from '../../../orders/components/OrderListPagination';
+import { OrderListSearchBar } from '../../../orders/components/OrderListSearchBar';
 import { authReturnTo } from '../../../auth/utils/authNavigation';
 import { useRequireFullAccess } from '../../hooks/useRequireFullAccess';
 import type { AdminStackParamList } from '../../navigation/adminTypes';
 import { AdminCommissionCard } from '../components/AdminCommissionCard';
-import { AdminCommissionFilters } from '../components/AdminCommissionFilters';
+import { AdminProductCardActionsMenu } from '../../product-management/components/AdminProductCardActionsMenu';
+import { AdminCommissionCardSkeleton } from '../components/AdminCommissionCardSkeleton';
+import { AdminCommissionPayoutStatusTabs } from '../components/AdminCommissionPayoutStatusTabs';
+import { AdminCommissionRoleTabs } from '../components/AdminCommissionRoleTabs';
 import { AdminCommissionStatusSheet } from '../components/AdminCommissionStatusSheet';
 import { AdminCommissionSummary } from '../components/AdminCommissionSummary';
+import { useAdminCommissionCardActions } from '../hooks/useAdminCommissionCardActions';
 import { useAdminCommissionList } from '../hooks/useAdminCommissionList';
-import type {
-  AdminCommissionActionError,
-  AdminCommissionDisplayRow,
-} from '../types/adminCommission';
-import {
-  formatAdminCommissionPayoutStatusLabel,
-  formatAdminCommissionRecipientRoleLabel,
-} from '../utils/adminCommissionFilterOptions';
-import { canInitiateAdminCommissionPayout } from '../utils/adminCommissionMutationGuards';
+import type { AdminCommissionDisplayRow } from '../types/adminCommission';
 
 type Props = NativeStackScreenProps<AdminStackParamList, 'AdminCommission'>;
 
-export function AdminCommissionScreen({ route }: Props) {
+const SKELETON_ITEMS = ['c1', 'c2', 'c3'] as const;
+
+export function AdminCommissionScreen({ navigation, route }: Props) {
   const params = route.params;
   const insets = useSafeAreaInsets();
-  const returnTo = authReturnTo.adminCommission(params);
-  const { isAuthorized, isLoading: isGateLoading } = useRequireFullAccess(returnTo);
-  const [filtersVisible, setFiltersVisible] = useState(false);
+  const { isAuthorized, isLoading: isGateLoading } = useRequireFullAccess(
+    authReturnTo.adminCommission(params),
+  );
   const [statusRow, setStatusRow] = useState<AdminCommissionDisplayRow | null>(null);
 
   const {
@@ -62,7 +57,6 @@ export function AdminCommissionScreen({ route }: Props) {
     hasActiveFilters,
     applyPayoutStatusFilter,
     applyRoleFilter,
-    clearFilters,
     refresh,
     retrySummary,
     goToPreviousPage,
@@ -77,195 +71,94 @@ export function AdminCommissionScreen({ route }: Props) {
     updatePayoutStatus,
   } = useAdminCommissionList(isAuthorized, params);
 
-  const activeFilterSummary = useMemo(() => {
-    const parts: string[] = [];
-
-    if (payoutStatusFilter) {
-      parts.push(`Status: ${formatAdminCommissionPayoutStatusLabel(payoutStatusFilter)}`);
-    }
-
-    if (roleFilter) {
-      parts.push(`Role: ${formatAdminCommissionRecipientRoleLabel(roleFilter)}`);
-    }
-
-    return parts.join(' · ');
-  }, [payoutStatusFilter, roleFilter]);
-
-  const handleInitiatePress = useCallback(
-    (row: AdminCommissionDisplayRow) => {
-      if (!canInitiateAdminCommissionPayout(row, initiatingCommissionId)) {
-        return;
-      }
-
-      clearActionError();
-
-      Alert.alert(
-        'Initiate Korapay payout?',
-        `Send a payout link email for ${row.recipientName} (${row.orderDisplayId})?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Send link',
-            onPress: () => {
-              void initiatePayout(row);
-            },
-          },
-        ],
-      );
+  const {
+    menuRow,
+    menuActions,
+    menuTitle,
+    openMenu,
+    closeMenu,
+    handleView,
+    handleMenuAction,
+    busyCommissionId,
+  } = useAdminCommissionCardActions(navigation, {
+    initiatingCommissionId,
+    updatingStatusCommissionId,
+    onInitiatePayout: (row) => {
+      void initiatePayout(row);
     },
-    [clearActionError, initiatePayout, initiatingCommissionId],
-  );
-
-  const handleStatusPress = useCallback(
-    (row: AdminCommissionDisplayRow) => {
+    onChangeStatus: (row) => {
       clearActionError();
       setStatusRow(row);
     },
-    [clearActionError],
-  );
+  });
 
-  const handleRetryAction = useCallback(
-    (row: AdminCommissionDisplayRow, kind: AdminCommissionActionError['kind']) => {
-      clearActionError();
-
-      if (kind === 'initiate') {
-        handleInitiatePress(row);
-        return;
-      }
-
-      setStatusRow(row);
-    },
-    [clearActionError, handleInitiatePress],
-  );
+  const showSkeletonList = isLoading && displayRows.length === 0 && !error;
 
   const renderItem = useCallback(
     ({ item }: { item: AdminCommissionDisplayRow }) => (
       <AdminCommissionCard
         row={item}
-        initiatingCommissionId={initiatingCommissionId}
-        updatingStatusCommissionId={updatingStatusCommissionId}
-        actionError={actionError}
-        onInitiatePress={handleInitiatePress}
-        onStatusPress={handleStatusPress}
-        onRetryAction={handleRetryAction}
-        onDismissActionError={clearActionError}
+        onPress={handleView}
+        onMenuPress={openMenu}
+        isBusy={busyCommissionId === item.commissionId}
       />
     ),
-    [
-      actionError,
-      clearActionError,
-      handleInitiatePress,
-      handleRetryAction,
-      handleStatusPress,
-      initiatingCommissionId,
-      updatingStatusCommissionId,
-    ],
+    [busyCommissionId, handleView, openMenu],
   );
 
   const listHeader = (
     <View style={styles.headerContent}>
-      <View style={styles.titleBlock}>
-        <AppText variant="h3">Commission</AppText>
-        <AppText variant="bodySmall" color="textSecondary">
-          {totalCommissions} {totalCommissions === 1 ? 'commission record' : 'commission records'}
-        </AppText>
-      </View>
-
       <AdminCommissionSummary
         totalCommissionAmount={totalCommissionAmount}
         summaryError={summaryError}
         onRetrySummary={() => void retrySummary()}
       />
 
-      <SearchBar
-        mode="input"
-        placeholder="Search commission or order..."
+      <OrderListSearchBar
         value={searchInput}
         onChangeText={setSearchInput}
+        placeholder="Search by seller or recipient name..."
+        accessibilityLabel="Search commissions by seller or recipient name"
       />
 
-      <View style={styles.filterRow}>
-        <AppButton
-          label={hasActiveFilters ? 'Filters (active)' : 'Filters'}
-          variant="outline"
-          onPress={() => setFiltersVisible(true)}
-        />
-        {hasActiveFilters ? (
-          <Pressable accessibilityRole="button" onPress={clearFilters} style={styles.clearFilters}>
-            <AppText variant="bodySmall" color="textLink">
-              Clear
-            </AppText>
-          </Pressable>
-        ) : null}
-      </View>
+      <AdminCommissionPayoutStatusTabs
+        activeStatus={payoutStatusFilter}
+        onStatusChange={applyPayoutStatusFilter}
+      />
 
-      {activeFilterSummary ? (
-        <AppText variant="caption" color="textSecondary">
-          {activeFilterSummary}
+      <AdminCommissionRoleTabs activeRole={roleFilter} onRoleChange={applyRoleFilter} />
+
+      {totalCommissions > 0 ? (
+        <AppText variant="bodySmall" color="textSecondary" style={styles.countText}>
+          {totalCommissions} {totalCommissions === 1 ? 'record' : 'records'}
         </AppText>
       ) : null}
 
-      {error && displayRows.length > 0 ? (
+      {actionError ? (
         <ErrorState
-          message={error}
-          actionLabel="Retry"
-          onAction={() => void refresh()}
+          message={actionError.message}
+          actionLabel="Dismiss"
+          onAction={clearActionError}
           style={styles.inlineError}
         />
       ) : null}
 
-      {isLoading && displayRows.length === 0 && !error ? (
-        <View style={styles.inlineLoading}>
-          <ActivityIndicator size="small" color={colors.primary} />
-          <AppText variant="bodySmall" color="textSecondary">
-            Loading commissions...
-          </AppText>
+      {error && displayRows.length > 0 ? (
+        <ErrorState message={error} onAction={() => void refresh()} style={styles.inlineError} />
+      ) : null}
+
+      {showSkeletonList ? (
+        <View style={styles.skeletonList}>
+          {SKELETON_ITEMS.map((key) => (
+            <AdminCommissionCardSkeleton key={key} />
+          ))}
         </View>
       ) : null}
     </View>
   );
 
-  const listFooter =
-    displayRows.length > 0 ? (
-      <View style={styles.pagination}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={goToPreviousPage}
-          disabled={!canGoPrevious}
-          style={[styles.paginationButton, !canGoPrevious && styles.paginationButtonDisabled]}
-        >
-          <AppText variant="bodySmall" color={canGoPrevious ? 'textLink' : 'textMuted'}>
-            Previous
-          </AppText>
-        </Pressable>
-
-        <AppText variant="bodySmall" color="textSecondary">
-          Page {currentPage} of {totalPages}
-        </AppText>
-
-        <Pressable
-          accessibilityRole="button"
-          onPress={goToNextPage}
-          disabled={!canGoNext}
-          style={[styles.paginationButton, !canGoNext && styles.paginationButtonDisabled]}
-        >
-          <AppText variant="bodySmall" color={canGoNext ? 'textLink' : 'textMuted'}>
-            Next
-          </AppText>
-        </Pressable>
-      </View>
-    ) : null;
-
   if (isGateLoading || !isAuthorized) {
     return <View style={[styles.screen, { paddingTop: insets.top }]} />;
-  }
-
-  if (error && displayRows.length === 0) {
-    return (
-      <View style={[styles.screen, styles.blockingError, { paddingTop: insets.top + spacing.lg }]}>
-        <ErrorState message={error} actionLabel="Retry" onAction={() => void refresh()} />
-      </View>
-    );
   }
 
   return (
@@ -277,22 +170,36 @@ export function AdminCommissionScreen({ route }: Props) {
           { paddingBottom: insets.bottom + spacing.xxl },
           displayRows.length === 0 && styles.emptyContent,
         ]}
-        data={displayRows}
+        data={showSkeletonList ? [] : displayRows}
         keyExtractor={(item) => item.rowKey}
         renderItem={renderItem}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListHeaderComponent={listHeader}
-        ListFooterComponent={listFooter}
+        ListFooterComponent={
+          displayRows.length > 0 ? (
+            <OrderListPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              canGoPrevious={canGoPrevious}
+              canGoNext={canGoNext}
+              isLoading={isLoading}
+              onPrevious={goToPreviousPage}
+              onNext={goToNextPage}
+            />
+          ) : null
+        }
         ListEmptyComponent={
-          !isLoading && !error ? (
+          !showSkeletonList && !isLoading && !error ? (
             <EmptyState
               title="No commissions found"
               message={
                 hasActiveFilters || searchInput.trim()
-                  ? 'Try adjusting your search or filters.'
+                  ? 'Try adjusting your search or filter tabs.'
                   : 'Commission records will appear here once orders generate payouts.'
               }
             />
+          ) : error && displayRows.length === 0 ? (
+            <ErrorState message={error} onAction={() => void refresh()} style={styles.inlineError} />
           ) : null
         }
         refreshControl={
@@ -303,21 +210,15 @@ export function AdminCommissionScreen({ route }: Props) {
           />
         }
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       />
 
-      <AdminCommissionFilters
-        visible={filtersVisible}
-        payoutStatusFilter={payoutStatusFilter}
-        roleFilter={roleFilter}
-        onClose={() => setFiltersVisible(false)}
-        onApply={(nextPayoutStatus, nextRole) => {
-          applyPayoutStatusFilter(nextPayoutStatus);
-          applyRoleFilter(nextRole);
-        }}
-        onClear={() => {
-          clearFilters();
-          setFiltersVisible(false);
-        }}
+      <AdminProductCardActionsMenu
+        visible={Boolean(menuRow)}
+        productName={menuTitle}
+        actions={menuActions}
+        onClose={closeMenu}
+        onSelect={handleMenuAction}
       />
 
       <AdminCommissionStatusSheet
@@ -353,45 +254,20 @@ const styles = StyleSheet.create({
   emptyContent: {
     flexGrow: 1,
   },
-  blockingError: {
-    paddingHorizontal: spacing.lg,
-  },
   headerContent: {
     gap: spacing.md,
+    paddingBottom: spacing.xs,
   },
-  titleBlock: {
-    gap: spacing.xs,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  clearFilters: {
-    paddingVertical: spacing.xs,
+  countText: {
+    fontWeight: '600',
   },
   inlineError: {
     marginTop: 0,
   },
-  inlineLoading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+  skeletonList: {
+    gap: spacing.md,
   },
   separator: {
     height: spacing.md,
-  },
-  pagination: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: spacing.lg,
-  },
-  paginationButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xs,
-  },
-  paginationButtonDisabled: {
-    opacity: 0.5,
   },
 });

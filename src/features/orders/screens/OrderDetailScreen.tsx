@@ -2,13 +2,14 @@ import { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 
 import { ErrorState } from '../../../components/ecommerce/ErrorState';
 import { AppButton } from '../../../components/ui/AppButton';
-import { AppCard } from '../../../components/ui/AppCard';
 import { AppDivider } from '../../../components/ui/AppDivider';
 import { AppText } from '../../../components/ui/AppText';
-import { colors, spacing } from '../../../design-system';
+import { colors, radius, spacing } from '../../../design-system';
 import type { ShoppingStackParamList } from '../../../app/navigation/types';
 import {
   marketplaceScrollProps,
@@ -16,19 +17,26 @@ import {
 } from '../../../app/navigation/marketplaceChrome';
 import { useRequireAuth } from '../../auth/hooks/useRequireAuth';
 import { authReturnTo } from '../../auth/utils/authNavigation';
+import { OrderDetailInfoRow } from '../components/OrderDetailInfoRow';
+import { OrderDetailSection } from '../components/OrderDetailSection';
 import { OrderLineItemRow } from '../components/OrderLineItemRow';
 import { useCancelOrder } from '../hooks/useCancelOrder';
 import { useOrderDetail } from '../hooks/useOrderDetail';
 import {
-  canCancelOrder,
-  formatBillingAddressLines,
-  formatCustomerEmail,
-  formatCustomerName,
-  formatOrderDate,
+  canCancelCustomerOrder,
+  formatOrderDateShort,
   formatOrderDisplayId,
-  formatOrderStatus,
   formatShippingAddressLines,
+  getCustomerOrderCancelDisabledReason,
 } from '../utils/orderDisplay';
+import {
+  getOrderPaymentMethodLabel,
+  getOrderShippingMethodLabel,
+  getOrderStatusColor,
+  getOrderStatusIconName,
+  getOrderStatusLabel,
+  getOrderTrackingNumber,
+} from '../utils/orderDetailDisplay';
 import {
   calculateOrderGrandTotal,
   calculateOrderItemsSubTotal,
@@ -39,33 +47,27 @@ import {
 
 type Props = NativeStackScreenProps<ShoppingStackParamList, 'OrderDetail'>;
 
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.detailRow}>
-      <AppText variant="caption" color="textMuted" style={styles.detailLabel}>
-        {label}
-      </AppText>
-      <AppText variant="bodyMedium" style={styles.detailValue}>
-        {value}
-      </AppText>
-    </View>
-  );
-}
-
-function SummaryRow({ label, value, emphasized = false }: {
+function SummaryRow({
+  label,
+  value,
+  emphasized = false,
+}: {
   label: string;
   value: string;
   emphasized?: boolean;
 }) {
   return (
     <View style={styles.summaryRow}>
-      <AppText variant={emphasized ? 'bodyMedium' : 'bodySmall'} color={emphasized ? 'textPrimary' : 'textSecondary'}>
+      <AppText
+        variant={emphasized ? 'bodyMedium' : 'bodySmall'}
+        color={emphasized ? 'textPrimary' : 'textSecondary'}
+        style={emphasized ? styles.summaryLabelEmphasis : undefined}
+      >
         {label}
       </AppText>
       <AppText
-        variant={emphasized ? 'bodyMedium' : 'bodySmall'}
-        color={emphasized ? 'secondary' : 'textPrimary'}
-        style={emphasized ? styles.summaryTotal : undefined}
+        variant={emphasized ? 'h3' : 'bodySmall'}
+        style={emphasized ? styles.summaryTotal : styles.summaryValue}
       >
         {value}
       </AppText>
@@ -73,7 +75,7 @@ function SummaryRow({ label, value, emphasized = false }: {
   );
 }
 
-export function OrderDetailScreen({ route }: Props) {
+export function OrderDetailScreen({ route, navigation }: Props) {
   const { orderId } = route.params;
   const insets = useSafeAreaInsets();
   const onMarketplaceScroll = useMarketplaceScrollHandler();
@@ -88,7 +90,7 @@ export function OrderDetailScreen({ route }: Props) {
   });
 
   const handleCancelPress = () => {
-    if (!order || !canCancelOrder(order.status) || isCancelling) {
+    if (!order || !canCancelCustomerOrder(order) || isCancelling) {
       return;
     }
 
@@ -107,6 +109,11 @@ export function OrderDetailScreen({ route }: Props) {
         },
       ],
     );
+  };
+
+  const handleCopyTracking = async (trackingNumber: string) => {
+    await Clipboard.setStringAsync(trackingNumber);
+    Alert.alert('Copied', 'Tracking number copied to clipboard.');
   };
 
   if (!isAuthorized) {
@@ -145,50 +152,54 @@ export function OrderDetailScreen({ route }: Props) {
   const shipping = calculateOrderShippingTotal(order);
   const total = calculateOrderGrandTotal(order);
   const shippingLines = formatShippingAddressLines(order.userInfo);
-  const billingLines = formatBillingAddressLines(order.billing_address);
-  const customerName = formatCustomerName(order.userInfo);
-  const customerEmail = formatCustomerEmail(order.userInfo) ?? order.userInfo?.email;
-  const cancellable = canCancelOrder(order.status);
+  const shippingMethod = getOrderShippingMethodLabel(order);
+  const trackingNumber = getOrderTrackingNumber(order);
+  const paymentMethod = getOrderPaymentMethodLabel(order);
+  const statusLabel = getOrderStatusLabel(order.status);
+  const statusColor = getOrderStatusColor(order.status);
+  const statusIcon = getOrderStatusIconName(order.status);
+  const handleDownloadInvoicePress = () => {
+    Alert.alert(
+      'Download Invoice',
+      'Invoice download is not available yet. You can view your order summary on this screen.',
+    );
+  };
+
+  const cancellable = canCancelCustomerOrder(order);
+  const cancelDisabledReason = getCustomerOrderCancelDisabledReason(order);
 
   return (
     <ScrollView
       style={styles.screen}
       contentContainerStyle={[
         styles.content,
-        { paddingBottom: insets.bottom + spacing.xxl },
+        { paddingBottom: insets.bottom + spacing['3xl'] },
       ]}
       showsVerticalScrollIndicator={false}
       onScroll={onMarketplaceScroll}
       {...marketplaceScrollProps}
     >
-      <View style={styles.headerRow}>
-        <View style={styles.headerCopy}>
-          <AppText variant="h3" style={styles.headerTitle}>
-            Order {formatOrderDisplayId(order._id ?? orderId)}
-          </AppText>
-          <AppText variant="bodySmall" color="textSecondary">
-            Placed {formatOrderDate(order.createdAt)}
+      <View style={styles.hero}>
+        <AppText variant="h3" style={styles.heroTitle}>
+          Order #{formatOrderDisplayId(order._id ?? orderId)}
+        </AppText>
+        <AppText variant="bodySmall" color="textSecondary">
+          Placed on {formatOrderDateShort(order.createdAt)}
+        </AppText>
+        <View style={styles.statusRow}>
+          <Ionicons name={statusIcon} size={16} color={statusColor} />
+          <AppText variant="bodyMedium" style={[styles.statusLabel, { color: statusColor }]}>
+            {statusLabel}
           </AppText>
         </View>
-
-        <AppButton
-          label="Cancel"
-          variant="outline"
-          size="md"
-          disabled={!cancellable || isCancelling}
-          loading={isCancelling}
-          onPress={handleCancelPress}
-          style={styles.cancelButton}
-          labelStyle={styles.cancelButtonLabel}
-        />
       </View>
 
       {cancelSuccessMessage ? (
-        <AppCard variant="flat" style={styles.banner}>
+        <View style={styles.successBanner}>
           <AppText variant="bodySmall" color="success">
             {cancelSuccessMessage}
           </AppText>
-        </AppCard>
+        </View>
       ) : null}
 
       {cancelError ? (
@@ -200,29 +211,31 @@ export function OrderDetailScreen({ route }: Props) {
         />
       ) : null}
 
-      <AppCard variant="flat">
-        <AppText variant="bodyMedium" style={styles.sectionTitle}>
-          Order Information
-        </AppText>
-        <DetailRow label="Order ID" value={formatOrderDisplayId(order._id ?? orderId)} />
-        <DetailRow label="Order Date" value={formatOrderDate(order.createdAt)} />
-        <DetailRow label="Status" value={formatOrderStatus(order.status)} />
-        {customerName ? <DetailRow label="Customer" value={customerName} /> : null}
-        {customerEmail ? <DetailRow label="Email" value={customerEmail} /> : null}
-      </AppCard>
+      <OrderDetailSection title="Order Information" icon="information-circle-outline">
+        <View style={styles.infoRows}>
+          {shippingMethod ? (
+            <OrderDetailInfoRow label="Shipping Method" value={shippingMethod} />
+          ) : null}
+          <OrderDetailInfoRow label="Order Status" value={statusLabel} valueColor={statusColor} />
+          {trackingNumber ? (
+            <OrderDetailInfoRow
+              label="Tracking Number"
+              value={trackingNumber}
+              valueColor={colors.primary}
+              onCopy={() => void handleCopyTracking(trackingNumber)}
+            />
+          ) : null}
+        </View>
+      </OrderDetailSection>
 
-      <AppCard variant="flat">
-        <AppText variant="bodyMedium" style={styles.sectionTitle}>
-          Products
-        </AppText>
+      <OrderDetailSection title="Items in Order" icon="cube-outline">
         {order.cart?.length ? (
           <View style={styles.productList}>
             {order.cart.map((line, index) => (
-              <OrderLineItemRow
-                key={`${line.productData?._id ?? 'line'}-${index}`}
-                line={line}
-                order={order}
-              />
+              <View key={`${line.productData?._id ?? 'line'}-${index}`}>
+                <OrderLineItemRow line={line} order={order} />
+                {index < order.cart!.length - 1 ? <AppDivider style={styles.itemDivider} /> : null}
+              </View>
             ))}
           </View>
         ) : (
@@ -230,45 +243,57 @@ export function OrderDetailScreen({ route }: Props) {
             No products found for this order.
           </AppText>
         )}
-      </AppCard>
+      </OrderDetailSection>
 
-      <AppCard variant="flat">
-        <AppText variant="bodyMedium" style={styles.sectionTitle}>
-          Payment Details
-        </AppText>
-        <SummaryRow label="Item(s) total" value={formatOrderMoney(order, subtotal)} />
-        <SummaryRow
-          label="Service fees"
-          value={serviceFees > 0 ? formatOrderMoney(order, serviceFees) : '—'}
-        />
-        <SummaryRow label="Shipping charges" value={formatOrderMoney(order, shipping)} />
-        <AppDivider style={styles.summaryDivider} />
-        <SummaryRow label="Total" value={formatOrderMoney(order, total)} emphasized />
-      </AppCard>
-
-      <AppCard variant="flat">
-        <AppText variant="bodyMedium" style={styles.sectionTitle}>
-          Shipping Information
-        </AppText>
+      <OrderDetailSection title="Shipping Address" icon="location-outline">
         {shippingLines.map((line, index) => (
           <AppText key={`${line}-${index}`} variant="bodySmall" style={styles.addressLine}>
             {line}
           </AppText>
         ))}
-      </AppCard>
+      </OrderDetailSection>
 
-      {billingLines.length > 0 ? (
-        <AppCard variant="flat">
-          <AppText variant="bodyMedium" style={styles.sectionTitle}>
-            Billing Information
-          </AppText>
-          {billingLines.map((line, index) => (
-            <AppText key={`${line}-${index}`} variant="bodySmall" style={styles.addressLine}>
-              {line}
+      <OrderDetailSection title="Payment Summary" icon="receipt-outline">
+        <SummaryRow label="Subtotal" value={formatOrderMoney(order, subtotal)} />
+        <SummaryRow label="Shipping" value={formatOrderMoney(order, shipping)} />
+        <SummaryRow
+          label="Service fees"
+          value={serviceFees > 0 ? formatOrderMoney(order, serviceFees) : '—'}
+        />
+        <AppDivider style={styles.summaryDivider} />
+        <SummaryRow label="Total" value={formatOrderMoney(order, total)} emphasized />
+        {paymentMethod ? (
+          <View style={styles.paymentMethodRow}>
+            <Ionicons name="card-outline" size={16} color={colors.textSecondary} />
+            <AppText variant="bodySmall" color="textSecondary">
+              {paymentMethod}
             </AppText>
-          ))}
-        </AppCard>
-      ) : null}
+          </View>
+        ) : null}
+      </OrderDetailSection>
+
+      <View style={styles.actions}>
+        <AppButton
+          label="Contact Seller"
+          variant="outline"
+          onPress={() => navigation.navigate('ChatList')}
+        />
+        <AppButton label="Download Invoice" onPress={handleDownloadInvoicePress} />
+        <AppButton
+          label="Cancel Order"
+          variant="outline"
+          disabled={!cancellable || isCancelling}
+          loading={isCancelling}
+          onPress={handleCancelPress}
+          style={styles.cancelButton}
+          labelStyle={styles.cancelButtonLabel}
+        />
+        {!cancellable && cancelDisabledReason ? (
+          <AppText variant="caption" color="textMuted" style={styles.cancelHint}>
+            {cancelDisabledReason}
+          </AppText>
+        ) : null}
+      </View>
     </ScrollView>
   );
 }
@@ -298,66 +323,80 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     marginHorizontal: 0,
   },
-  headerRow: {
+  hero: {
+    gap: spacing.xs,
+  },
+  heroTitle: {
+    color: colors.textPrimary,
+    fontWeight: '800',
+  },
+  statusRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  statusLabel: {
+    fontWeight: '700',
+  },
+  successBanner: {
+    backgroundColor: colors.successBg,
+    borderRadius: radius.medium,
+    borderWidth: 1,
+    borderColor: colors.successSoft,
+    padding: spacing.md,
+  },
+  infoRows: {
     gap: spacing.md,
   },
-  headerCopy: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  headerTitle: {
-    color: colors.textPrimary,
-    fontWeight: '700',
-  },
-  cancelButton: {
-    borderColor: colors.error,
-    minWidth: 92,
-  },
-  cancelButtonLabel: {
-    color: colors.error,
-  },
-  banner: {
-    backgroundColor: colors.successBg,
-    borderColor: colors.successSoft,
-  },
-  sectionTitle: {
-    color: colors.textPrimary,
-    fontWeight: '700',
-    marginBottom: spacing.sm,
-  },
-  detailRow: {
-    gap: spacing.xs,
-    marginBottom: spacing.sm,
-  },
-  detailLabel: {
-    textTransform: 'uppercase',
-    fontWeight: '600',
-  },
-  detailValue: {
-    color: colors.textPrimary,
-  },
   productList: {
-    gap: spacing.sm,
+    gap: spacing.xs,
+  },
+  itemDivider: {
+    marginVertical: spacing.sm,
+  },
+  addressLine: {
+    color: colors.textPrimary,
+    lineHeight: 22,
   },
   summaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.md,
-    marginBottom: spacing.sm,
+  },
+  summaryValue: {
+    color: colors.textPrimary,
+    fontWeight: '600',
+  },
+  summaryLabelEmphasis: {
+    fontWeight: '700',
   },
   summaryTotal: {
-    fontWeight: '700',
+    color: colors.primary,
+    fontWeight: '800',
   },
   summaryDivider: {
     marginVertical: spacing.sm,
   },
-  addressLine: {
-    color: colors.textPrimary,
-    lineHeight: 20,
-    marginBottom: spacing.xs,
+  paymentMethodRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  actions: {
+    gap: spacing.sm,
+    paddingTop: spacing.xs,
+  },
+  cancelButton: {
+    borderColor: colors.error,
+  },
+  cancelButtonLabel: {
+    color: colors.error,
+  },
+  cancelHint: {
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });

@@ -1,10 +1,4 @@
-import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -45,9 +39,7 @@ export function SellerDashboardScreen({ navigation }: Props) {
     payoutSummary,
     latestOrders,
     errors,
-    isLoading,
     isRefreshing,
-    hasBlockingError,
     refresh,
   } = useSellerDashboard(isAuthorized ? sellerId : undefined);
 
@@ -63,33 +55,7 @@ export function SellerDashboardScreen({ navigation }: Props) {
   };
 
   if (!isAuthorized) {
-    return (
-      <View style={styles.centeredState}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
-
-  if (isLoading && !orderCounts && !payoutSummary && latestOrders.length === 0) {
-    return (
-      <View style={styles.centeredState}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <AppText variant="bodySmall" color="textSecondary">
-          Loading dashboard...
-        </AppText>
-      </View>
-    );
-  }
-
-  if (hasBlockingError) {
-    return (
-      <View style={[styles.centeredState, { paddingBottom: insets.bottom }]}>
-        <ErrorState
-          message={errors.counts ?? errors.payouts ?? errors.orders ?? 'Failed to load dashboard'}
-          onAction={() => void refresh()}
-        />
-      </View>
-    );
+    return <View style={styles.screen} />;
   }
 
   return (
@@ -175,14 +141,6 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.lg,
     gap: spacing.lg,
-  },
-  centeredState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.md,
-    padding: spacing.xl,
-    backgroundColor: colors.background,
   },
   greeting: {
     color: colors.textPrimary,

@@ -33,15 +33,6 @@ export function AdminSellerBasicInfoReadOnly({ seller }: AdminSellerBasicInfoRea
       <ReadOnlyField label="Gender" value={formatAdminSellerGender(seller.gender)} />
       <ReadOnlyField label="Date of birth" value={formatAdminSellerDob(seller.DOB)} />
       <ReadOnlyField label="Contact number" value={formatAdminSellerField(seller.phone)} />
-
-      <View style={styles.web3Block}>
-        <AppText variant="label">Web3 wallet</AppText>
-        <AppText variant="caption" color="textSecondary">
-          Read-only on admin. Web mirrors these fields as non-editable.
-        </AppText>
-        <ReadOnlyField label="Network type" value={formatAdminSellerField(seller.networkType)} />
-        <ReadOnlyField label="Wallet address" value={formatAdminSellerField(seller.web3address)} />
-      </View>
     </View>
   );
 }
@@ -52,9 +43,5 @@ const styles = StyleSheet.create({
   },
   field: {
     gap: spacing.xs,
-  },
-  web3Block: {
-    gap: spacing.md,
-    marginTop: spacing.sm,
   },
 });

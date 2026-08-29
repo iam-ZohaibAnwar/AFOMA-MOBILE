@@ -15,6 +15,7 @@ export interface SellerPolicyFaqEditorProps {
   onAdd: () => void;
   onRemove: (index: number) => void;
   error?: string | null;
+  tone?: 'default' | 'surface';
 }
 
 export function SellerPolicyFaqEditor({
@@ -26,6 +27,7 @@ export function SellerPolicyFaqEditor({
   onAdd,
   onRemove,
   error,
+  tone = 'default',
 }: SellerPolicyFaqEditorProps) {
   return (
     <View style={styles.container}>
@@ -37,12 +39,14 @@ export function SellerPolicyFaqEditor({
       </AppText>
 
       <AppInput
+        tone={tone}
         label="Question"
         value={draftQuestion}
         onChangeText={onDraftQuestionChange}
         placeholder="Enter a question"
       />
       <AppInput
+        tone={tone}
         label="Answer"
         value={draftAnswer}
         onChangeText={onDraftAnswerChange}
@@ -51,7 +55,7 @@ export function SellerPolicyFaqEditor({
         numberOfLines={3}
       />
 
-      <AppButton label="Add FAQ" variant="secondary" onPress={onAdd} />
+      <AppButton label="Add FAQ" variant="primary" onPress={onAdd} />
 
       {error ? (
         <AppText variant="caption" color="error">

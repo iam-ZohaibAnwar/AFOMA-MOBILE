@@ -1,76 +1,206 @@
-import { StyleSheet, View } from 'react-native';
+import { useCallback } from 'react';
+
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+
+import { useFocusEffect } from '@react-navigation/native';
+
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppCard } from '../../../../components/ui/AppCard';
-import { AppText } from '../../../../components/ui/AppText';
+
+
 import { colors, spacing } from '../../../../design-system';
+
 import { authReturnTo } from '../../../auth/utils/authNavigation';
+
 import { useRequireAdmin } from '../../hooks/useRequireAdmin';
+
 import type { AdminStackParamList } from '../../navigation/adminTypes';
-import { AdminSettingsHubRow } from '../components/AdminSettingsHubRow';
+
+import { AdminSettingsHubCard } from '../components/AdminSettingsHubCard';
+
+import { AdminSettingsHubCardSkeleton } from '../components/AdminSettingsHubCardSkeleton';
+
+import { AdminSettingsHubSection } from '../components/AdminSettingsHubSection';
+
+import { useAdminSettingsHubSummary } from '../hooks/useAdminSettingsHubSummary';
+
+import {
+
+  ADMIN_SETTINGS_HUB_SECTIONS,
+
+  resolveAdminSettingsHubMeta,
+
+} from '../utils/adminSettingsHubConfig';
+
+
 
 type Props = NativeStackScreenProps<AdminStackParamList, 'AdminSettingsHub'>;
 
+
+
 const RETURN_TO = authReturnTo.adminSettingsHub();
 
+const SKELETON_ITEMS = ['s1', 's2', 's3', 's4', 's5'] as const;
+
+
+
 export function AdminSettingsHubScreen({ navigation }: Props) {
+
   const insets = useSafeAreaInsets();
+
   const { isAuthorized } = useRequireAdmin(RETURN_TO);
 
+  const summary = useAdminSettingsHubSummary({ enabled: isAuthorized });
+
+
+
+  useFocusEffect(
+
+    useCallback(() => {
+
+      if (isAuthorized) {
+
+        void summary.refresh();
+
+      }
+
+    }, [isAuthorized, summary.refresh]),
+
+  );
+
+
+
   if (!isAuthorized) {
+
     return <View style={[styles.screen, { paddingTop: insets.top }]} />;
+
   }
 
-  return (
-    <View style={[styles.screen, { paddingTop: spacing.lg, paddingBottom: insets.bottom + spacing.xxl }]}>
-      <AppText variant="bodyMedium" color="textSecondary" style={styles.lead}>
-        Marketplace configuration
-      </AppText>
 
-      <AppCard variant="muted" style={styles.card}>
-        <AdminSettingsHubRow
-          title="Commission Rates"
-          description="Affiliate, seller referral, and buyer referral percentages"
-          onPress={() => navigation.navigate('AdminSettingsCommissionRates')}
+
+  const showSkeletonCards = summary.isLoading && !summary.isRefreshing;
+
+
+
+  return (
+
+    <ScrollView
+
+      style={styles.screen}
+
+      contentContainerStyle={[
+
+        styles.content,
+
+        { paddingTop: spacing.lg, paddingBottom: insets.bottom + spacing.xxl },
+
+      ]}
+
+      showsVerticalScrollIndicator={false}
+
+      refreshControl={
+
+        <RefreshControl
+
+          refreshing={summary.isRefreshing}
+
+          onRefresh={() => void summary.refresh()}
+
+          tintColor={colors.primary}
+
         />
-        <AdminSettingsHubRow
-          title="Featured Shops"
-          description="Shops shown in the marketplace spotlight"
-          onPress={() => navigation.navigate('AdminSettingsFeaturedShops')}
-        />
-        <AdminSettingsHubRow
-          title="Shipping Matrix"
-          description="Tier-based origin→destination shipping surcharges"
-          onPress={() => navigation.navigate('AdminSettingsShippingConfig')}
-        />
-        <AdminSettingsHubRow
-          title="CSV Export"
-          description="Download customers, sellers, affiliates, and more"
-          onPress={() => navigation.navigate('AdminSettingsCsvExport')}
-        />
-        <AdminSettingsHubRow
-          title="Seller Shipping Config"
-          description="View and edit per-seller domestic and international shipping"
-          onPress={() => navigation.navigate('AdminSettingsSellerShippingList')}
-          showDivider={false}
-        />
-      </AppCard>
-    </View>
+
+      }
+
+    >
+
+      {showSkeletonCards ? (
+
+        <View style={styles.skeletonList}>
+
+          {SKELETON_ITEMS.map((key) => (
+
+            <AdminSettingsHubCardSkeleton key={key} />
+
+          ))}
+
+        </View>
+
+      ) : (
+
+        ADMIN_SETTINGS_HUB_SECTIONS.map((section) => (
+
+          <AdminSettingsHubSection key={section.id} title={section.title}>
+
+            <View style={styles.cardList}>
+
+              {section.items.map((item) => (
+
+                <AdminSettingsHubCard
+
+                  key={item.id}
+
+                  title={item.title}
+
+                  icon={item.icon}
+
+                  accentColor={item.accentColor}
+
+                  meta={resolveAdminSettingsHubMeta(item.metaKey, summary)}
+
+                  onPress={() => navigation.navigate(item.screen)}
+
+                />
+
+              ))}
+
+            </View>
+
+          </AdminSettingsHubSection>
+
+        ))
+
+      )}
+
+    </ScrollView>
+
   );
+
 }
 
+
+
 const styles = StyleSheet.create({
+
   screen: {
+
     flex: 1,
+
     backgroundColor: colors.background,
+
+  },
+
+  content: {
+
     paddingHorizontal: spacing.lg,
+
+    gap: spacing.xl,
+
+  },
+
+  cardList: {
+
     gap: spacing.md,
+
   },
-  lead: {
-    marginBottom: spacing.xs,
+
+  skeletonList: {
+
+    gap: spacing.md,
+
   },
-  card: {
-    paddingHorizontal: spacing.lg,
-  },
+
 });
+

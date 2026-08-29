@@ -90,6 +90,19 @@ export async function updateAdminUserByAdmin(
   );
 }
 
+/** PUT /users/byAdmin/{userId} — profile photo only (partial update supported by backend). */
+export async function patchAdminUserProfilePhoto(
+  userId: string,
+  userProfile: string,
+): Promise<AdminUserListItem> {
+  return apiPut<AdminUserListItem>(
+    `/users/byAdmin/${encodeURIComponent(userId)}`,
+    { userProfile },
+    undefined,
+    'Failed to update profile photo',
+  );
+}
+
 /** DELETE /users/{userId} — hard-delete contract assumed; verify on staging. */
 export async function deleteAdminUser(userId: string): Promise<void> {
   await apiDelete<void>(

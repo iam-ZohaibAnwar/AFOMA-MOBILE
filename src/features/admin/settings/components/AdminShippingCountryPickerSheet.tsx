@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import {
   FlatList,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   View,
@@ -87,9 +89,21 @@ export function AdminShippingCountryPickerSheet({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <Pressable accessibilityRole="button" style={styles.backdrop} onPress={onClose} />
-        <View style={[styles.sheet, { maxHeight: sheetHeight, paddingBottom: insets.bottom + spacing.lg }]}>
+      <Pressable accessibilityRole="button" style={styles.backdrop} onPress={onClose} />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardWrap}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? spacing.sm : 0}
+      >
+        <View
+          style={[
+            styles.sheet,
+            {
+              height: sheetHeight,
+              paddingBottom: insets.bottom + spacing.lg,
+            },
+          ]}
+        >
           <View style={styles.handle} />
 
           <AppText variant="h3" style={styles.title}>
@@ -109,7 +123,9 @@ export function AdminShippingCountryPickerSheet({
           <FlatList
             data={filteredCountries}
             keyExtractor={(item) => item.value}
+            style={styles.list}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={
               <AppText variant="bodyMedium" color="textSecondary" style={styles.emptyList}>
@@ -127,19 +143,19 @@ export function AdminShippingCountryPickerSheet({
 
           <AppButton label="Done" onPress={onClose} fullWidth />
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: colors.overlay,
+  },
+  keyboardWrap: {
+    flex: 1,
+    justifyContent: 'flex-end',
   },
   sheet: {
     backgroundColor: colors.background,
@@ -148,6 +164,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     gap: spacing.md,
+    flexShrink: 1,
+  },
+  list: {
+    flex: 1,
+    minHeight: 0,
   },
   handle: {
     alignSelf: 'center',

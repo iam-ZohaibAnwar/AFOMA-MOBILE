@@ -35,7 +35,7 @@ export function AdminUserProfilePhotoField({
           <Image source={{ uri: previewUri }} style={styles.preview} resizeMode="cover" />
         ) : (
           <View style={styles.previewPlaceholder}>
-            <AppText variant="caption" color="textMuted">
+            <AppText variant="caption" style={styles.placeholderLabel}>
               No photo
             </AppText>
           </View>
@@ -118,6 +118,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.sm,
+  },
+  placeholderLabel: {
+    color: colors.textInverse,
+    textAlign: 'center',
+    fontWeight: '600',
   },
   actions: {
     flex: 1,

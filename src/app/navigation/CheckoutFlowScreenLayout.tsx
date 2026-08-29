@@ -3,8 +3,6 @@ import { useNavigation } from '@react-navigation/native';
 import type { NavigationProp, ParamListBase } from '@react-navigation/native';
 
 import { colors } from '../../design-system';
-import { useAuth } from '../../features/auth/hooks/useAuth';
-import { resolveAuthUserId } from '../../features/auth/utils/resolveAuthUserId';
 import { useCart } from '../../features/cart/hooks/useCart';
 import { getCartItemCount } from '../../features/cart/utils/cartUtils';
 import { MarketplaceFooterNav } from './MarketplaceFooterNav';
@@ -15,9 +13,7 @@ interface CheckoutFlowScreenLayoutProps {
 
 export function CheckoutFlowScreenLayout({ children }: CheckoutFlowScreenLayoutProps) {
   const navigation = useNavigation<NavigationProp<ParamListBase>>();
-  const { user } = useAuth();
-  const authUserId = resolveAuthUserId(user);
-  const { cart } = useCart(authUserId);
+  const { cart } = useCart();
   const cartCount = getCartItemCount(cart);
 
   return (

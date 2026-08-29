@@ -1,4 +1,4 @@
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -28,25 +28,6 @@ export function AdminSettingsSellerShippingEditScreen({ route }: Props) {
     return <View style={[styles.centeredState, { paddingTop: insets.top }]} />;
   }
 
-  if (shipping.isLoading && !shipping.profile) {
-    return (
-      <View style={styles.centeredState}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <AppText variant="bodySmall" color="textSecondary">
-          Loading shipping configuration...
-        </AppText>
-      </View>
-    );
-  }
-
-  if (shipping.error && !shipping.profile) {
-    return (
-      <View style={styles.centeredState}>
-        <ErrorState message={shipping.error} onAction={() => void shipping.reload()} />
-      </View>
-    );
-  }
-
   const sellerName = shipping.profile
     ? getAdminSellerDisplayName({
         firstName: shipping.profile.firstName,
@@ -56,6 +37,30 @@ export function AdminSettingsSellerShippingEditScreen({ route }: Props) {
     : initialSeller
       ? getAdminSellerDisplayName(initialSeller)
       : 'Seller';
+
+  if (shipping.error && shipping.hasLoaded && !shipping.profile) {
+    return (
+      <View style={styles.centeredState}>
+        <ErrorState message={shipping.error} onAction={() => void shipping.reload()} />
+      </View>
+    );
+  }
+
+  if (!shipping.hasLoaded) {
+    return (
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={[styles.loadingContent, { paddingBottom: insets.bottom + spacing.xxl }]}
+      >
+        <AppText variant="h3" style={styles.loadingTitle}>
+          {sellerName}
+        </AppText>
+        <AppText variant="bodyMedium" color="textSecondary">
+          Loading shipping configuration…
+        </AppText>
+      </ScrollView>
+    );
+  }
 
   return (
     <SellerShippingConfigEditor
@@ -75,6 +80,10 @@ export function AdminSettingsSellerShippingEditScreen({ route }: Props) {
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   centeredState: {
     flex: 1,
     alignItems: 'center',
@@ -82,5 +91,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     gap: spacing.sm,
     padding: spacing.lg,
+  },
+  loadingContent: {
+    padding: spacing.lg,
+    gap: spacing.lg,
+  },
+  loadingTitle: {
+    color: colors.textPrimary,
+    fontWeight: '700',
   },
 });

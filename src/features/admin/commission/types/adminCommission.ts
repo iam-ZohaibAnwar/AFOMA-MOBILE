@@ -129,3 +129,9 @@ export interface AdminCommissionDisplayRow {
 export type AdminCommissionManagementParams = {
   initialPayoutStatus?: Exclude<AdminCommissionPayoutStatusFilter, ''>;
 };
+
+export type AdminCommissionDetailParams = {
+  commissionId: string;
+  displayType: AdminCommissionDisplayType;
+  initialRow?: AdminCommissionDisplayRow;
+};

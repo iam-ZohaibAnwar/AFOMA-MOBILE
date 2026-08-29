@@ -89,7 +89,7 @@ export function ProductGallery({
                 <Image
                   source={{ uri: image.url }}
                   style={[styles.heroImage, { width: screenWidth }]}
-                  resizeMode="cover"
+                  resizeMode="contain"
                   accessibilityLabel={productName}
                   onError={() =>
                     setFailedUrls((current) => {

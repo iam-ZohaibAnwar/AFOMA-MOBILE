@@ -1,27 +1,28 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
   FlatList,
   Pressable,
   RefreshControl,
   StyleSheet,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmptyState } from '../../../../components/ecommerce/EmptyState';
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
-import { SearchBar } from '../../../../components/ecommerce/SearchBar';
-import { AppButton } from '../../../../components/ui/AppButton';
 import { AppText } from '../../../../components/ui/AppText';
-import { colors, spacing } from '../../../../design-system';
+import { colors, radius, shadows, spacing } from '../../../../design-system';
+import { OrderListSearchBar } from '../../../orders/components/OrderListSearchBar';
+import { AdminProductCardActionsMenu } from '../../product-management/components/AdminProductCardActionsMenu';
 import type { AdminStackParamList } from '../../navigation/adminTypes';
 import { useRequireAdmin } from '../../hooks/useRequireAdmin';
 import { authReturnTo } from '../../../auth/utils/authNavigation';
 import { AdminSellerCard } from '../components/AdminSellerCard';
-import { AdminSellerFiltersSheet } from '../components/AdminSellerFiltersSheet';
+import { AdminSellerCardSkeleton } from '../components/AdminSellerCardSkeleton';
+import { AdminSellerFilterTabs } from '../components/AdminSellerFilterTabs';
+import { useAdminSellerCardActions } from '../hooks/useAdminSellerCardActions';
 import { useAdminSellerList } from '../hooks/useAdminSellerList';
 import type { AdminSellerListItem } from '../types/adminSellerManagement';
 import { getAdminSellerDisplayName } from '../utils/adminSellerDisplay';
@@ -29,11 +30,11 @@ import { getAdminSellerDisplayName } from '../utils/adminSellerDisplay';
 type Props = NativeStackScreenProps<AdminStackParamList, 'AdminSellerManagement'>;
 
 const LIST_RETURN_TO = authReturnTo.adminSellerManagement();
+const SKELETON_ITEMS = ['s1', 's2', 's3'] as const;
 
 export function AdminSellerManagementScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { isAuthorized } = useRequireAdmin(LIST_RETURN_TO);
-  const [filtersVisible, setFiltersVisible] = useState(false);
 
   const {
     sellers,
@@ -52,165 +53,64 @@ export function AdminSellerManagementScreen({ navigation }: Props) {
     clearFilters,
     actionError,
     clearActionError,
-    updatingSellerId,
-    deletingSellerId,
     refresh,
     goToPreviousPage,
     goToNextPage,
     canGoPrevious,
     canGoNext,
-    setShopVisibility,
-    deleteSeller,
   } = useAdminSellerList(isAuthorized);
 
-  const activeFilterSummary = useMemo(() => {
-    const parts: string[] = [];
+  const {
+    menuSeller,
+    menuActions,
+    openMenu,
+    closeMenu,
+    handleMenuAction,
+    handleView,
+    busySellerId,
+  } = useAdminSellerCardActions(navigation, () => {
+    void refresh();
+  });
 
-    if (approvalFilter) {
-      parts.push(`Approval: ${approvalFilter}`);
-    }
+  const showSkeletonList = isLoading && sellers.length === 0 && !error;
 
-    if (shopVisibilityFilter) {
-      parts.push(`Shop: ${shopVisibilityFilter === 'Active' ? 'Visible' : 'Hidden'}`);
-    }
-
-    return parts.join(' · ');
-  }, [approvalFilter, shopVisibilityFilter]);
-
-  const handleSellerPress = useCallback(
-    (seller: AdminSellerListItem) => {
-      if (!seller._id) {
-        return;
-      }
-
-      navigation.navigate('AdminSellerDetail', {
-        sellerId: seller._id,
-        initialSeller: seller,
-      });
+  const handleTabSelect = useCallback(
+    (approval: typeof approvalFilter, shop: typeof shopVisibilityFilter) => {
+      applyFilters(approval, shop);
     },
-    [navigation],
-  );
-
-  const handleVisibilityChange = useCallback(
-    (seller: AdminSellerListItem, nextVisible: boolean) => {
-      if (!seller._id) {
-        return;
-      }
-
-      clearActionError();
-
-      if (!nextVisible) {
-        Alert.alert(
-          'Hide this shop?',
-          `${getAdminSellerDisplayName(seller)} will be hidden from buyers until visibility is turned back on.`,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Hide shop',
-              style: 'destructive',
-              onPress: () => {
-                void setShopVisibility(seller._id, false);
-              },
-            },
-          ],
-        );
-        return;
-      }
-
-      void setShopVisibility(seller._id, true);
-    },
-    [clearActionError, setShopVisibility],
-  );
-
-  const handleDeletePress = useCallback(
-    (seller: AdminSellerListItem) => {
-      if (!seller._id) {
-        return;
-      }
-
-      clearActionError();
-
-      Alert.alert(
-        'Delete seller?',
-        `This will permanently remove ${getAdminSellerDisplayName(seller)}. This action cannot be undone.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Delete',
-            style: 'destructive',
-            onPress: () => {
-              void deleteSeller(seller._id);
-            },
-          },
-        ],
-      );
-    },
-    [clearActionError, deleteSeller],
+    [applyFilters],
   );
 
   const renderItem = useCallback(
     ({ item }: { item: AdminSellerListItem }) => (
       <AdminSellerCard
         seller={item}
-        isUpdatingVisibility={updatingSellerId === item._id}
-        isDeleting={deletingSellerId === item._id}
-        onPress={handleSellerPress}
-        onVisibilityChange={handleVisibilityChange}
-        onDeletePress={handleDeletePress}
+        onPress={handleView}
+        onMenuPress={openMenu}
+        isBusy={Boolean(item._id && busySellerId === item._id)}
       />
     ),
-    [
-      deletingSellerId,
-      handleDeletePress,
-      handleSellerPress,
-      handleVisibilityChange,
-      updatingSellerId,
-    ],
+    [busySellerId, handleView, openMenu],
   );
 
   const listHeader = (
     <View style={styles.headerContent}>
-      <View style={styles.titleBlock}>
-        <View style={styles.titleRow}>
-          <View style={styles.titleCopy}>
-            <AppText variant="h3">Seller Management</AppText>
-            <AppText variant="bodySmall" color="textSecondary">
-              {totalSellers} {totalSellers === 1 ? 'seller' : 'sellers'}
-            </AppText>
-          </View>
-          <AppButton
-            label="Create seller"
-            variant="outline"
-            onPress={() => navigation.navigate('AdminCreateSeller')}
-          />
-        </View>
-      </View>
-
-      <SearchBar
-        mode="input"
-        placeholder="Search by seller name..."
+      <OrderListSearchBar
         value={searchInput}
         onChangeText={setSearchInput}
+        placeholder="Search by seller name, shop, email..."
+        accessibilityLabel="Search sellers by name, shop, or email"
       />
 
-      <View style={styles.filterRow}>
-        <AppButton
-          label={hasActiveFilters ? 'Filters (active)' : 'Filters'}
-          variant="outline"
-          onPress={() => setFiltersVisible(true)}
-        />
-        {hasActiveFilters ? (
-          <Pressable accessibilityRole="button" onPress={clearFilters} style={styles.clearFilters}>
-            <AppText variant="bodySmall" color="textLink">
-              Clear
-            </AppText>
-          </Pressable>
-        ) : null}
-      </View>
+      <AdminSellerFilterTabs
+        approvalFilter={approvalFilter}
+        shopVisibilityFilter={shopVisibilityFilter}
+        onSelect={handleTabSelect}
+      />
 
-      {activeFilterSummary ? (
-        <AppText variant="caption" color="textSecondary">
-          {activeFilterSummary}
+      {totalSellers > 0 ? (
+        <AppText variant="bodySmall" color="textSecondary" style={styles.countText}>
+          {totalSellers} {totalSellers === 1 ? 'seller' : 'sellers'}
         </AppText>
       ) : null}
 
@@ -223,17 +123,17 @@ export function AdminSellerManagementScreen({ navigation }: Props) {
         />
       ) : null}
 
-      {error ? (
+      {error && sellers.length === 0 && !showSkeletonList ? (
         <ErrorState message={error} onAction={() => void refresh()} style={styles.inlineError} />
       ) : null}
 
-      {isLoading && sellers.length === 0 ? (
-        <View style={styles.inlineLoading}>
-          <ActivityIndicator size="small" color={colors.primary} />
-          <AppText variant="bodySmall" color="textSecondary">
-            Loading sellers...
-          </AppText>
-        </View>
+      {error && sellers.length > 0 ? (
+        <ErrorState
+          message={error}
+          actionLabel="Retry"
+          onAction={() => void refresh()}
+          style={styles.inlineError}
+        />
       ) : null}
     </View>
   );
@@ -273,18 +173,49 @@ export function AdminSellerManagementScreen({ navigation }: Props) {
     return <View style={[styles.screen, { paddingTop: insets.top }]} />;
   }
 
+  if (showSkeletonList) {
+    return (
+      <>
+        <FlatList
+          style={styles.screen}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: insets.bottom + spacing.xxl + 72 },
+          ]}
+          data={SKELETON_ITEMS}
+          keyExtractor={(item) => item}
+          renderItem={() => <AdminSellerCardSkeleton />}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          ListHeaderComponent={listHeader}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        />
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Create seller"
+          onPress={() => navigation.navigate('AdminCreateSeller')}
+          style={[styles.fab, { bottom: insets.bottom + spacing.lg }]}
+        >
+          <Ionicons name="add" size={28} color={colors.textInverse} />
+        </Pressable>
+      </>
+    );
+  }
+
   return (
     <>
       <FlatList
         style={styles.screen}
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: insets.bottom + spacing.xxl },
+          { paddingBottom: insets.bottom + spacing.xxl + 72 },
           sellers.length === 0 && styles.emptyContent,
         ]}
         data={sellers}
         keyExtractor={(item, index) => item._id ?? `admin-seller-${index}`}
         renderItem={renderItem}
+        extraData={busySellerId}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListHeaderComponent={listHeader}
         ListFooterComponent={listFooter}
@@ -294,8 +225,8 @@ export function AdminSellerManagementScreen({ navigation }: Props) {
               title="No sellers found"
               message={
                 hasActiveFilters || searchInput.trim()
-                  ? 'Try adjusting your search or filters.'
-                  : 'Sellers will appear here once they register.'
+                  ? 'Try adjusting your search or status tab.'
+                  : 'Sellers will appear here once they register on the platform.'
               }
             />
           ) : null
@@ -308,15 +239,24 @@ export function AdminSellerManagementScreen({ navigation }: Props) {
           />
         }
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       />
 
-      <AdminSellerFiltersSheet
-        visible={filtersVisible}
-        approvalFilter={approvalFilter}
-        shopVisibilityFilter={shopVisibilityFilter}
-        onClose={() => setFiltersVisible(false)}
-        onApply={applyFilters}
-        onClear={clearFilters}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Create seller"
+        onPress={() => navigation.navigate('AdminCreateSeller')}
+        style={[styles.fab, { bottom: insets.bottom + spacing.lg }]}
+      >
+        <Ionicons name="add" size={28} color={colors.textInverse} />
+      </Pressable>
+
+      <AdminProductCardActionsMenu
+        visible={Boolean(menuSeller)}
+        productName={menuSeller ? getAdminSellerDisplayName(menuSeller) : undefined}
+        actions={menuActions}
+        onClose={closeMenu}
+        onSelect={handleMenuAction}
       />
     </>
   );
@@ -336,36 +276,14 @@ const styles = StyleSheet.create({
   },
   headerContent: {
     gap: spacing.md,
-    marginBottom: spacing.sm,
+    paddingBottom: spacing.xs,
   },
-  titleBlock: {
-    gap: spacing.xs,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  titleCopy: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  clearFilters: {
-    paddingVertical: spacing.sm,
+  countText: {
+    fontWeight: '600',
   },
   inlineError: {
-    marginTop: 0,
-  },
-  inlineLoading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+    alignSelf: 'stretch',
+    marginHorizontal: 0,
   },
   separator: {
     height: spacing.md,
@@ -375,13 +293,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingTop: spacing.lg,
-    gap: spacing.md,
   },
   paginationButton: {
-    minWidth: 72,
     paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
   },
   paginationButtonDisabled: {
     opacity: 0.5,
+  },
+  fab: {
+    position: 'absolute',
+    right: spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: radius.pill,
+    backgroundColor: colors.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.floating,
   },
 });

@@ -7,7 +7,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
 import { AppButton } from '../../../../components/ui/AppButton';
 import { AppCard } from '../../../../components/ui/AppCard';
-import { AppText } from '../../../../components/ui/AppText';
 import { colors, spacing } from '../../../../design-system';
 import type { AdminStackParamList } from '../../navigation/adminTypes';
 import { useRequireAdmin } from '../../hooks/useRequireAdmin';
@@ -99,15 +98,6 @@ export function AdminSellerSectionEditScreen({ navigation, route }: Props) {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
         keyboardShouldPersistTaps="handled"
       >
-        <AppCard variant="muted">
-          <AppText variant="bodyMedium" style={styles.title}>
-            Edit {sectionTitle.toLowerCase()}
-          </AppText>
-          <AppText variant="bodySmall" color="textSecondary">
-            Saving this section does not change seller approval status.
-          </AppText>
-        </AppCard>
-
         <AppCard>
           <AdminSellerSectionEditForm {...sectionFormProps} />
         </AppCard>
@@ -138,10 +128,6 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.lg,
     gap: spacing.lg,
-  },
-  title: {
-    fontWeight: '700',
-    marginBottom: spacing.xs,
   },
   inlineError: {
     alignSelf: 'stretch',

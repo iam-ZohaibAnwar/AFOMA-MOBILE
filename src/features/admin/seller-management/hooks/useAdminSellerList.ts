@@ -144,6 +144,16 @@ export function useAdminSellerList(enabled: boolean) {
     [],
   );
 
+  const applyApprovalFilter = useCallback((nextApproval: AdminSellerApprovalFilter) => {
+    setApprovalFilter(nextApproval);
+    setShopVisibilityFilter('');
+  }, []);
+
+  const applyShopVisibilityFilter = useCallback((nextShop: AdminSellerShopFilter) => {
+    setShopVisibilityFilter(nextShop);
+    setApprovalFilter('');
+  }, []);
+
   const clearFilters = useCallback(() => {
     setApprovalFilter('');
     setShopVisibilityFilter('');
@@ -249,6 +259,8 @@ export function useAdminSellerList(enabled: boolean) {
     shopVisibilityFilter,
     hasActiveFilters,
     applyFilters,
+    applyApprovalFilter,
+    applyShopVisibilityFilter,
     clearFilters,
     actionError,
     clearActionError,

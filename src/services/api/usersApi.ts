@@ -44,6 +44,8 @@ export interface UserProfileResponse {
   zipcode?: string;
   company?: string;
   address?: SavedUserAddress[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 /** PUT /users/{userId} — customer account details (web parity). */
@@ -89,5 +91,18 @@ export async function updateUserProfile(
     body,
     undefined,
     'Failed to update account details',
+  );
+}
+
+/** PUT /users/{userId} — profile photo URL (web parity). */
+export async function updateUserProfilePhoto(
+  userId: string,
+  userProfile: string,
+): Promise<UserProfileResponse> {
+  return apiPut<UserProfileResponse>(
+    `/users/${userId}`,
+    { userProfile },
+    undefined,
+    'Failed to update profile photo',
   );
 }

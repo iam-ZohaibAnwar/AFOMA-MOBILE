@@ -1,11 +1,14 @@
 import { Pressable, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
+import { ChevronForwardIcon } from '../../../../components/ui/ChevronForwardIcon';
 import { AppText } from '../../../../components/ui/AppText';
-import { colors, spacing } from '../../../../design-system';
+import { colors, radius, spacing } from '../../../../design-system';
 
 export interface AdminSettingsHubRowProps {
   title: string;
   description?: string;
+  icon?: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
   showDivider?: boolean;
 }
@@ -13,6 +16,7 @@ export interface AdminSettingsHubRowProps {
 export function AdminSettingsHubRow({
   title,
   description,
+  icon,
   onPress,
   showDivider = true,
 }: AdminSettingsHubRowProps) {
@@ -23,6 +27,12 @@ export function AdminSettingsHubRow({
         onPress={onPress}
         style={({ pressed }) => [styles.row, pressed && styles.pressed]}
       >
+        {icon ? (
+          <View style={styles.iconWrap}>
+            <Ionicons name={icon} size={20} color={colors.textInverse} />
+          </View>
+        ) : null}
+
         <View style={styles.textWrap}>
           <AppText variant="bodyMedium" style={styles.title}>
             {title}
@@ -33,9 +43,8 @@ export function AdminSettingsHubRow({
             </AppText>
           ) : null}
         </View>
-        <AppText variant="bodyMedium" color="textMuted" style={styles.chevron}>
-          ›
-        </AppText>
+
+        <ChevronForwardIcon color={colors.textMuted} size={18} />
       </Pressable>
       {showDivider ? <View style={styles.divider} /> : null}
     </>
@@ -52,6 +61,15 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.88,
   },
+  iconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.medium,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    flexShrink: 0,
+  },
   textWrap: {
     flex: 1,
     gap: spacing.xs,
@@ -59,10 +77,6 @@ const styles = StyleSheet.create({
   title: {
     color: colors.textPrimary,
     fontWeight: '600',
-  },
-  chevron: {
-    fontSize: 22,
-    lineHeight: 24,
   },
   divider: {
     height: StyleSheet.hairlineWidth,

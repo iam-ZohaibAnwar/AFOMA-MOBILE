@@ -5,6 +5,9 @@ export const ADMIN_REVIEW_STATUSES: AdminReviewStatus[] = ['Approved', 'Pending'
 
 export type AdminReviewStatusFilter = AdminReviewStatus | '';
 
+/** List hub tabs — web admin review parity. */
+export type AdminReviewListTabId = 'customer' | 'seller-replies';
+
 export interface AdminReviewPopulatedUser {
   _id?: string;
   firstName?: string;

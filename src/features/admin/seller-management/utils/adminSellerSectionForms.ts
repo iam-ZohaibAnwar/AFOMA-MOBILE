@@ -240,7 +240,6 @@ export function buildAdminSellerSectionPayload(
             ibanNumber: form.ibanNumber.trim() || undefined,
           },
         ],
-        web3address: form.web3address.trim() || undefined,
       };
     }
     case 'shop-policies': {

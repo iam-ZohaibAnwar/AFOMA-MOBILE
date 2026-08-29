@@ -16,9 +16,6 @@ import { AccountGenderSelector } from '../../../account/components/AccountGender
 import { authReturnTo } from '../../../auth/utils/authNavigation';
 import { useAdminSellerBasicInfoSave } from '../hooks/useAdminSellerBasicInfoSave';
 import { useAdminSellerDetail } from '../hooks/useAdminSellerDetail';
-import {
-  formatAdminSellerField,
-} from '../utils/adminSellerBasicInfo';
 
 type Props = NativeStackScreenProps<AdminStackParamList, 'AdminSellerBasicInformationEdit'>;
 
@@ -73,18 +70,10 @@ export function AdminSellerBasicInformationEditScreen({ navigation, route }: Pro
       contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
       keyboardShouldPersistTaps="handled"
     >
-      <AppCard variant="muted">
-        <AppText variant="bodyMedium" style={styles.title}>
-          Edit basic information
-        </AppText>
-        <AppText variant="bodySmall" color="textSecondary">
-          Saving here updates contact details only. Approval status is changed separately.
-        </AppText>
-      </AppCard>
-
       <AppCard>
         <View style={styles.form}>
           <AppInput
+            tone="surface"
             label="First name *"
             value={values.firstName}
             onChangeText={(value) => updateField('firstName', value)}
@@ -92,6 +81,7 @@ export function AdminSellerBasicInformationEditScreen({ navigation, route }: Pro
             autoCapitalize="words"
           />
           <AppInput
+            tone="surface"
             label="Last name *"
             value={values.lastName}
             onChangeText={(value) => updateField('lastName', value)}
@@ -99,6 +89,7 @@ export function AdminSellerBasicInformationEditScreen({ navigation, route }: Pro
             autoCapitalize="words"
           />
           <AppInput
+            tone="surface"
             label="Email *"
             value={values.email}
             onChangeText={(value) => updateField('email', value)}
@@ -107,11 +98,13 @@ export function AdminSellerBasicInformationEditScreen({ navigation, route }: Pro
             autoCapitalize="none"
           />
           <AccountGenderSelector
+            tone="surface"
             value={values.gender}
             onChange={(value) => updateField('gender', value)}
             error={fieldErrors.gender}
           />
           <AppInput
+            tone="surface"
             label="Date of birth"
             value={values.dob}
             onChangeText={(value) => updateField('dob', value)}
@@ -119,21 +112,12 @@ export function AdminSellerBasicInformationEditScreen({ navigation, route }: Pro
             placeholder="YYYY-MM-DD"
           />
           <AppInput
+            tone="surface"
             label="Contact number"
             value={values.phone}
             onChangeText={(value) => updateField('phone', value)}
             keyboardType="phone-pad"
           />
-        </View>
-
-        <View style={styles.web3Block}>
-          <AppText variant="label">Web3 wallet (read-only)</AppText>
-          <AppText variant="bodySmall" color="textSecondary">
-            Network: {formatAdminSellerField(displaySeller?.networkType)}
-          </AppText>
-          <AppText variant="bodySmall" color="textSecondary">
-            Wallet: {formatAdminSellerField(displaySeller?.web3address)}
-          </AppText>
         </View>
       </AppCard>
 
@@ -166,19 +150,8 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.lg,
   },
-  title: {
-    fontWeight: '700',
-    marginBottom: spacing.xs,
-  },
   form: {
     gap: spacing.md,
-  },
-  web3Block: {
-    gap: spacing.xs,
-    marginTop: spacing.lg,
-    paddingTop: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
   },
   inlineError: {
     alignSelf: 'stretch',

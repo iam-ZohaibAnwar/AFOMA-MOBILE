@@ -86,7 +86,6 @@ export function AdminSellerSectionReadOnly({ sectionId, seller }: AdminSellerSec
           <ReadOnlyField label="Bank name" value={formatAdminField(form.bankName)} />
           <ReadOnlyField label="SWIFT code" value={formatAdminField(form.swiftCode)} />
           <ReadOnlyField label="IBAN" value={formatAdminField(form.ibanNumber)} />
-          <ReadOnlyField label="Web3 wallet" value={formatAdminField(form.web3address)} />
         </View>
       );
     }

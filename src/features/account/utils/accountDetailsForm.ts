@@ -1,5 +1,6 @@
 import type { StoredUserProfile } from '../../auth/types';
 import type { UpdateUserProfileRequest, UserProfileResponse } from '../../../services/api/usersApi';
+import { resolveUserProfileImageUrl } from '../../../utils/resolveUserProfileImageUrl';
 import { resolveAddressRegionCodes } from '../../checkout/utils/resolveAddressRegionCodes';
 import { resolveCountryStateSelection } from '../../../utils/regionOptions';
 import { isValidEmail } from '../../auth/utils/validation';
@@ -252,7 +253,9 @@ export function mapUserProfileToStoredProfile(
     DOB: profile.DOB ?? existing?.DOB,
     web3address: profile.web3address ?? existing?.web3address,
     networkType: profile.networkType ?? existing?.networkType,
-    userProfile: profile.userProfile ?? existing?.userProfile,
+    userProfile:
+      resolveUserProfileImageUrl(profile.userProfile) ??
+      resolveUserProfileImageUrl(existing?.userProfile),
     country: profile.country ?? profile.countryName ?? existing?.country,
     countryName: profile.countryName ?? profile.country ?? existing?.countryName,
     Country: profile.Country ?? existing?.Country,

@@ -104,7 +104,7 @@ export function CartScreen({ route, navigation }: Props) {
     updateVariations,
     replaceCart,
     setShippingTotals,
-  } = useCart(authUserId, userInfo);
+  } = useCart();
 
   const [modalAddress, setModalAddress] = useState(emptyShippingAddress());
   const [modalErrors, setModalErrors] = useState<Partial<Record<ShippingAddressField, string>>>({});

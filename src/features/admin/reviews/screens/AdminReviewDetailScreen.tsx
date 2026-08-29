@@ -1,52 +1,37 @@
 import { useCallback, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NavigationProp } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
-import { AppButton } from '../../../../components/ui/AppButton';
-import { AppCard } from '../../../../components/ui/AppCard';
 import { AppText } from '../../../../components/ui/AppText';
 import { colors, spacing } from '../../../../design-system';
 import { authReturnTo } from '../../../auth/utils/authNavigation';
 import { useRequireAdmin } from '../../hooks/useRequireAdmin';
 import type { AdminStackParamList } from '../../navigation/adminTypes';
-import { AdminReviewStatusBadge } from '../components/AdminReviewStatusBadge';
 import { AdminReviewStatusSheet } from '../components/AdminReviewStatusSheet';
+import { AdminReviewDetailContentCard } from '../components/detail/AdminReviewDetailContentCard';
+import { AdminReviewDetailHero } from '../components/detail/AdminReviewDetailHero';
+import { AdminReviewDetailOperationsCard } from '../components/detail/AdminReviewDetailOperationsCard';
+import { AdminReviewDetailRatingsCard } from '../components/detail/AdminReviewDetailRatingsCard';
 import { useAdminReviewModeration } from '../hooks/useAdminReviewModeration';
 import { useAdminReviewDetail } from '../hooks/useAdminReviews';
 import type { AdminReviewStatus } from '../types/adminReviews';
-import {
-  formatAdminReviewStatus,
-  getAdminReviewCustomerName,
-  getAdminReviewProductName,
-  getAdminReviewTitle,
-} from '../utils/adminReviewsContent';
-import { getAdminReviewCustomerEmail, getAdminReviewText } from '../utils/adminReviewsDisplay';
+import { formatAdminReviewStatus } from '../utils/adminReviewsContent';
+import { navigateToAdminReviewProductPreview } from '../utils/adminReviewProductPreview';
 
 type Props = NativeStackScreenProps<AdminStackParamList, 'AdminReviewDetail'>;
 
-function DetailField({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.field}>
-      <AppText variant="caption" color="textSecondary">
-        {label}
-      </AppText>
-      <AppText variant="bodyMedium" style={styles.fieldValue}>
-        {value}
-      </AppText>
-    </View>
-  );
-}
-
 export function AdminReviewDetailScreen({ route }: Props) {
-  const { reviewId, initialReview } = route.params;
+  const { reviewId, initialReview, listTab = 'customer' } = route.params;
+  const navigation = useNavigation<NavigationProp<AdminStackParamList>>();
   const insets = useSafeAreaInsets();
   const returnTo = authReturnTo.adminReviewDetail(reviewId);
   const { isAuthorized } = useRequireAdmin(returnTo);
   const [statusSheetVisible, setStatusSheetVisible] = useState(false);
 
-  const { review, isLoading, error, reload, applyReviewUpdate } = useAdminReviewDetail({
+  const { review, isLoading, isRefreshing, error, reload, applyReviewUpdate } = useAdminReviewDetail({
     reviewId,
     initialReview,
     enabled: isAuthorized,
@@ -69,6 +54,17 @@ export function AdminReviewDetailScreen({ route }: Props) {
     [applyReviewUpdate, updateStatus],
   );
 
+  const handleViewProduct = useCallback(() => {
+    if (!review) {
+      return;
+    }
+
+    const didNavigate = navigateToAdminReviewProductPreview(navigation, review);
+    if (!didNavigate) {
+      Alert.alert('Product unavailable', 'This review does not include a product link yet.');
+    }
+  }, [navigation, review]);
+
   if (!isAuthorized) {
     return <View style={[styles.screen, { paddingTop: insets.top }]} />;
   }
@@ -77,7 +73,7 @@ export function AdminReviewDetailScreen({ route }: Props) {
     return (
       <View style={[styles.centeredState, { paddingBottom: insets.bottom }]}>
         <AppText variant="bodySmall" color="textSecondary">
-          Loading review…
+          Loading review...
         </AppText>
       </View>
     );
@@ -91,58 +87,45 @@ export function AdminReviewDetailScreen({ route }: Props) {
     );
   }
 
-  const customerEmail = review ? getAdminReviewCustomerEmail(review) : undefined;
+  if (!review) {
+    return <View style={[styles.screen, { paddingTop: insets.top }]} />;
+  }
 
   return (
     <>
       <ScrollView
         style={styles.screen}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => void reload()}
+            tintColor={colors.primary}
+          />
+        }
+        showsVerticalScrollIndicator={false}
       >
-        {error ? <ErrorState message={error} onAction={() => void reload()} style={styles.inlineError} /> : null}
+        <AdminReviewDetailHero review={review} listTab={listTab} />
+        <AdminReviewDetailRatingsCard review={review} />
+        <AdminReviewDetailContentCard review={review} />
+        <AdminReviewDetailOperationsCard
+          review={review}
+          isUpdating={isUpdating}
+          onChangeStatusPress={() => {
+            clearError();
+            setStatusSheetVisible(true);
+          }}
+          onViewProductPress={handleViewProduct}
+        />
 
-        <AppCard variant="flat">
-          <AppText variant="bodyMedium" style={styles.sectionTitle}>
-            Customer review
-          </AppText>
-
-          <DetailField label="Customer" value={review ? getAdminReviewCustomerName(review) : '—'} />
-          {customerEmail ? <DetailField label="Email" value={customerEmail} /> : null}
-          <DetailField label="Product" value={review ? getAdminReviewProductName(review) : '—'} />
-          <DetailField label="Review title" value={review ? getAdminReviewTitle(review) : '—'} />
-
-          <View style={styles.statusRow}>
-            <View style={styles.statusCopy}>
-              <AppText variant="caption" color="textSecondary">
-                Status
-              </AppText>
-              {review ? <AdminReviewStatusBadge status={review.reviewStatus} /> : null}
-            </View>
-            <AppButton
-              label="Change status"
-              variant="outline"
-              onPress={() => {
-                clearError();
-                setStatusSheetVisible(true);
-              }}
-              disabled={!review || isUpdating}
-            />
-          </View>
-        </AppCard>
-
-        <AppCard variant="flat">
-          <AppText variant="caption" color="textSecondary">
-            Review
-          </AppText>
-          <AppText variant="bodyMedium" style={styles.reviewText}>
-            {review ? getAdminReviewText(review) : '—'}
-          </AppText>
-        </AppCard>
+        {error ? (
+          <ErrorState message={error} onAction={() => void reload()} style={styles.inlineError} />
+        ) : null}
       </ScrollView>
 
       <AdminReviewStatusSheet
         visible={statusSheetVisible}
-        currentStatus={review ? formatAdminReviewStatus(review.reviewStatus) : 'Pending'}
+        currentStatus={formatAdminReviewStatus(review.reviewStatus)}
         isUpdating={isUpdating}
         error={moderationError}
         onDismiss={() => setStatusSheetVisible(false)}
@@ -161,8 +144,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
+    padding: spacing.lg,
     gap: spacing.md,
   },
   centeredState: {
@@ -172,37 +154,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     paddingHorizontal: spacing.lg,
   },
-  sectionTitle: {
-    color: colors.textPrimary,
-    fontWeight: '700',
-    marginBottom: spacing.sm,
-  },
-  field: {
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  fieldValue: {
-    color: colors.textPrimary,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-    paddingTop: spacing.md,
-  },
-  statusCopy: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  reviewText: {
-    color: colors.textPrimary,
-    lineHeight: 22,
-    marginTop: spacing.sm,
-  },
   inlineError: {
-    marginBottom: 0,
+    marginHorizontal: 0,
   },
 });

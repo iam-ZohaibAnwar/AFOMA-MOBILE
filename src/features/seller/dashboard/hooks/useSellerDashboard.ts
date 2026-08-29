@@ -24,7 +24,6 @@ export function useSellerDashboard(sellerId?: string) {
   const [payoutSummary, setPayoutSummary] = useState<SellerDashboardPayoutSummary | null>(null);
   const [latestOrders, setLatestOrders] = useState<SellerDashboardOrder[]>([]);
   const [errors, setErrors] = useState<SellerDashboardErrors>({});
-  const [isLoading, setIsLoading] = useState(Boolean(sellerId));
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const loadDashboard = useCallback(
@@ -34,14 +33,11 @@ export function useSellerDashboard(sellerId?: string) {
         setPayoutSummary(null);
         setLatestOrders([]);
         setErrors({});
-        setIsLoading(false);
         return;
       }
 
       if (refreshing) {
         setIsRefreshing(true);
-      } else {
-        setIsLoading(true);
       }
 
       const nextErrors: SellerDashboardErrors = {};
@@ -74,7 +70,6 @@ export function useSellerDashboard(sellerId?: string) {
       }
 
       setErrors(nextErrors);
-      setIsLoading(false);
       setIsRefreshing(false);
     },
     [sellerId],
@@ -84,17 +79,12 @@ export function useSellerDashboard(sellerId?: string) {
     void loadDashboard();
   }, [loadDashboard]);
 
-  const hasAnyData = Boolean(orderCounts || payoutSummary || latestOrders.length > 0);
-  const hasBlockingError = Boolean(errors.counts && errors.payouts && errors.orders && !hasAnyData);
-
   return {
     orderCounts,
     payoutSummary,
     latestOrders,
     errors,
-    isLoading,
     isRefreshing,
-    hasBlockingError,
     reload: () => loadDashboard(true),
     refresh: () => loadDashboard(true),
   };

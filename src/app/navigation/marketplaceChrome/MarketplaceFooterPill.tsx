@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, View } from 'react-native';
-import { useNavigationState } from '@react-navigation/native';
 
 
 import { AppText } from '../../../components/ui/AppText';
@@ -15,8 +14,6 @@ import { getCartItemCount } from '../../../features/cart/utils/cartUtils';
 
 import { authReturnTo, openAuthLogin } from '../../../features/auth/utils/authNavigation';
 
-import { resolveAuthUserId } from '../../../features/auth/utils/resolveAuthUserId';
-
 import { TabBarIcon, type TabIconName } from '../TabBarIcon';
 
 import type { MainTabParamList } from '../types';
@@ -26,6 +23,7 @@ import { marketplaceNavigationRef } from './marketplaceNavigationRef';
 import { MARKETPLACE_FOOTER_PILL_HEIGHT } from './marketplaceFooterLayout';
 
 import { navigateMarketplaceFooterTab } from './navigateMarketplaceFooterTab';
+import { useMarketplaceChrome } from './MarketplaceChromeProvider';
 
 import {
   resolveMarketplaceActiveTab,
@@ -151,13 +149,13 @@ export interface MarketplaceFooterPillProps {
 
 
 export function MarketplaceFooterPill({ translateY }: MarketplaceFooterPillProps) {
-  const { isAuthenticated, isLoading, user } = useAuth();
-  const authUserId = resolveAuthUserId(user);
-  const { cart } = useCart(authUserId);
+  const { isAuthenticated, isLoading } = useAuth();
+  const { cart } = useCart();
   const cartCount = getCartItemCount(cart);
+  const { rootNavState } = useMarketplaceChrome();
 
-  const activeRouteName = useNavigationState((state) => resolveMarketplaceActiveTab(state));
-  const marketplaceSegment = useNavigationState((state) => resolveMarketplaceTabSegment(state));
+  const activeRouteName = resolveMarketplaceActiveTab(rootNavState);
+  const marketplaceSegment = resolveMarketplaceTabSegment(rootNavState);
   const [pendingSelection, setPendingSelection] = useState<PendingFooterSelection | null>(null);
 
   const resolvedFooterSegment = resolveFooterSegment(activeRouteName, marketplaceSegment);

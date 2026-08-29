@@ -44,12 +44,12 @@ export function AdminGlobalAttributeRenameModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onDismiss}>
-      <Pressable style={styles.backdrop} onPress={onDismiss}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.keyboardWrap}
-        >
-          <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.lg }]}>
+      <Pressable style={styles.backdrop} onPress={onDismiss} />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardWrap}
+      >
+        <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.lg }]}>
             <AppText variant="bodyMedium" style={styles.title}>
               Rename attribute
             </AppText>
@@ -59,6 +59,7 @@ export function AdminGlobalAttributeRenameModal({
 
             <AppInput
               value={name}
+              tone="surface"
               onChangeText={(text) => {
                 setName(text);
                 onClearError();
@@ -80,18 +81,17 @@ export function AdminGlobalAttributeRenameModal({
             </View>
           </View>
         </KeyboardAvoidingView>
-      </Pressable>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   backdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(15, 23, 42, 0.45)',
   },
   keyboardWrap: {
+    flex: 1,
     justifyContent: 'flex-end',
   },
   sheet: {

@@ -153,3 +153,36 @@ export function getAdminCustomerUserId(order: AdminOrderListItem): string | unde
   const value = String(userId).trim();
   return value || undefined;
 }
+
+export function getAdminCustomerInitials(name?: string): string {
+  const parts = name?.trim().split(/\s+/).filter(Boolean) ?? [];
+  if (!parts.length) {
+    return '?';
+  }
+
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  return `${parts[0][0] ?? ''}${parts[parts.length - 1][0] ?? ''}`.toUpperCase();
+}
+
+export function getAdminCustomerPhone(order: AdminOrderListItem | AdminOrderDetail): string | undefined {
+  const userInfo = order.userInfo as Record<string, unknown> | undefined;
+  const candidates = [
+    userInfo?.phone,
+    userInfo?.phoneNumber,
+    userInfo?.mobile,
+    userInfo?.contactPhone,
+    (order as Record<string, unknown>).payerInfo &&
+      ((order as Record<string, unknown>).payerInfo as Record<string, unknown>)?.phone,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  return undefined;
+}

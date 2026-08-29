@@ -1,150 +1,124 @@
-import { StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-import { AppBadge } from '../../../../components/ui/AppBadge';
-import { AppButton } from '../../../../components/ui/AppButton';
 import { AppText } from '../../../../components/ui/AppText';
-import { colors, spacing } from '../../../../design-system';
-import type { AdminCommissionActionError, AdminCommissionDisplayRow } from '../types/adminCommission';
+import { colors, radius, shadows, spacing } from '../../../../design-system';
+import { AdminProductStatusChip } from '../../product-management/components/AdminProductStatusChip';
+import type { AdminCommissionDisplayRow } from '../types/adminCommission';
 import {
-  canInitiateAdminCommissionPayout,
-  canUpdateAdminCommissionPayoutStatus,
-} from '../utils/adminCommissionMutationGuards';
-import {
-  adminCommissionPayoutStatusBadgeVariant,
-  adminCommissionRecipientTypeBadgeVariant,
   formatAdminCommissionAmount,
-  formatAdminCommissionPayoutStatus,
+  formatAdminCommissionOrderDisplayId,
   formatAdminCommissionPurchasedDate,
-  formatAdminCommissionRecipientType,
-  getAdminCommissionPayoutStateLabel,
-  getInitiatePayoutButtonLabel,
 } from '../utils/adminCommissionFormatters';
+import {
+  getAdminCommissionListSubtitle,
+  getAdminCommissionPrimaryPayoutAmount,
+  resolveAdminCommissionAccentColor,
+  resolveAdminCommissionListStatusChips,
+  resolveAdminCommissionTypeIcon,
+} from '../utils/adminCommissionListDisplay';
 
 export interface AdminCommissionCardProps {
   row: AdminCommissionDisplayRow;
-  initiatingCommissionId: string | null;
-  updatingStatusCommissionId: string | null;
-  actionError: AdminCommissionActionError | null;
-  onInitiatePress: (row: AdminCommissionDisplayRow) => void;
-  onStatusPress: (row: AdminCommissionDisplayRow) => void;
-  onRetryAction: (row: AdminCommissionDisplayRow, kind: AdminCommissionActionError['kind']) => void;
-  onDismissActionError: () => void;
-}
-
-function AmountRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.amountRow}>
-      <AppText variant="bodySmall" color="textSecondary">
-        {label}
-      </AppText>
-      <AppText variant="bodyMedium" style={styles.amountValue}>
-        {value}
-      </AppText>
-    </View>
-  );
+  onPress: (row: AdminCommissionDisplayRow) => void;
+  onMenuPress: (row: AdminCommissionDisplayRow) => void;
+  isBusy?: boolean;
 }
 
 export function AdminCommissionCard({
   row,
-  initiatingCommissionId,
-  updatingStatusCommissionId,
-  actionError,
-  onInitiatePress,
-  onStatusPress,
-  onRetryAction,
-  onDismissActionError,
+  onPress,
+  onMenuPress,
+  isBusy = false,
 }: AdminCommissionCardProps) {
-  const payoutStatus = formatAdminCommissionPayoutStatus(row.payoutStatus);
-  const payoutStateLabel = getAdminCommissionPayoutStateLabel(row);
-  const primaryPayoutAmount =
-    row.type === 'affiliate'
-      ? row.affiliateAmount
-      : row.type === 'referral'
-        ? row.referralAmount
-        : row.payoutAmount;
-
-  const isInitiating = initiatingCommissionId === row.commissionId;
-  const isUpdatingStatus = updatingStatusCommissionId === row.commissionId;
-  const canInitiate = canInitiateAdminCommissionPayout(row, initiatingCommissionId);
-  const canUpdateStatus = canUpdateAdminCommissionPayoutStatus(row, updatingStatusCommissionId);
-  const rowActionError = actionError?.commissionId === row.commissionId ? actionError : null;
+  const accentColor = resolveAdminCommissionAccentColor(row.type);
+  const statusChips = resolveAdminCommissionListStatusChips(row);
+  const subtitle = getAdminCommissionListSubtitle(row);
+  const payoutAmount = getAdminCommissionPrimaryPayoutAmount(row);
 
   return (
     <View style={styles.card}>
-      <View style={styles.header}>
-        <View style={styles.badges}>
-          <AppBadge
-            label={formatAdminCommissionRecipientType(row.type)}
-            variant={adminCommissionRecipientTypeBadgeVariant(row.type)}
-          />
-          <AppBadge
-            label={payoutStatus}
-            variant={adminCommissionPayoutStatusBadgeVariant(row.payoutStatus)}
-          />
+      <View style={[styles.accent, { backgroundColor: accentColor }]} />
+
+      <Pressable
+        accessibilityRole="button"
+        disabled={isBusy}
+        onPress={() => onPress(row)}
+        style={({ pressed }) => [styles.body, pressed && styles.cardPressed]}
+      >
+        <View style={[styles.iconWrap, { backgroundColor: accentColor }]}>
+          <Ionicons name={resolveAdminCommissionTypeIcon(row.type)} size={22} color={colors.textInverse} />
         </View>
-        <AppText variant="bodyMedium" style={styles.orderId}>
-          {row.orderDisplayId}
-        </AppText>
-      </View>
 
-      <AppText variant="bodySmall" color="textSecondary">
-        {formatAdminCommissionRecipientType(row.type)}: {row.recipientName}
-      </AppText>
+        <View style={styles.content}>
+          <View style={styles.titleRow}>
+            <AppText variant="caption" color="textMuted" style={styles.orderLabel}>
+              ORDER #{formatAdminCommissionOrderDisplayId(row.orderId)}
+            </AppText>
+            <AppText variant="caption" color="textSecondary">
+              {formatAdminCommissionPurchasedDate(row.purchasedAt)}
+            </AppText>
+          </View>
 
-      {row.type === 'seller' && row.productNames !== '—' ? (
-        <AppText variant="bodySmall" color="textSecondary" numberOfLines={2}>
-          {row.productNames}
-        </AppText>
-      ) : null}
-
-      <View style={styles.amounts}>
-        <AmountRow label="Commission" value={formatAdminCommissionAmount(row.commissionAmount)} />
-        <AmountRow
-          label={row.type === 'affiliate' ? 'Affiliate payout' : row.type === 'referral' ? 'Referral payout' : 'Payout'}
-          value={formatAdminCommissionAmount(primaryPayoutAmount)}
-        />
-      </View>
-
-      {payoutStateLabel ? (
-        <AppText variant="caption" color="textSecondary">
-          {payoutStateLabel}
-        </AppText>
-      ) : null}
-
-      <AppText variant="caption" color="textMuted">
-        {formatAdminCommissionPurchasedDate(row.purchasedAt)}
-      </AppText>
-
-      <View style={styles.actions}>
-        <AppButton
-          label={getInitiatePayoutButtonLabel(row, isInitiating)}
-          variant="outline"
-          disabled={!canInitiate}
-          onPress={() => onInitiatePress(row)}
-        />
-        <AppButton
-          label={isUpdatingStatus ? 'Updating...' : 'Payout status'}
-          variant="ghost"
-          disabled={!canUpdateStatus}
-          onPress={() => onStatusPress(row)}
-        />
-      </View>
-
-      {rowActionError ? (
-        <View style={styles.actionError}>
-          <AppText variant="bodySmall" color="textSecondary">
-            {rowActionError.message}
+          <AppText variant="bodyMedium" style={styles.recipientName} numberOfLines={1}>
+            {row.recipientName}
           </AppText>
-          <View style={styles.actionErrorButtons}>
-            <AppButton
-              label="Retry"
-              variant="outline"
-              onPress={() => onRetryAction(row, rowActionError.kind)}
-            />
-            <AppButton label="Dismiss" variant="ghost" onPress={onDismissActionError} />
+
+          <AppText variant="caption" color="textSecondary" numberOfLines={2} style={styles.subtitle}>
+            {subtitle}
+          </AppText>
+
+          {statusChips.length > 0 ? (
+            <View style={styles.chipsRow}>
+              {statusChips.map((chip) => (
+                <AdminProductStatusChip
+                  key={chip.id}
+                  label={chip.label}
+                  icon={chip.icon}
+                  tone={chip.tone}
+                />
+              ))}
+            </View>
+          ) : null}
+
+          <View style={styles.footerRow}>
+            <View style={styles.amountBlock}>
+              <AppText variant="caption" color="textMuted" style={styles.amountLabel}>
+                COMMISSION
+              </AppText>
+              <AppText variant="h3" style={styles.commissionValue}>
+                {formatAdminCommissionAmount(row.commissionAmount)}
+              </AppText>
+            </View>
+
+            <View style={styles.amountBlock}>
+              <AppText variant="caption" color="textMuted" style={styles.amountLabel}>
+                PAYOUT
+              </AppText>
+              <AppText variant="bodyMedium" style={styles.payoutValue}>
+                {formatAdminCommissionAmount(payoutAmount)}
+              </AppText>
+            </View>
+
+            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
           </View>
         </View>
-      ) : null}
+      </Pressable>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Commission actions"
+        disabled={isBusy}
+        onPress={() => onMenuPress(row)}
+        style={({ pressed }) => [styles.menuButton, pressed && styles.menuButtonPressed]}
+        hitSlop={8}
+      >
+        {isBusy ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <Ionicons name="ellipsis-vertical" size={18} color={colors.textMuted} />
+        )}
+      </Pressable>
     </View>
   );
 }
@@ -152,55 +126,105 @@ export function AdminCommissionCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: spacing.md,
-    gap: spacing.sm,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radius.large,
+    borderWidth: 1,
     borderColor: colors.border,
+    overflow: 'hidden',
+    position: 'relative',
+    ...shadows.card,
   },
-  header: {
+  accent: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+  },
+  body: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    gap: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+    paddingRight: spacing.md + 28,
+    paddingLeft: spacing.md + 4,
+  },
+  cardPressed: {
+    opacity: 0.92,
+  },
+  iconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.medium,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.xs,
+    flexShrink: 0,
+  },
+  content: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  badges: {
+  orderLabel: {
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  recipientName: {
+    color: colors.textPrimary,
+    fontWeight: '700',
+    paddingRight: spacing.xs,
+  },
+  subtitle: {
+    lineHeight: 18,
+  },
+  chipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.xs,
-    flex: 1,
-  },
-  orderId: {
-    color: colors.textPrimary,
-  },
-  amounts: {
     gap: spacing.xs,
     marginTop: spacing.xs,
   },
-  amountRow: {
+  footerRow: {
     flexDirection: 'row',
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  amountValue: {
-    color: colors.textPrimary,
-  },
-  actions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
-  actionError: {
-    gap: spacing.sm,
-    marginTop: spacing.xs,
-    paddingTop: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
+  amountBlock: {
+    flex: 1,
+    gap: 2,
   },
-  actionErrorButtons: {
-    flexDirection: 'row',
-    gap: spacing.sm,
+  amountLabel: {
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  commissionValue: {
+    color: colors.primary,
+    fontWeight: '800',
+  },
+  payoutValue: {
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  menuButton: {
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.sm,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  menuButtonPressed: {
+    opacity: 0.75,
   },
 });

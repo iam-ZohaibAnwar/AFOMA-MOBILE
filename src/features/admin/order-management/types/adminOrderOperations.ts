@@ -5,8 +5,8 @@
  * - PUT /orders/update/status/{orderId}
  * - PUT /orders/{orderId}/products/{productId}/shipping
  *
- * Note: list filters may expose `Dispatched` while the web edit mutation dropdown
- * sends `Shipped`. Treat them as distinct until staging confirms equivalence.
+ * Note: list filters use `Shipped`; legacy data may still store `Dispatched`.
+ * Backend treats both as in-transit when filtering.
  */
 
 /** Values sent by web admin order-status PUT. */

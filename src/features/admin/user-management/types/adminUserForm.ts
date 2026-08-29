@@ -14,8 +14,7 @@ export type AdminUserFormField =
   | 'city'
   | 'streetAddress'
   | 'zipCode'
-  | 'userProfile'
-  | 'web3address';
+  | 'userProfile';
 
 export interface AdminUserFormValues {
   firstName: string;
@@ -35,7 +34,6 @@ export interface AdminUserFormValues {
   zipCode: string;
   userProfile: string;
   profileLocalUri: string;
-  web3address: string;
 }
 
 export type AdminUserFormFieldErrors = Partial<Record<AdminUserFormField, string>>;
@@ -58,5 +56,4 @@ export const ADMIN_USER_CREATE_INITIAL_VALUES: AdminUserFormValues = {
   zipCode: '',
   userProfile: '',
   profileLocalUri: '',
-  web3address: '',
 };

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
+  Pressable,
   RefreshControl,
   StyleSheet,
   View,
@@ -9,29 +9,36 @@ import {
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
 import { EmptyState } from '../../../../components/ecommerce/EmptyState';
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
-import { AppButton } from '../../../../components/ui/AppButton';
 import { AppCard } from '../../../../components/ui/AppCard';
 import { AppText } from '../../../../components/ui/AppText';
-import { colors, spacing } from '../../../../design-system';
+import { colors, radius, shadows, spacing } from '../../../../design-system';
+import { OrderListPagination } from '../../../orders/components/OrderListPagination';
+import { OrderListSearchBar } from '../../../orders/components/OrderListSearchBar';
 import { useAuth } from '../../../auth/hooks/useAuth';
 import { authReturnTo } from '../../../auth/utils/authNavigation';
 import { resolveAuthUserId } from '../../../auth/utils/resolveAuthUserId';
 import { useRequireAdmin } from '../../hooks/useRequireAdmin';
+import { AdminProductCardActionsMenu } from '../../product-management/components/AdminProductCardActionsMenu';
 import type { AdminStackParamList } from '../../navigation/adminTypes';
 import { AdminCouponCard } from '../components/AdminCouponCard';
-import { useAdminCoupons } from '../hooks/useAdminCoupons';
-import type { AdminCouponListItem } from '../types/adminCoupons';
+import { AdminCouponCardSkeleton } from '../components/AdminCouponCardSkeleton';
+import { AdminCouponScopeTabs } from '../components/AdminCouponScopeTabs';
+import { AdminCouponStatusTabs } from '../components/AdminCouponStatusTabs';
 import {
-  navigateToAdminCouponDetail,
-  navigateToAdminCouponForm,
-} from '../navigation/adminCouponsNavigation';
+  useAdminCouponCardActions,
+  useAdminCouponList,
+} from '../hooks/useAdminCoupons';
+import type { AdminCouponListItem } from '../types/adminCoupons';
+import { navigateToAdminCouponForm } from '../navigation/adminCouponsNavigation';
 
 type Props = NativeStackScreenProps<AdminStackParamList, 'AdminCoupons'>;
 
 const RETURN_TO = authReturnTo.adminCoupons();
+const SKELETON_ITEMS = ['c1', 'c2', 'c3'] as const;
 
 export function AdminCouponsScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
@@ -42,18 +49,51 @@ export function AdminCouponsScreen({ navigation, route }: Props) {
 
   const {
     coupons,
-    totalCount,
+    filteredCount,
+    listTab,
+    setListTab,
+    statusFilter,
+    setStatusFilter,
+    searchInput,
+    setSearchInput,
+    currentPage,
+    totalPages,
+    hasActiveFilters,
     isLoading,
-    isLoadingMore,
     isRefreshing,
+    deletingCouponId,
+    notifyingCouponId,
     error,
     actionError,
     refresh,
-    loadMore,
     clearActionError,
-  } = useAdminCoupons({
+    goToPreviousPage,
+    goToNextPage,
+    canGoPrevious,
+    canGoNext,
+    deleteCoupon,
+    notifyCoupon,
+  } = useAdminCouponList({
     adminUserId: isAuthorized ? adminUserId : undefined,
     enabled: isAuthorized,
+  });
+
+  const {
+    menuCoupon,
+    menuActions,
+    menuTitle,
+    openMenu,
+    closeMenu,
+    handleView,
+    handleMenuAction,
+    busyCouponId,
+  } = useAdminCouponCardActions(navigation, {
+    listTab,
+    deletingCouponId,
+    notifyingCouponId,
+    onDeleteCoupon: deleteCoupon,
+    onNotifyCoupon: notifyCoupon,
+    onListChanged: () => {},
   });
 
   useEffect(() => {
@@ -75,59 +115,39 @@ export function AdminCouponsScreen({ navigation, route }: Props) {
     navigateToAdminCouponForm(navigation);
   }, [navigation]);
 
-  const handlePressCoupon = useCallback(
-    (coupon: AdminCouponListItem) => {
-      const couponId = coupon._id;
-      if (!couponId) {
-        return;
-      }
-
-      navigateToAdminCouponDetail(navigation, couponId, coupon);
-    },
-    [navigation],
-  );
+  const showAddFab = listTab === 'admin';
+  const listBottomInset = insets.bottom + spacing.xxl + (showAddFab ? 72 : 0);
 
   const renderItem = useCallback(
     ({ item }: { item: AdminCouponListItem }) => (
-      <AdminCouponCard coupon={item} onPress={handlePressCoupon} />
+      <AdminCouponCard
+        coupon={item}
+        listTab={listTab}
+        onPress={handleView}
+        onMenuPress={openMenu}
+        isBusy={busyCouponId === item._id}
+      />
     ),
-    [handlePressCoupon],
+    [busyCouponId, handleView, listTab, openMenu],
   );
+
+  const showSkeletonList = isLoading && coupons.length === 0 && !error;
 
   if (!isAuthorized) {
     return <View style={[styles.screen, { paddingTop: insets.top }]} />;
   }
 
-  if (isLoading && coupons.length === 0 && !error) {
-    return (
-      <View style={[styles.centeredState, { paddingBottom: insets.bottom }]}>
-        <AppText variant="bodySmall" color="textSecondary">
-          Loading coupons…
-        </AppText>
-      </View>
-    );
-  }
-
-  if (error && coupons.length === 0) {
-    return (
-      <View style={[styles.centeredState, { paddingBottom: insets.bottom }]}>
-        <ErrorState message={error} onAction={() => void refresh()} />
-      </View>
-    );
-  }
-
   const listHeader = (
     <View style={styles.headerContent}>
-      <View style={styles.headerRow}>
-        <AppText variant="bodyMedium" style={styles.title}>
-          Admin coupons
-        </AppText>
-        <AppButton label="Add coupon" size="md" onPress={handleAddCoupon} />
-      </View>
+      <OrderListSearchBar
+        value={searchInput}
+        onChangeText={setSearchInput}
+        placeholder="Search by code, seller, or description..."
+        accessibilityLabel="Search coupons"
+      />
 
-      <AppText variant="bodySmall" color="textSecondary">
-        Manage promotional coupons created by your admin account.
-      </AppText>
+      <AdminCouponScopeTabs activeTab={listTab} onTabChange={setListTab} />
+      <AdminCouponStatusTabs activeStatus={statusFilter} onStatusChange={setStatusFilter} />
 
       {notice ? (
         <AppCard variant="flat" style={styles.successBanner}>
@@ -146,48 +166,96 @@ export function AdminCouponsScreen({ navigation, route }: Props) {
         />
       ) : null}
 
-      {error ? (
+      {error && coupons.length > 0 ? (
         <ErrorState message={error} onAction={() => void refresh()} style={styles.inlineError} />
       ) : null}
 
-      {totalCount > 0 ? (
-        <AppText variant="bodySmall" color="textSecondary">
-          {totalCount} coupon{totalCount === 1 ? '' : 's'}
+      {filteredCount > 0 ? (
+        <AppText variant="bodySmall" color="textSecondary" style={styles.countText}>
+          {filteredCount} {filteredCount === 1 ? 'coupon' : 'coupons'}
         </AppText>
+      ) : null}
+
+      {showSkeletonList ? (
+        <View style={styles.skeletonList}>
+          {SKELETON_ITEMS.map((key) => (
+            <AdminCouponCardSkeleton key={key} />
+          ))}
+        </View>
       ) : null}
     </View>
   );
 
+  const listFooter =
+    filteredCount > 0 ? (
+      <OrderListPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPrevious={goToPreviousPage}
+        onNext={goToNextPage}
+        canGoPrevious={canGoPrevious}
+        canGoNext={canGoNext}
+      />
+    ) : null;
+
+  const emptyMessage = hasActiveFilters
+    ? 'No coupons match your current search or filters.'
+    : listTab === 'admin'
+      ? 'Create a coupon to offer discounts on the marketplace.'
+      : 'Seller-created coupons will appear here.';
+
   return (
-    <FlatList
-      style={styles.screen}
-      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
-      data={coupons}
-      keyExtractor={(item, index) => item._id ?? `coupon-${index}`}
-      renderItem={renderItem}
-      ItemSeparatorComponent={() => <View style={styles.separator} />}
-      ListHeaderComponent={listHeader}
-      ListEmptyComponent={
-        <EmptyState
-          title="No coupons yet"
-          message="Create a coupon to offer discounts on the marketplace."
-          style={styles.emptyState}
-        />
-      }
-      ListFooterComponent={
-        isLoadingMore ? (
-          <View style={styles.footerLoading}>
-            <ActivityIndicator size="small" color={colors.primary} />
-          </View>
-        ) : null
-      }
-      refreshControl={
-        <RefreshControl refreshing={isRefreshing} onRefresh={() => void refresh()} tintColor={colors.primary} />
-      }
-      onEndReached={() => void loadMore()}
-      onEndReachedThreshold={0.4}
-      showsVerticalScrollIndicator={false}
-    />
+    <>
+      <FlatList
+        style={styles.screen}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: listBottomInset },
+          filteredCount === 0 && !showSkeletonList && styles.emptyContent,
+        ]}
+        data={showSkeletonList ? [] : coupons}
+        keyExtractor={(item, index) => item._id ?? `coupon-${index}`}
+        renderItem={renderItem}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        ListHeaderComponent={listHeader}
+        ListFooterComponent={listFooter}
+        ListEmptyComponent={
+          showSkeletonList ? null : error && filteredCount === 0 ? (
+            <ErrorState message={error} onAction={() => void refresh()} style={styles.emptyState} />
+          ) : (
+            <EmptyState
+              title={hasActiveFilters ? 'No matching coupons' : 'No coupons yet'}
+              message={emptyMessage}
+              style={styles.emptyState}
+            />
+          )
+        }
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={() => void refresh()} tintColor={colors.primary} />
+        }
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      />
+
+      {showAddFab ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Create coupon"
+          onPress={handleAddCoupon}
+          style={[styles.fab, { bottom: insets.bottom + spacing.lg }]}
+        >
+          <Ionicons name="add" size={28} color={colors.textInverse} />
+        </Pressable>
+      ) : null}
+
+      <AdminProductCardActionsMenu
+        visible={Boolean(menuCoupon)}
+        productName={menuTitle}
+        actions={menuActions}
+        onClose={closeMenu}
+        onSelect={handleMenuAction}
+      />
+    </>
   );
 }
 
@@ -201,27 +269,15 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     gap: spacing.md,
   },
-  centeredState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.background,
-    paddingHorizontal: spacing.lg,
+  emptyContent: {
+    flexGrow: 1,
   },
   headerContent: {
     gap: spacing.md,
     marginBottom: spacing.sm,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  title: {
-    color: colors.textPrimary,
-    fontWeight: '700',
-    flex: 1,
+  countText: {
+    marginTop: -spacing.xs,
   },
   successBanner: {
     backgroundColor: colors.successBg,
@@ -230,14 +286,24 @@ const styles = StyleSheet.create({
   inlineError: {
     marginBottom: 0,
   },
+  skeletonList: {
+    gap: spacing.md,
+  },
   separator: {
     height: spacing.md,
   },
   emptyState: {
     marginTop: spacing.xl,
   },
-  footerLoading: {
-    paddingVertical: spacing.lg,
+  fab: {
+    position: 'absolute',
+    right: spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: radius.pill,
+    backgroundColor: colors.secondary,
     alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.floating,
   },
 });

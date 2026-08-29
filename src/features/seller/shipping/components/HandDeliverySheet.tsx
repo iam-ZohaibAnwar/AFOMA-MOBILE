@@ -114,6 +114,7 @@ export function HandDeliverySheet({
 
           {!draft.free_delivery ? (
             <AppInput
+              tone="surface"
               label={`Delivery fee (${currencyCode})`}
               value={draft.fee_rate}
               onChangeText={(text) => setDraft((current) => ({ ...current, fee_rate: text }))}

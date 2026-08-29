@@ -26,8 +26,18 @@ import {
 
 const DOWNLOADABLE_QUANTITY = 1;
 
+function getInitialSelectedAttributes(product: Product | null): SelectedAttributes {
+  if (product?.productType === 'Customizable' && product.variations?.length) {
+    return buildDefaultSelectedAttributes(product.variations);
+  }
+
+  return {};
+}
+
 export function useProductDetailVariations(product: Product | null) {
-  const [selectedAttributes, setSelectedAttributes] = useState<SelectedAttributes>({});
+  const [selectedAttributes, setSelectedAttributes] = useState<SelectedAttributes>(() =>
+    getInitialSelectedAttributes(product),
+  );
   const [quantity, setQuantity] = useState(1);
 
   const productType = product?.productType ?? 'Standard';

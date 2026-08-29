@@ -7,9 +7,7 @@ import { TabBarIcon, type TabIconName } from '../../../app/navigation/TabBarIcon
 import { colors, typography } from '../../../design-system';
 import { useCart } from '../../cart/hooks/useCart';
 import { getCartItemCount } from '../../cart/utils/cartUtils';
-import { useAuth } from '../hooks/useAuth';
 import { authReturnTo, dismissAuthAndOpenTab, type NavLike } from '../utils/authNavigation';
-import { resolveAuthUserId } from '../utils/resolveAuthUserId';
 import { AUTH_FOOTER_TAB_BAR_HEIGHT } from './authFooterTabBarLayout';
 
 export type AuthFooterTabName = 'home' | 'cart' | 'account';
@@ -33,9 +31,7 @@ export interface AuthFooterTabBarProps {
 export function AuthFooterTabBar({ activeTab = 'account' }: AuthFooterTabBarProps) {
   const navigation = useNavigation<NavLike>();
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
-  const authUserId = resolveAuthUserId(user);
-  const { cart } = useCart(authUserId);
+  const { cart } = useCart();
   const cartCount = getCartItemCount(cart);
   const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 8 : 0);
 

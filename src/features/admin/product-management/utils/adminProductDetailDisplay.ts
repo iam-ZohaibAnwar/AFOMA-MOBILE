@@ -12,6 +12,7 @@ import { SELLER_INVENTORY_OPTIONS } from '../../../seller/products/utils/standar
 import {
   formatAdminProductApprovalStatus,
   formatAdminProductInventoryStatus,
+  formatAdminProductStockLabel,
 } from './adminProductDisplay';
 
 export type AdminProductDetailSectionKey =
@@ -95,6 +96,124 @@ export function formatAdminProductDiscount(product: Product): string {
 
 export function formatAdminProductSummaryPrice(product: Product): string {
   return formatSellerListPrice(product);
+}
+
+export function getAdminProductMaterialsLabel(product: Product): string {
+  return product.metaKeywords?.trim() || '—';
+}
+
+export function formatAdminProductDimensionsCompact(product: Product): string {
+  const width = product.width;
+  const height = product.height;
+  const length = product.length;
+
+  if (width == null && height == null && length == null) {
+    return '—';
+  }
+
+  const formatPart = (value: unknown, suffix: string) => {
+    if (value == null || value === '') {
+      return null;
+    }
+
+    const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value));
+    return Number.isFinite(parsed) ? `${parsed}${suffix}` : null;
+  };
+
+  const widthLabel = formatPart(width, '" W');
+  const heightLabel = formatPart(height, '" H');
+  const lengthLabel = formatPart(length, '" L');
+
+  const parts = [widthLabel, heightLabel, lengthLabel].filter(Boolean);
+  return parts.length > 0 ? parts.join(' x ') : '—';
+}
+
+export function formatAdminProductWeightDisplay(product: Product): string {
+  if (product.weight == null) {
+    return '—';
+  }
+
+  const parsed =
+    typeof product.weight === 'number' ? product.weight : Number.parseFloat(String(product.weight));
+
+  if (!Number.isFinite(parsed)) {
+    return String(product.weight);
+  }
+
+  if (parsed >= 1) {
+    return `${parsed} kg`;
+  }
+
+  return `${Math.round(parsed * 1000)} g`;
+}
+
+export function getAdminProductDescriptionSnippet(product: Product, maxLength = 160): string {
+  const description = formatAdminProductDescription(product).replace(/\s+/g, ' ').trim();
+  if (!description) {
+    return 'No description provided.';
+  }
+
+  if (description.length <= maxLength) {
+    return description;
+  }
+
+  return `${description.slice(0, maxLength).trim()}…`;
+}
+
+export interface AdminProductDetailStatusChip {
+  id: string;
+  label: string;
+  icon: string;
+  tone: 'success' | 'info' | 'warning' | 'danger' | 'neutral';
+}
+
+export function resolveAdminProductDetailStatusChips(product: Product): AdminProductDetailStatusChip[] {
+  const chips: AdminProductDetailStatusChip[] = [];
+  const approval = product.productStatus?.trim();
+
+  if (approval === 'Approved') {
+    chips.push({ id: 'approved', label: 'Approved', icon: 'checkmark-circle', tone: 'success' });
+  } else if (approval === 'Disapproved') {
+    chips.push({ id: 'disapproved', label: 'Disapproved', icon: 'close-circle', tone: 'danger' });
+  } else if (approval === 'Review') {
+    chips.push({ id: 'review', label: 'In Review', icon: 'document-text-outline', tone: 'warning' });
+  } else if (approval === 'Pending') {
+    chips.push({ id: 'pending', label: 'Pending', icon: 'time-outline', tone: 'warning' });
+  } else if (approval === 'Draft') {
+    chips.push({ id: 'draft', label: 'Draft', icon: 'document-outline', tone: 'neutral' });
+  } else if (approval) {
+    chips.push({ id: 'approval', label: approval, icon: 'information-circle-outline', tone: 'neutral' });
+  }
+
+  if (product.status === 1) {
+    chips.push({ id: 'visible', label: 'Publicly Visible', icon: 'eye-outline', tone: 'info' });
+  } else if (product.status === 0) {
+    chips.push({ id: 'hidden', label: 'Hidden', icon: 'eye-off-outline', tone: 'neutral' });
+  }
+
+  const stockLabel = formatAdminProductStockLabel(product);
+  if (stockLabel && product.status !== 0 && approval !== 'Disapproved') {
+    const lower = stockLabel.toLowerCase();
+    const isAlert = lower.includes('low') || lower.includes('out');
+    const countMatch = stockLabel.match(/\((\d+)\)/);
+    const countOnly = stockLabel.replace(' in stock', '').trim();
+    const stockChipLabel = isAlert
+      ? stockLabel
+      : countMatch
+        ? `In Stock (${countMatch[1]})`
+        : countOnly && /^\d+$/.test(countOnly)
+          ? `In Stock (${countOnly})`
+          : 'In Stock';
+
+    chips.push({
+      id: 'stock',
+      label: stockChipLabel,
+      icon: isAlert ? 'warning-outline' : 'cube-outline',
+      tone: isAlert ? 'danger' : 'info',
+    });
+  }
+
+  return chips;
 }
 
 export function hasAdminProductCustomShipping(product: Product): boolean {

@@ -244,7 +244,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
 
   const { userInfo } = usePricing();
 
-  const { cart } = useCart(authUserId, userInfo);
+  const { cart } = useCart();
   const { product, isRefreshing, error, retry } = useProductDetail(productId, slug);
 
   const { sellerProducts, relatedProducts, recentlyViewedProducts } =

@@ -152,14 +152,14 @@ export function AdminCustomizableProductScreen({ navigation, route }: Props) {
               onRetry={() => void sellerPicker.reload()}
               disabled={isEditMode && Boolean(wizard.resolvedSellerId)}
             />
-            <AppInput
+            <AppInput tone="surface"
               label="Product name *"
               value={wizard.values.productName}
               onChangeText={(text) => wizard.updateField('productName', text)}
               maxLength={120}
               error={wizard.fieldErrors.productName}
             />
-            <AppInput
+            <AppInput tone="surface"
               label="Description *"
               value={wizard.values.description}
               onChangeText={(text) => wizard.updateField('description', text)}
@@ -173,7 +173,7 @@ export function AdminCustomizableProductScreen({ navigation, route }: Props) {
       case 'categories':
         return (
           <View style={styles.stepContent}>
-            <SelectField
+            <SelectField tone="surface"
               label="Parent category *"
               value={wizard.values.categoryId}
               options={categories.parentOptions}
@@ -186,7 +186,7 @@ export function AdminCustomizableProductScreen({ navigation, route }: Props) {
               modalTitle="Parent category"
             />
             {wizard.values.categoryId ? (
-              <SelectField
+              <SelectField tone="surface"
                 label="Subcategory *"
                 value={wizard.values.subCategoryId}
                 options={categories.subCategoryOptions}
@@ -199,7 +199,7 @@ export function AdminCustomizableProductScreen({ navigation, route }: Props) {
               />
             ) : null}
             {wizard.values.subCategoryId && categories.childCategoryOptions.length > 0 ? (
-              <SelectField
+              <SelectField tone="surface"
                 label="Child category"
                 value={wizard.values.childCategoryId}
                 options={categories.childCategoryOptions}
@@ -229,7 +229,7 @@ export function AdminCustomizableProductScreen({ navigation, route }: Props) {
         return (
           <View style={styles.stepContent}>
             {(['weight', 'length', 'width', 'height', 'dispatchDays'] as const).map((field) => (
-              <AppInput
+              <AppInput tone="surface"
                 key={field}
                 label={`${field === 'dispatchDays' ? 'Dispatch days' : field.charAt(0).toUpperCase() + field.slice(1)} *`}
                 value={wizard.values[field]}
@@ -265,14 +265,14 @@ export function AdminCustomizableProductScreen({ navigation, route }: Props) {
                     onValueChange={(value) => wizard.updateField('freeDelivery', value)}
                   />
                 </View>
-                <AppInput
+                <AppInput tone="surface"
                   label="Handling fee *"
                   value={wizard.values.handlingFee}
                   onChangeText={(text) => wizard.updateField('handlingFee', text)}
                   keyboardType="decimal-pad"
                   error={wizard.fieldErrors.handlingFee}
                 />
-                <AppInput
+                <AppInput tone="surface"
                   label="Additional cost"
                   value={wizard.values.additionalCost}
                   onChangeText={(text) => wizard.updateField('additionalCost', text)}
@@ -286,29 +286,29 @@ export function AdminCustomizableProductScreen({ navigation, route }: Props) {
       case 'additional':
         return (
           <View style={styles.stepContent}>
-            <SelectField
+            <SelectField tone="surface"
               label="Currency"
               value={wizard.values.currency}
               options={wizard.currencyOptions}
               onChange={(value) => wizard.updateField('currency', value)}
               modalTitle="Currency"
             />
-            <AppInput
+            <AppInput tone="surface"
               label="Commodity code"
               value={wizard.values.commodityCode}
               onChangeText={(text) => wizard.updateField('commodityCode', text)}
             />
-            <AppInput
+            <AppInput tone="surface"
               label="Meta title"
               value={wizard.values.metaTitle}
               onChangeText={(text) => wizard.updateField('metaTitle', text)}
             />
-            <AppInput
+            <AppInput tone="surface"
               label="Meta keywords"
               value={wizard.values.metaKeywords}
               onChangeText={(text) => wizard.updateField('metaKeywords', text)}
             />
-            <AppInput
+            <AppInput tone="surface"
               label="Meta description"
               value={wizard.values.metaDesc}
               onChangeText={(text) => wizard.updateField('metaDesc', text)}
@@ -316,7 +316,7 @@ export function AdminCustomizableProductScreen({ navigation, route }: Props) {
               numberOfLines={4}
               style={styles.textArea}
             />
-            <AppInput
+            <AppInput tone="surface"
               label="Discount (%)"
               value={wizard.values.discountCode}
               onChangeText={(text) => wizard.updateField('discountCode', text)}

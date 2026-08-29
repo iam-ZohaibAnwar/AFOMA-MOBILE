@@ -1,8 +1,7 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Pressable,
   RefreshControl,
   StyleSheet,
   View,
@@ -12,18 +11,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmptyState } from '../../../../components/ecommerce/EmptyState';
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
-import { SearchBar } from '../../../../components/ecommerce/SearchBar';
-import { AppButton } from '../../../../components/ui/AppButton';
 import { AppText } from '../../../../components/ui/AppText';
 import { colors, spacing } from '../../../../design-system';
 import type { AdminStackParamList } from '../../navigation/adminTypes';
 import { useRequireAdmin } from '../../hooks/useRequireAdmin';
 import { authReturnTo } from '../../../auth/utils/authNavigation';
+import { OrderListPagination } from '../../../orders/components/OrderListPagination';
+import { OrderListSearchBar } from '../../../orders/components/OrderListSearchBar';
 import { AdminOrderCard } from '../components/AdminOrderCard';
-import { AdminOrderFiltersSheet } from '../components/AdminOrderFiltersSheet';
+import { AdminOrderStatusTabs } from '../components/AdminOrderStatusTabs';
 import { useAdminOrderList } from '../hooks/useAdminOrderList';
 import type { AdminOrderListItem } from '../types/adminOrderManagement';
-import { ADMIN_ORDER_STATUS_FILTERS } from '../utils/adminOrderDisplay';
 
 type Props = NativeStackScreenProps<AdminStackParamList, 'AdminOrderManagement'>;
 
@@ -32,7 +30,6 @@ const LIST_RETURN_TO = authReturnTo.adminOrderManagement();
 export function AdminOrderManagementScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { isAuthorized } = useRequireAdmin(LIST_RETURN_TO);
-  const [filtersVisible, setFiltersVisible] = useState(false);
 
   const {
     orders,
@@ -47,22 +44,12 @@ export function AdminOrderManagementScreen({ navigation }: Props) {
     statusFilter,
     hasActiveFilters,
     applyStatusFilter,
-    clearStatusFilter,
     refresh,
     goToPreviousPage,
     goToNextPage,
     canGoPrevious,
     canGoNext,
   } = useAdminOrderList(isAuthorized);
-
-  const activeFilterSummary = useMemo(() => {
-    if (!statusFilter) {
-      return '';
-    }
-
-    const match = ADMIN_ORDER_STATUS_FILTERS.find((option) => option.value === statusFilter);
-    return match ? `Status: ${match.label}` : `Status: ${statusFilter}`;
-  }, [statusFilter]);
 
   const handleOrderPress = useCallback(
     (order: AdminOrderListItem) => {
@@ -87,42 +74,22 @@ export function AdminOrderManagementScreen({ navigation }: Props) {
 
   const listHeader = (
     <View style={styles.headerContent}>
-      <View style={styles.titleBlock}>
-        <AppText variant="h3">Order Management</AppText>
-        <AppText variant="bodySmall" color="textSecondary">
-          {totalOrders} {totalOrders === 1 ? 'order' : 'orders'}
-        </AppText>
-      </View>
-
-      <SearchBar
-        mode="input"
-        placeholder="Search by customer name..."
+      <OrderListSearchBar
         value={searchInput}
         onChangeText={setSearchInput}
+        placeholder="Search by customer name..."
+        accessibilityLabel="Search orders by customer name"
       />
 
-      <View style={styles.filterRow}>
-        <AppButton
-          label={hasActiveFilters ? 'Filters (active)' : 'Filters'}
-          variant="outline"
-          onPress={() => setFiltersVisible(true)}
-        />
-        {hasActiveFilters ? (
-          <Pressable accessibilityRole="button" onPress={clearStatusFilter} style={styles.clearFilters}>
-            <AppText variant="bodySmall" color="textLink">
-              Clear
-            </AppText>
-          </Pressable>
-        ) : null}
-      </View>
+      <AdminOrderStatusTabs activeStatus={statusFilter} onStatusChange={applyStatusFilter} />
 
-      {activeFilterSummary ? (
-        <AppText variant="caption" color="textSecondary">
-          {activeFilterSummary}
+      {totalOrders > 0 ? (
+        <AppText variant="bodySmall" color="textSecondary" style={styles.countText}>
+          {totalOrders} {totalOrders === 1 ? 'order' : 'orders'}
         </AppText>
       ) : null}
 
-      {error && orders.length === 0 ? (
+      {error && orders.length > 0 ? (
         <ErrorState message={error} onAction={() => void refresh()} style={styles.inlineError} />
       ) : null}
 
@@ -137,88 +104,60 @@ export function AdminOrderManagementScreen({ navigation }: Props) {
     </View>
   );
 
-  const listFooter =
-    orders.length > 0 ? (
-      <View style={styles.pagination}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={goToPreviousPage}
-          disabled={!canGoPrevious}
-          style={[styles.paginationButton, !canGoPrevious && styles.paginationButtonDisabled]}
-        >
-          <AppText variant="bodySmall" color={canGoPrevious ? 'textLink' : 'textMuted'}>
-            Previous
-          </AppText>
-        </Pressable>
-
-        <AppText variant="bodySmall" color="textSecondary">
-          Page {currentPage} of {totalPages}
-        </AppText>
-
-        <Pressable
-          accessibilityRole="button"
-          onPress={goToNextPage}
-          disabled={!canGoNext}
-          style={[styles.paginationButton, !canGoNext && styles.paginationButtonDisabled]}
-        >
-          <AppText variant="bodySmall" color={canGoNext ? 'textLink' : 'textMuted'}>
-            Next
-          </AppText>
-        </Pressable>
-      </View>
-    ) : null;
-
   if (!isAuthorized) {
     return <View style={[styles.screen, { paddingTop: insets.top }]} />;
   }
 
   return (
-    <>
-      <FlatList
-        style={styles.screen}
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: insets.bottom + spacing.xxl },
-          orders.length === 0 && styles.emptyContent,
-        ]}
-        data={orders}
-        keyExtractor={(item, index) => item._id ?? `admin-order-${index}`}
-        renderItem={renderItem}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-        ListHeaderComponent={listHeader}
-        ListFooterComponent={listFooter}
-        ListEmptyComponent={
-          !isLoading && !error ? (
-            <EmptyState
-              title="No orders found"
-              message={
-                hasActiveFilters || searchInput.trim()
-                  ? 'Try adjusting your search or status filter.'
-                  : 'Platform orders will appear here once customers checkout.'
-              }
-            />
-          ) : null
-        }
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={() => void refresh()}
-            tintColor={colors.primary}
+    <FlatList
+      style={styles.screen}
+      contentContainerStyle={[
+        styles.content,
+        { paddingBottom: insets.bottom + spacing.xxl },
+        orders.length === 0 && styles.emptyContent,
+      ]}
+      data={orders}
+      keyExtractor={(item, index) => item._id ?? `admin-order-${index}`}
+      renderItem={renderItem}
+      ItemSeparatorComponent={() => <View style={styles.separator} />}
+      ListHeaderComponent={listHeader}
+      ListFooterComponent={
+        orders.length > 0 ? (
+          <OrderListPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            canGoPrevious={canGoPrevious}
+            canGoNext={canGoNext}
+            isLoading={isLoading}
+            onPrevious={goToPreviousPage}
+            onNext={goToNextPage}
           />
-        }
-      />
-
-      <AdminOrderFiltersSheet
-        visible={filtersVisible}
-        statusFilter={statusFilter}
-        onClose={() => setFiltersVisible(false)}
-        onApply={applyStatusFilter}
-        onClear={() => {
-          clearStatusFilter();
-          setFiltersVisible(false);
-        }}
-      />
-    </>
+        ) : null
+      }
+      ListEmptyComponent={
+        !isLoading && !error ? (
+          <EmptyState
+            title="No orders found"
+            message={
+              hasActiveFilters || searchInput.trim()
+                ? 'Try adjusting your search or status tab.'
+                : 'Platform orders will appear here once customers checkout.'
+            }
+          />
+        ) : error && orders.length === 0 ? (
+          <ErrorState message={error} onAction={() => void refresh()} style={styles.inlineError} />
+        ) : null
+      }
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={() => void refresh()}
+          tintColor={colors.primary}
+        />
+      }
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+    />
   );
 }
 
@@ -229,24 +168,17 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   emptyContent: {
     flexGrow: 1,
   },
   headerContent: {
     gap: spacing.md,
+    paddingBottom: spacing.xs,
   },
-  titleBlock: {
-    gap: spacing.xs,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  clearFilters: {
-    paddingVertical: spacing.sm,
+  countText: {
+    fontWeight: '600',
   },
   inlineError: {
     alignSelf: 'stretch',
@@ -260,18 +192,5 @@ const styles = StyleSheet.create({
   },
   separator: {
     height: spacing.md,
-  },
-  pagination: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: spacing.lg,
-  },
-  paginationButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xs,
-  },
-  paginationButtonDisabled: {
-    opacity: 0.5,
   },
 });

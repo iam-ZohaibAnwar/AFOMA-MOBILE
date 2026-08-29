@@ -1,4 +1,6 @@
-import { Linking, StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { AppBadge } from '../../../../../components/ui/AppBadge';
 import { AppButton } from '../../../../../components/ui/AppButton';
@@ -6,13 +8,17 @@ import { AppCard } from '../../../../../components/ui/AppCard';
 import { AppText } from '../../../../../components/ui/AppText';
 import type { Product } from '../../../../../services/types/product';
 import { colors, spacing } from '../../../../../design-system';
+import type { AdminStackParamList } from '../../../navigation/adminTypes';
 import {
   approvalBadgeVariant,
   formatAdminProductApprovalStatus,
   formatAdminProductInventoryStatus,
   inventoryBadgeVariant,
 } from '../../utils/adminProductDisplay';
-import { getAdminProductPreviewUrl } from '../../utils/adminProductDetailDisplay';
+import {
+  canAdminPreviewProductInApp,
+  navigateToAdminProductMobilePreview,
+} from '../../utils/adminProductPreviewNavigation';
 
 export interface AdminProductDetailHeaderProps {
   product: Product;
@@ -31,16 +37,15 @@ export function AdminProductDetailHeader({
   onEditPress,
   onEditVariationsPress,
 }: AdminProductDetailHeaderProps) {
+  const navigation = useNavigation<NativeStackNavigationProp<AdminStackParamList>>();
   const approvalLabel = formatAdminProductApprovalStatus(product.productStatus);
   const visibilityLabel = formatAdminProductInventoryStatus(product.status);
-  const previewUrl = getAdminProductPreviewUrl(product.slug);
+  const canPreview = canAdminPreviewProductInApp(product);
 
   const handlePreviewPress = () => {
-    if (!previewUrl) {
-      return;
+    if (!navigateToAdminProductMobilePreview(navigation, product)) {
+      Alert.alert('Preview unavailable', 'This product cannot be opened in the mobile storefront yet.');
     }
-
-    void Linking.openURL(previewUrl);
   };
 
   return (
@@ -67,7 +72,7 @@ export function AdminProductDetailHeader({
         {onEditVariationsPress ? (
           <AppButton label="Edit variations" variant="outline" onPress={onEditVariationsPress} />
         ) : null}
-        {previewUrl ? (
+        {canPreview ? (
           <AppButton label="Preview listing" variant="outline" onPress={handlePreviewPress} />
         ) : null}
       </View>

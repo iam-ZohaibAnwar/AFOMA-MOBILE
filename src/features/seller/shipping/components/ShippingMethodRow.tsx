@@ -1,10 +1,14 @@
 import { Pressable, StyleSheet, Switch, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
+import { ChevronForwardIcon } from '../../../../components/ui/ChevronForwardIcon';
 import { AppText } from '../../../../components/ui/AppText';
 import { colors, radius, spacing } from '../../../../design-system';
 
+const ICON_SIZE = 40;
+
 export interface ShippingMethodRowProps {
-  icon: string;
+  icon: keyof typeof Ionicons.glyphMap;
   label: string;
   subtitle?: string;
   valueLabel?: string;
@@ -30,9 +34,9 @@ export function ShippingMethodRow({
 }: ShippingMethodRowProps) {
   const content = (
     <View style={[styles.row, disabled && styles.rowDisabled]}>
-      <AppText variant="bodyMedium" style={styles.icon}>
-        {icon}
-      </AppText>
+      <View style={styles.iconWrap}>
+        <Ionicons name={icon} size={20} color={colors.textInverse} />
+      </View>
 
       <View style={styles.copy}>
         <AppText variant="bodyMedium" style={styles.label}>
@@ -52,6 +56,7 @@ export function ShippingMethodRow({
           disabled={disabled}
           trackColor={{ false: colors.border, true: colors.primary }}
           thumbColor={colors.surface}
+          style={styles.trailingControl}
         />
       ) : (
         <View style={styles.navigateTrailing}>
@@ -60,9 +65,7 @@ export function ShippingMethodRow({
               {valueLabel}
             </AppText>
           ) : null}
-          <AppText variant="bodyMedium" color="textSecondary">
-            ›
-          </AppText>
+          <ChevronForwardIcon color={colors.textMuted} size={18} />
         </View>
       )}
     </View>
@@ -90,7 +93,7 @@ export function ShippingMethodRow({
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.md,
     paddingVertical: spacing.md,
   },
@@ -100,27 +103,38 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.85,
   },
-  icon: {
-    width: 28,
-    textAlign: 'center',
+  iconWrap: {
+    width: ICON_SIZE,
+    height: ICON_SIZE,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    flexShrink: 0,
+    marginTop: 2,
   },
   copy: {
     flex: 1,
     gap: spacing.xs,
+    paddingTop: spacing.xs,
   },
   label: {
     color: colors.textPrimary,
     fontWeight: '600',
+  },
+  trailingControl: {
+    alignSelf: 'center',
   },
   navigateTrailing: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     maxWidth: '42%',
+    alignSelf: 'center',
   },
   divider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: colors.border,
-    marginLeft: 44,
+    marginLeft: ICON_SIZE + spacing.md,
   },
 });

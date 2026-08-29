@@ -200,6 +200,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    minHeight: 48,
+    borderRadius: radius.small,
+    borderWidth: 1,
+    borderColor: colors.borderForm,
+    backgroundColor: colors.surface,
   },
   requirementCopy: {
     lineHeight: 18,

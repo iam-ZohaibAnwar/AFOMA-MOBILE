@@ -42,15 +42,12 @@ export function useAdminDashboard(fullAccess: boolean) {
   const [latestProducts, setLatestProducts] = useState<AdminLatestProduct[]>([]);
   const [searchTerms, setSearchTerms] = useState<AdminPopularSearchTerm[]>([]);
   const [errors, setErrors] = useState<AdminDashboardErrors>({});
-  const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const loadDashboard = useCallback(
     async (refreshing = false) => {
       if (refreshing) {
         setIsRefreshing(true);
-      } else {
-        setIsLoading(true);
       }
 
       const nextErrors: AdminDashboardErrors = {};
@@ -155,7 +152,6 @@ export function useAdminDashboard(fullAccess: boolean) {
 
       await Promise.all(requests);
       setErrors(nextErrors);
-      setIsLoading(false);
       setIsRefreshing(false);
     },
     [fullAccess],
@@ -178,7 +174,6 @@ export function useAdminDashboard(fullAccess: boolean) {
     latestProducts,
     searchTerms,
     errors,
-    isLoading,
     isRefreshing,
     refresh: () => loadDashboard(true),
   };

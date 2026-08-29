@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { AppText } from './AppText';
 import { colors, layout, radius } from '../../design-system';
@@ -13,6 +14,7 @@ export interface UserAvatarCircleProps {
   user: AuthUser | null;
   isAuthenticated: boolean;
   size?: number;
+  variant?: 'default' | 'solid';
   onPress?: () => void;
   accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
@@ -22,6 +24,7 @@ export function UserAvatarCircle({
   user,
   isAuthenticated,
   size = layout.minTouchTarget,
+  variant = 'default',
   onPress,
   accessibilityLabel = 'Open account',
   style,
@@ -36,15 +39,18 @@ export function UserAvatarCircle({
 
   const showImage = Boolean(profileImageUrl) && !imageFailed;
   const initialsFontSize = avatarLabel.length > 1 ? 12 : 16;
+  const isSolid = variant === 'solid';
+  const placeholderIconSize = Math.round(size * 0.42);
 
   const content = (
     <View
       style={[
         styles.circle,
+        isSolid ? styles.circleSolid : styles.circleDefault,
         {
           width: size,
           height: size,
-          borderRadius: size / 2,
+          borderRadius: isSolid ? radius.medium : size / 2,
         },
         style,
       ]}
@@ -57,12 +63,14 @@ export function UserAvatarCircle({
             {
               width: size,
               height: size,
-              borderRadius: size / 2,
+              borderRadius: isSolid ? radius.medium : size / 2,
             },
           ]}
           accessibilityIgnoresInvertColors
           onError={() => setImageFailed(true)}
         />
+      ) : isSolid ? (
+        <Ionicons name="person-outline" size={placeholderIconSize} color={colors.textInverse} />
       ) : (
         <AppText
           variant="bodyMedium"
@@ -94,12 +102,17 @@ export function UserAvatarCircle({
 
 const styles = StyleSheet.create({
   circle: {
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
+  },
+  circleDefault: {
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.primarySoft,
+  },
+  circleSolid: {
+    backgroundColor: colors.primary,
   },
   image: {
     backgroundColor: colors.surfaceMuted,

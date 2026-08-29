@@ -1,505 +1,310 @@
-import { useCallback } from 'react';
-
-import {
-
-  ActivityIndicator,
-
-  Pressable,
-
-  RefreshControl,
-
-  ScrollView,
-
-  StyleSheet,
-
-  View,
-
-} from 'react-native';
-
+import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-
 import { useFocusEffect } from '@react-navigation/native';
-
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-
-
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
-
-import { AppBadge } from '../../../../components/ui/AppBadge';
-
-import { AppCard } from '../../../../components/ui/AppCard';
-
-import { AppText } from '../../../../components/ui/AppText';
-
 import { colors, spacing } from '../../../../design-system';
-
+import { AdminProductCardActionsMenu } from '../../product-management/components/AdminProductCardActionsMenu';
+import type { AdminProductCardActionId } from '../../product-management/components/AdminProductCardActionsMenu';
 import type { AdminStackParamList } from '../../navigation/adminTypes';
-
 import { useRequireAdmin } from '../../hooks/useRequireAdmin';
-
 import { authReturnTo } from '../../../auth/utils/authNavigation';
-
+import { AdminSellerDetailHero } from '../components/detail/AdminSellerDetailHero';
+import { AdminSellerDetailInfoCard } from '../components/detail/AdminSellerDetailInfoCard';
+import {
+  AdminSellerDetailOperationsCard,
+  confirmHideSellerShop,
+} from '../components/detail/AdminSellerDetailOperationsCard';
+import { AdminSellerDetailSectionsCard } from '../components/detail/AdminSellerDetailSectionsCard';
 import { useAdminSellerDetail } from '../hooks/useAdminSellerDetail';
-
+import { useAdminSellerOperations } from '../hooks/useAdminSellerOperations';
 import {
-
   ADMIN_SELLER_DETAIL_SECTIONS,
-
   type AdminEditableSellerSectionId,
-
   type AdminSellerDetailSectionId,
-
 } from '../types/adminSellerManagement';
-
-import {
-
-  approvalStatusBadgeVariant,
-
-  formatAdminSellerApprovalStatus,
-
-  getAdminSellerDisplayName,
-
-  getAdminSellerShopVisibilityLabel,
-
-  shopVisibilityBadgeVariant,
-
-} from '../utils/adminSellerDisplay';
-
-
+import { buildAdminSellerCardActions } from '../utils/adminSellerCardActions';
+import { getAdminSellerDisplayName } from '../utils/adminSellerDisplay';
 
 type Props = NativeStackScreenProps<AdminStackParamList, 'AdminSellerDetail'>;
 
-
-
 function isEditableSection(sectionId: AdminSellerDetailSectionId): sectionId is AdminEditableSellerSectionId {
-
   return sectionId !== 'basic-information';
-
 }
 
-
-
 export function AdminSellerDetailScreen({ navigation, route }: Props) {
-
   const insets = useSafeAreaInsets();
-
   const { sellerId, initialSeller } = route.params;
-
   const returnTo = authReturnTo.adminSellerDetail(sellerId, initialSeller);
-
   const { isAuthorized } = useRequireAdmin(returnTo);
+  const [menuVisible, setMenuVisible] = useState(false);
 
+  const { seller, isLoading, isRefreshing, error, refresh, syncSessionPatch, applySellerUpdate } =
+    useAdminSellerDetail(isAuthorized ? sellerId : undefined, initialSeller);
 
-
-  const { seller, isLoading, isRefreshing, error, refresh, syncSessionPatch } = useAdminSellerDetail(
-
-    isAuthorized ? sellerId : undefined,
-
-    initialSeller,
-
-  );
-
-
+  const {
+    updatingSellerId,
+    setShopVisibility,
+    deleteSeller,
+    actionError,
+    clearActionError,
+  } = useAdminSellerOperations();
 
   useFocusEffect(
-
     useCallback(() => {
-
       syncSessionPatch();
-
     }, [syncSessionPatch]),
-
   );
-
-
-
-  const handleSectionPress = useCallback(
-
-    (sectionId: AdminSellerDetailSectionId) => {
-
-      const displaySeller = seller ?? initialSeller;
-
-
-
-      if (sectionId === 'basic-information') {
-
-        navigation.navigate('AdminSellerBasicInformation', {
-
-          sellerId,
-
-          initialSeller: displaySeller,
-
-        });
-
-        return;
-
-      }
-
-
-
-      if (isEditableSection(sectionId)) {
-
-        navigation.navigate('AdminSellerSection', {
-
-          sellerId,
-
-          sectionId,
-
-          initialSeller: displaySeller,
-
-        });
-
-      }
-
-    },
-
-    [initialSeller, navigation, seller, sellerId],
-
-  );
-
-
-
-  if (!isAuthorized) {
-
-    return <View style={[styles.screen, { paddingTop: insets.top }]} />;
-
-  }
-
-
 
   const displaySeller = seller ?? initialSeller;
 
-
-
-  return (
-
-    <ScrollView
-
-      style={styles.screen}
-
-      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
-
-      refreshControl={
-
-        <RefreshControl
-
-          refreshing={isRefreshing}
-
-          onRefresh={() => void refresh()}
-
-          tintColor={colors.primary}
-
-        />
-
-      }
-
-    >
-
-      {error && !displaySeller ? (
-
-        <ErrorState message={error} onAction={() => void refresh()} />
-
-      ) : null}
-
-
-
-      {displaySeller ? (
-
-        <AppCard style={styles.identityCard}>
-
-          <AppText variant="h3">{getAdminSellerDisplayName(displaySeller)}</AppText>
-
-          <AppText variant="bodyMedium" color="textSecondary">
-
-            {displaySeller.email ?? 'No email'}
-
-          </AppText>
-
-          {displaySeller.uuid ? (
-
-            <AppText variant="caption" color="textMuted">
-
-              {displaySeller.uuid}
-
-            </AppText>
-
-          ) : null}
-
-
-
-          <View style={styles.statusRow}>
-
-            <View style={styles.statusGroup}>
-
-              <AppText variant="caption" color="textMuted">
-
-                Approval status
-
-              </AppText>
-
-              <AppBadge
-
-                label={formatAdminSellerApprovalStatus(displaySeller.status)}
-
-                variant={approvalStatusBadgeVariant(displaySeller.status)}
-
-              />
-
-            </View>
-
-
-
-            <View style={styles.statusGroup}>
-
-              <AppText variant="caption" color="textMuted">
-
-                Shop visibility
-
-              </AppText>
-
-              <AppBadge
-
-                label={getAdminSellerShopVisibilityLabel(displaySeller)}
-
-                variant={shopVisibilityBadgeVariant(displaySeller)}
-
-              />
-
-            </View>
-
-          </View>
-
-
-
-          {isLoading ? (
-
-            <View style={styles.inlineLoading}>
-
-              <ActivityIndicator size="small" color={colors.primary} />
-
-              <AppText variant="caption" color="textSecondary">
-
-                Refreshing seller details...
-
-              </AppText>
-
-            </View>
-
-          ) : null}
-
-
-
-          {error ? (
-
-            <ErrorState message={error} onAction={() => void refresh()} style={styles.inlineError} />
-
-          ) : null}
-
-        </AppCard>
-
-      ) : isLoading ? (
-
-        <View style={styles.centeredLoading}>
-
-          <ActivityIndicator size="small" color={colors.primary} />
-
-          <AppText variant="bodySmall" color="textSecondary">
-
-            Loading seller...
-
-          </AppText>
-
-        </View>
-
-      ) : null}
-
-
-
-      <View style={styles.sectionsBlock}>
-
-        <AppText variant="label" color="textSecondary">
-
-          Seller sections
-
-        </AppText>
-
-
-
-        {ADMIN_SELLER_DETAIL_SECTIONS.map((section, index) => (
-
-          <Pressable
-
-            key={section.id}
-
-            accessibilityRole="button"
-
-            onPress={() => handleSectionPress(section.id)}
-
-            style={({ pressed }) => [
-
-              styles.sectionRow,
-
-              index === ADMIN_SELLER_DETAIL_SECTIONS.length - 1 && styles.sectionRowLast,
-
-              pressed && styles.pressed,
-
-            ]}
-
-          >
-
-            <View style={styles.sectionCopy}>
-
-              <AppText variant="bodyMedium">{section.label}</AppText>
-
-              <AppText variant="caption" color="textMuted">
-
-                View & edit
-
-              </AppText>
-
-            </View>
-
-            <AppText variant="bodySmall" color="textMuted">
-
-              ›
-
-            </AppText>
-
-          </Pressable>
-
-        ))}
-
-      </View>
-
-    </ScrollView>
-
+  const menuActions = useMemo(
+    () => (displaySeller ? buildAdminSellerCardActions(displaySeller) : []),
+    [displaySeller],
   );
 
+  const handleSectionPress = useCallback(
+    (sectionId: AdminSellerDetailSectionId) => {
+      if (!displaySeller) {
+        return;
+      }
+
+      if (sectionId === 'basic-information') {
+        navigation.navigate('AdminSellerBasicInformation', {
+          sellerId,
+          initialSeller: displaySeller,
+        });
+        return;
+      }
+
+      if (isEditableSection(sectionId)) {
+        navigation.navigate('AdminSellerSection', {
+          sellerId,
+          sectionId,
+          initialSeller: displaySeller,
+        });
+      }
+    },
+    [displaySeller, navigation, sellerId],
+  );
+
+  const handleEditBasicInfo = useCallback(() => {
+    if (!displaySeller) {
+      return;
+    }
+
+    navigation.navigate('AdminSellerBasicInformationEdit', {
+      sellerId,
+      initialSeller: displaySeller,
+    });
+  }, [displaySeller, navigation, sellerId]);
+
+  const handleEnableShop = useCallback(() => {
+    if (!sellerId) {
+      return;
+    }
+
+    clearActionError();
+    void (async () => {
+      const updated = await setShopVisibility(sellerId, true);
+      if (updated) {
+        applySellerUpdate({ shop_status: 1 });
+      }
+    })();
+  }, [applySellerUpdate, clearActionError, sellerId, setShopVisibility]);
+
+  const handleDisableShop = useCallback(() => {
+    if (!displaySeller || !sellerId) {
+      return;
+    }
+
+    confirmHideSellerShop(getAdminSellerDisplayName(displaySeller), () => {
+      clearActionError();
+      void (async () => {
+        const updated = await setShopVisibility(sellerId, false);
+        if (updated) {
+          applySellerUpdate({ shop_status: 0 });
+        }
+      })();
+    });
+  }, [applySellerUpdate, clearActionError, displaySeller, sellerId, setShopVisibility]);
+
+  const handleDeletePress = useCallback(() => {
+    if (!displaySeller || !sellerId) {
+      return;
+    }
+
+    Alert.alert(
+      'Delete seller?',
+      `This will permanently remove ${getAdminSellerDisplayName(displaySeller)}. This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            clearActionError();
+            void (async () => {
+              const deleted = await deleteSeller(sellerId);
+              if (deleted) {
+                navigation.goBack();
+              }
+            })();
+          },
+        },
+      ],
+    );
+  }, [clearActionError, deleteSeller, displaySeller, navigation, sellerId]);
+
+  const handleMenuSelect = useCallback(
+    (actionId: AdminProductCardActionId) => {
+      setMenuVisible(false);
+
+      switch (actionId) {
+        case 'edit':
+          handleEditBasicInfo();
+          break;
+        case 'enable':
+          handleEnableShop();
+          break;
+        case 'disable':
+          handleDisableShop();
+          break;
+        case 'delete':
+          handleDeletePress();
+          break;
+        default:
+          break;
+      }
+    },
+    [handleDeletePress, handleDisableShop, handleEditBasicInfo, handleEnableShop],
+  );
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: 'Seller Detail',
+      headerRight: () => (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Seller actions"
+          onPress={() => setMenuVisible(true)}
+          hitSlop={8}
+          style={styles.headerAction}
+        >
+          <Ionicons name="ellipsis-vertical" size={20} color={colors.textPrimary} />
+        </Pressable>
+      ),
+    });
+  }, [navigation]);
+
+  if (!isAuthorized) {
+    return <View style={[styles.screen, { paddingTop: insets.top }]} />;
+  }
+
+  if (error && !displaySeller) {
+    return (
+      <View style={[styles.centeredState, { paddingBottom: insets.bottom }]}>
+        <ErrorState message={error} onAction={() => void refresh()} style={styles.errorState} />
+      </View>
+    );
+  }
+
+  if (!displaySeller) {
+    return <View style={[styles.screen, { paddingTop: insets.top }]} />;
+  }
+
+  return (
+    <>
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => void refresh()}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        <AdminSellerDetailHero
+          seller={displaySeller}
+          isRefreshing={isRefreshing}
+          error={error && displaySeller ? error : null}
+        />
+
+        <View style={styles.cards}>
+          <AdminSellerDetailInfoCard seller={displaySeller} />
+          <AdminSellerDetailSectionsCard
+            sections={ADMIN_SELLER_DETAIL_SECTIONS}
+            onSectionPress={handleSectionPress}
+          />
+          <AdminSellerDetailOperationsCard
+            seller={displaySeller}
+            isUpdatingVisibility={updatingSellerId === sellerId}
+            onEnablePress={handleEnableShop}
+            onDisablePress={handleDisableShop}
+          />
+
+          {actionError || (error && displaySeller) ? (
+            <ErrorState
+              message={actionError ?? error ?? ''}
+              actionLabel="Dismiss"
+              onAction={() => {
+                clearActionError();
+                if (error) {
+                  void refresh();
+                }
+              }}
+              style={styles.inlineError}
+            />
+          ) : null}
+        </View>
+      </ScrollView>
+
+      <AdminProductCardActionsMenu
+        visible={menuVisible}
+        productName={getAdminSellerDisplayName(displaySeller)}
+        actions={menuActions.filter((action) => action.id !== 'view')}
+        onClose={() => setMenuVisible(false)}
+        onSelect={handleMenuSelect}
+      />
+    </>
+  );
 }
 
-
-
 const styles = StyleSheet.create({
-
   screen: {
-
     flex: 1,
-
     backgroundColor: colors.background,
-
   },
-
   content: {
-
-    padding: spacing.lg,
-
-    gap: spacing.lg,
-
-  },
-
-  identityCard: {
-
-    gap: spacing.sm,
-
-  },
-
-  statusRow: {
-
-    flexDirection: 'row',
-
-    flexWrap: 'wrap',
-
-    gap: spacing.lg,
-
-    marginTop: spacing.sm,
-
-  },
-
-  statusGroup: {
-
-    gap: spacing.xs,
-
-  },
-
-  inlineLoading: {
-
-    flexDirection: 'row',
-
-    alignItems: 'center',
-
-    gap: spacing.sm,
-
-    marginTop: spacing.sm,
-
-  },
-
-  inlineError: {
-
-    marginTop: spacing.sm,
-
-  },
-
-  centeredLoading: {
-
-    alignItems: 'center',
-
-    gap: spacing.sm,
-
-    paddingVertical: spacing.xl,
-
-  },
-
-  sectionsBlock: {
-
-    gap: spacing.sm,
-
-  },
-
-  sectionRow: {
-
-    flexDirection: 'row',
-
-    alignItems: 'center',
-
-    justifyContent: 'space-between',
-
-    backgroundColor: colors.surface,
-
-    borderWidth: 1,
-
-    borderColor: colors.borderStrong,
-
-    borderRadius: 12,
-
     paddingHorizontal: spacing.lg,
-
-    paddingVertical: spacing.md,
-
+  },
+  cards: {
     gap: spacing.md,
-
+    paddingTop: spacing.md,
   },
-
-  sectionRowLast: {
-
-    marginBottom: 0,
-
-  },
-
-  sectionCopy: {
-
+  centeredState: {
     flex: 1,
-
-    gap: spacing.xs,
-
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.lg,
   },
-
-  pressed: {
-
-    opacity: 0.9,
-
+  errorState: {
+    alignSelf: 'stretch',
+    marginHorizontal: 0,
   },
-
+  inlineError: {
+    alignSelf: 'stretch',
+    marginHorizontal: 0,
+  },
+  headerAction: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
 });
-
-

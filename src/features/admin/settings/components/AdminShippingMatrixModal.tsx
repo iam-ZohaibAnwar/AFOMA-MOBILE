@@ -69,6 +69,7 @@ export function AdminShippingMatrixModal({
                 </View>
                 <AppInput
                   label="Surcharge"
+                  tone="surface"
                   value={matrix[originTierName]?.[destination.tierName] ?? '0'}
                   onChangeText={(value) => onChangeCell(originTierName, destination.tierName, value)}
                   keyboardType="decimal-pad"

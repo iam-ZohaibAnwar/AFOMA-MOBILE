@@ -15,14 +15,11 @@ export function navigateMarketplaceFooterTab(target: MarketplaceFooterTabTarget)
 
   if (target.routeName === 'MarketplaceTab') {
     marketplaceNavigationRef.dispatch(
-      CommonActions.navigate({
-        name: 'Shopping',
+      CommonActions.navigate('Shopping', {
+        screen: 'MainTabs',
         params: {
-          screen: 'MainTabs',
-          params: {
-            screen: 'MarketplaceTab',
-            params: { segment: target.segment },
-          },
+          screen: 'MarketplaceTab',
+          params: { segment: target.segment },
         },
       }),
     );
@@ -30,12 +27,9 @@ export function navigateMarketplaceFooterTab(target: MarketplaceFooterTabTarget)
   }
 
   marketplaceNavigationRef.dispatch(
-    CommonActions.navigate({
-      name: 'Shopping',
-      params: {
-        screen: 'MainTabs',
-        params: { screen: target.routeName },
-      },
+    CommonActions.navigate('Shopping', {
+      screen: 'MainTabs',
+      params: { screen: target.routeName },
     }),
   );
 

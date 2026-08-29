@@ -70,7 +70,7 @@ function CheckoutScreenBody(_props: Props) {
   const { isAuthorized } = useRequireCheckoutAccess(CHECKOUT_RETURN_TO);
   const authUserId = resolveAuthUserId(user);
   const { userInfo } = usePricing();
-  const { cart, entries, subTotal, isLoading, error, retry } = useCart(authUserId, userInfo);
+  const { cart, entries, subTotal, isLoading, error, retry } = useCart();
   const { appliedCoupon } = useAppliedCoupon(authUserId);
   const discountAmount = appliedCoupon?.discountAmount ?? 0;
   const { shippingAddress, addressErrors, updateField, validateAddress } =

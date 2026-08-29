@@ -26,6 +26,7 @@ import type { ShoppingStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<ShoppingStackParamList>();
 
+/** Shopping stack — product browse, checkout, account screens. */
 export function ShoppingNavigator() {
   return (
     <Stack.Navigator
@@ -92,7 +93,7 @@ export function ShoppingNavigator() {
         component={TermsConditionsScreen}
         options={{ title: 'Terms & Conditions' }}
       />
-      <Stack.Screen name="OrderDetail" component={OrderDetailScreen} options={{ title: 'Order Detail' }} />
+      <Stack.Screen name="OrderDetail" component={OrderDetailScreen} options={{ title: 'Order Details' }} />
     </Stack.Navigator>
   );
 }

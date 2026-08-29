@@ -16,10 +16,11 @@ import { ErrorState } from '../../../components/ecommerce/ErrorState';
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppCard } from '../../../components/ui/AppCard';
 import { AppText } from '../../../components/ui/AppText';
-import { colors, spacing } from '../../../design-system';
+import { colors, shadows, spacing } from '../../../design-system';
 import type { ShoppingStackParamList } from '../../../app/navigation/types';
 import {
   marketplaceScrollProps,
+  useMarketplaceFooterContentInset,
   useMarketplaceScrollHandler,
 } from '../../../app/navigation/marketplaceChrome';
 import { useAuth } from '../../auth/hooks/useAuth';
@@ -34,7 +35,7 @@ import {
   deliveryAddressToFormValues,
   emptySavedAddressFormValues,
 } from '../../checkout/types/deliveryAddress';
-import { validateSavedAddressForm } from '../../checkout/utils/deliveryAddressDisplay';
+import { validateSavedAddressForm, formatDeliveryAddressLine } from '../../checkout/utils/deliveryAddressDisplay';
 
 type Props = NativeStackScreenProps<ShoppingStackParamList, 'AddressBook'>;
 
@@ -42,8 +43,13 @@ type ScreenMode = 'list' | 'form';
 
 const ADDRESS_BOOK_RETURN_TO = authReturnTo.addressBook();
 
+function formatAddressRecipient(address: DeliveryAddressListItem): string {
+  return [address.firstName, address.lastName].filter(Boolean).join(' ').trim() || 'Address';
+}
+
 export function AddressBookScreen(_props: Props) {
   const insets = useSafeAreaInsets();
+  const footerInset = useMarketplaceFooterContentInset();
   const onMarketplaceScroll = useMarketplaceScrollHandler();
   const { isAuthorized } = useRequireAuth(ADDRESS_BOOK_RETURN_TO);
   const { user } = useAuth();
@@ -136,15 +142,14 @@ export function AddressBookScreen(_props: Props) {
     );
   };
 
-  const handleSelectAddress = useCallback(async (address: DeliveryAddressListItem) => {
+  const handleSelectAddress = useCallback((address: DeliveryAddressListItem) => {
     if (!address._id) {
       return;
     }
 
     setSelectedAddressId(address._id);
-    await selectAddress(address);
-    setSelectionMessage('Delivery address updated.');
-  }, [selectAddress, setSelectedAddressId]);
+    setSelectionMessage(null);
+  }, [setSelectedAddressId]);
 
   const handleUseSelectedAddress = async () => {
     if (!selectedAddress) {
@@ -171,7 +176,7 @@ export function AddressBookScreen(_props: Props) {
       >
         <ScrollView
           style={styles.screen}
-          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
+          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl + footerInset }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           onScroll={onMarketplaceScroll}
@@ -218,8 +223,8 @@ export function AddressBookScreen(_props: Props) {
   return (
     <View style={styles.flex}>
       <ScrollView
-        style={styles.screen}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
+        style={styles.flex}
+        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         onScroll={onMarketplaceScroll}
@@ -242,13 +247,6 @@ export function AddressBookScreen(_props: Props) {
         ) : null}
 
         <View style={styles.section}>
-          <AppText variant="label" style={styles.sectionTitle}>
-            Saved addresses
-          </AppText>
-          <AppText variant="bodySmall" color="textSecondary" style={styles.sectionCopy}>
-            Choose a delivery address for checkout. Your profile address is included as the default.
-          </AppText>
-
           {!authUserId ? (
             <AppText variant="body" color="error" style={styles.emptyCopy}>
               We could not determine your account ID. Sign out and sign in again, then retry.
@@ -268,7 +266,7 @@ export function AddressBookScreen(_props: Props) {
                   address={address}
                   selected={selectedAddressId === address._id}
                   variant="card"
-                  onSelect={() => void handleSelectAddress(address)}
+                  onSelect={() => handleSelectAddress(address)}
                   onEdit={address.isDefault ? undefined : () => openEditForm(address)}
                   onDelete={address.isDefault ? undefined : () => handleDelete(address)}
                 />
@@ -292,7 +290,27 @@ export function AddressBookScreen(_props: Props) {
         </View>
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
+      <View style={[styles.footer, { paddingBottom: footerInset + spacing.md }]}>
+        <View style={styles.footerSummary}>
+          <AppText variant="caption" color="textMuted" style={styles.footerSummaryLabel}>
+            Selected address
+          </AppText>
+          {selectedAddress ? (
+            <>
+              <AppText variant="bodyMedium" style={styles.footerSummaryName} numberOfLines={1}>
+                {formatAddressRecipient(selectedAddress)}
+              </AppText>
+              <AppText variant="bodySmall" color="textSecondary" numberOfLines={2}>
+                {formatDeliveryAddressLine(selectedAddress)}
+              </AppText>
+            </>
+          ) : (
+            <AppText variant="bodySmall" color="textSecondary">
+              Choose an address from your saved list.
+            </AppText>
+          )}
+        </View>
+
         <AppButton
           label="Use selected address"
           fullWidth
@@ -336,11 +354,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     paddingHorizontal: spacing.xs,
     marginBottom: spacing.sm,
-  },
-  sectionCopy: {
-    lineHeight: 20,
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.xs,
   },
   loadingState: {
     alignItems: 'center',
@@ -386,6 +399,20 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
+    gap: spacing.md,
+    ...shadows.floating,
+  },
+  footerSummary: {
+    gap: 2,
+  },
+  footerSummaryLabel: {
+    fontWeight: '600',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  footerSummaryName: {
+    color: colors.textPrimary,
+    fontWeight: '700',
   },
 });
