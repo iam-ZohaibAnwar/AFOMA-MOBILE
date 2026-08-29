@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AppButton } from '../../../../components/ui/AppButton';
 import { AppText } from '../../../../components/ui/AppText';
 import { colors, radius, spacing } from '../../../../design-system';
-import { OrderDetailSection } from '../../../orders/components/OrderDetailSection';
+import { OrderDetailCollapsibleSection } from '../../../orders/components/OrderDetailCollapsibleSection';
 import {
   formatCustomerEmail,
   formatCustomerName,
@@ -47,7 +47,15 @@ export function SellerOrderBuyerInfoSection({
   const initials = getSellerCustomerInitials(customerName === '—' ? undefined : customerName);
 
   return (
-    <OrderDetailSection title="Buyer Info" icon="person-outline">
+    <OrderDetailCollapsibleSection
+      title="Buyer Information"
+      icon="person-outline"
+      collapsedPreview={
+        <AppText variant="caption" color="textSecondary" numberOfLines={1}>
+          {customerName}
+        </AppText>
+      }
+    >
       <View style={styles.profileRow}>
         <View style={styles.avatar}>
           <AppText variant="bodyMedium" style={styles.avatarText}>
@@ -95,7 +103,7 @@ export function SellerOrderBuyerInfoSection({
       {onContactBuyer ? (
         <AppButton label="Contact Buyer" variant="outline" onPress={onContactBuyer} fullWidth />
       ) : null}
-    </OrderDetailSection>
+    </OrderDetailCollapsibleSection>
   );
 }
 

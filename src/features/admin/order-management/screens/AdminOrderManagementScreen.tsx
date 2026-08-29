@@ -77,8 +77,8 @@ export function AdminOrderManagementScreen({ navigation }: Props) {
       <OrderListSearchBar
         value={searchInput}
         onChangeText={setSearchInput}
-        placeholder="Search by customer name..."
-        accessibilityLabel="Search orders by customer name"
+        placeholder="Search by buyer name..."
+        accessibilityLabel="Search orders by buyer name"
       />
 
       <AdminOrderStatusTabs activeStatus={statusFilter} onStatusChange={applyStatusFilter} />

@@ -1,9 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { AppButton } from '../../../../../components/ui/AppButton';
-import { AppText } from '../../../../../components/ui/AppText';
-import { spacing } from '../../../../../design-system';
-import { AdminProductDetailCardShell } from '../../../../admin/product-management/components/detail/AdminProductDetailCardShell';
+import { colors, spacing } from '../../../../../design-system';
 
 export interface SellerCouponDetailOperationsCardProps {
   isDeleting: boolean;
@@ -17,30 +15,27 @@ export function SellerCouponDetailOperationsCard({
   onDeletePress,
 }: SellerCouponDetailOperationsCardProps) {
   return (
-    <AdminProductDetailCardShell title="Operations" icon="settings-outline" iconVariant="solid" accent>
-      <View style={styles.body}>
-        <AppText variant="bodySmall" color="textSecondary">
-          Edit coupon settings or remove the coupon permanently.
-        </AppText>
-
-        <AppButton label="Edit coupon" variant="outline" onPress={onEditPress} disabled={isDeleting} />
-        <AppButton
-          label={isDeleting ? 'Deleting coupon...' : 'Delete coupon'}
-          variant="outline"
-          loading={isDeleting}
-          onPress={onDeletePress}
-          labelStyle={styles.deleteLabel}
-        />
-      </View>
-    </AdminProductDetailCardShell>
+    <View style={styles.actions}>
+      <AppButton label="Edit" variant="primary" onPress={onEditPress} disabled={isDeleting} fullWidth />
+      <AppButton
+        label={isDeleting ? 'Deleting…' : 'Delete'}
+        variant="outline"
+        loading={isDeleting}
+        disabled={isDeleting}
+        onPress={onDeletePress}
+        fullWidth
+        labelStyle={styles.deleteLabel}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  body: {
+  actions: {
     gap: spacing.md,
+    paddingTop: spacing.xs,
   },
   deleteLabel: {
-    color: '#B91C1C',
+    color: colors.error,
   },
 });

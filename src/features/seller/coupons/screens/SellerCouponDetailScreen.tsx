@@ -1,5 +1,6 @@
-import { useCallback, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,6 +11,10 @@ import { getErrorMessage } from '../../../../services/api/errors';
 import { AdminCouponDetailHero } from '../../../admin/coupons/components/detail/AdminCouponDetailHero';
 import { AdminCouponDetailInfoCard } from '../../../admin/coupons/components/detail/AdminCouponDetailInfoCard';
 import type { AdminCouponListItem } from '../../../admin/coupons/types/adminCoupons';
+import {
+  AdminProductCardActionsMenu,
+  type AdminProductCardActionId,
+} from '../../../admin/product-management/components/AdminProductCardActionsMenu';
 import type { SellerStackParamList } from '../../../../app/navigation/sellerTypes';
 import { authReturnTo } from '../../../auth/utils/authNavigation';
 import { useRequireSeller } from '../../hooks/useRequireSeller';
@@ -17,6 +22,8 @@ import { deleteSellerCoupon } from '../api/sellerCouponsApi';
 import { SellerCouponDetailOperationsCard } from '../components/detail/SellerCouponDetailOperationsCard';
 import { useSellerCouponDetail } from '../hooks/useSellerCoupons';
 import { navigateToSellerCouponForm } from '../navigation/sellerCouponsNavigation';
+import { buildSellerCouponDetailMenuActions } from '../utils/sellerCouponCardActions';
+import { getSellerCouponMenuTitle } from '../utils/sellerCouponListDisplay';
 
 type Props = NativeStackScreenProps<SellerStackParamList, 'SellerCouponDetail'>;
 
@@ -25,6 +32,7 @@ export function SellerCouponDetailScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const returnTo = authReturnTo.sellerCouponDetail(couponId);
   const { isAuthorized } = useRequireSeller(returnTo);
+  const [menuVisible, setMenuVisible] = useState(false);
 
   const { coupon, isLoading, isRefreshing, error, reload } = useSellerCouponDetail({
     couponId,
@@ -36,6 +44,8 @@ export function SellerCouponDetailScreen({ navigation, route }: Props) {
   const [actionError, setActionError] = useState<string | null>(null);
 
   const displayCoupon = (coupon ?? initialCoupon) as AdminCouponListItem | undefined;
+
+  const menuActions = useMemo(() => buildSellerCouponDetailMenuActions(), []);
 
   const handleEdit = useCallback(() => {
     if (!couponId) {
@@ -87,6 +97,41 @@ export function SellerCouponDetailScreen({ navigation, route }: Props) {
     );
   }, [displayCoupon?.couponCode, isDeleting, performDelete]);
 
+  const handleMenuSelect = useCallback(
+    (actionId: AdminProductCardActionId) => {
+      setMenuVisible(false);
+
+      switch (actionId) {
+        case 'edit':
+          handleEdit();
+          break;
+        case 'delete':
+          handleDeletePress();
+          break;
+        default:
+          break;
+      }
+    },
+    [handleDeletePress, handleEdit],
+  );
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: 'Coupon Detail',
+      headerRight: () => (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Coupon actions"
+          onPress={() => setMenuVisible(true)}
+          hitSlop={8}
+          style={styles.headerAction}
+        >
+          <Ionicons name="ellipsis-vertical" size={20} color={colors.textPrimary} />
+        </Pressable>
+      ),
+    });
+  }, [navigation]);
+
   if (!isAuthorized) {
     return <View style={[styles.screen, { paddingTop: insets.top }]} />;
   }
@@ -114,33 +159,43 @@ export function SellerCouponDetailScreen({ navigation, route }: Props) {
   }
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
-      refreshControl={
-        <RefreshControl refreshing={isRefreshing} onRefresh={() => void reload()} tintColor={colors.primary} />
-      }
-      showsVerticalScrollIndicator={false}
-    >
-      {error ? <ErrorState message={error} onAction={() => void reload()} style={styles.inlineError} /> : null}
+    <>
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={() => void reload()} tintColor={colors.primary} />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        {error ? <ErrorState message={error} onAction={() => void reload()} style={styles.inlineError} /> : null}
 
-      {actionError ? (
-        <ErrorState
-          message={actionError}
-          actionLabel="Dismiss"
-          onAction={() => setActionError(null)}
-          style={styles.inlineError}
+        {actionError ? (
+          <ErrorState
+            message={actionError}
+            actionLabel="Dismiss"
+            onAction={() => setActionError(null)}
+            style={styles.inlineError}
+          />
+        ) : null}
+
+        <AdminCouponDetailHero coupon={displayCoupon} listTab="admin" />
+        <AdminCouponDetailInfoCard coupon={displayCoupon} />
+        <SellerCouponDetailOperationsCard
+          isDeleting={isDeleting}
+          onEditPress={handleEdit}
+          onDeletePress={handleDeletePress}
         />
-      ) : null}
+      </ScrollView>
 
-      <AdminCouponDetailHero coupon={displayCoupon} listTab="admin" />
-      <AdminCouponDetailInfoCard coupon={displayCoupon} />
-      <SellerCouponDetailOperationsCard
-        isDeleting={isDeleting}
-        onEditPress={handleEdit}
-        onDeletePress={handleDeletePress}
+      <AdminProductCardActionsMenu
+        visible={menuVisible}
+        productName={getSellerCouponMenuTitle(displayCoupon)}
+        actions={menuActions}
+        onClose={() => setMenuVisible(false)}
+        onSelect={handleMenuSelect}
       />
-    </ScrollView>
+    </>
   );
 }
 
@@ -152,7 +207,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   centeredState: {
     flex: 1,
@@ -163,5 +218,9 @@ const styles = StyleSheet.create({
   },
   inlineError: {
     marginBottom: 0,
+  },
+  headerAction: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
 });

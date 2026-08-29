@@ -11,11 +11,12 @@ import { AppText } from '../../../../components/ui/AppText';
 import { colors, spacing } from '../../../../design-system';
 import type { SellerStackParamList } from '../../../../app/navigation/sellerTypes';
 import { authReturnTo } from '../../../auth/utils/authNavigation';
-import { OrderDetailSection } from '../../../orders/components/OrderDetailSection';
+import { OrderDetailCollapsibleSection } from '../../../orders/components/OrderDetailCollapsibleSection';
 import {
   getOrderShippingMethodLabel,
   getOrderTrackingNumber,
 } from '../../../orders/utils/orderDetailDisplay';
+import { formatOrderMoney } from '../../../orders/utils/orderPricing';
 import { useRequireSeller } from '../../hooks/useRequireSeller';
 import { SellerOrderBuyerInfoSection } from '../components/SellerOrderBuyerInfoSection';
 import { SellerOrderDetailHero } from '../components/SellerOrderDetailHero';
@@ -178,14 +179,28 @@ export function SellerOrderDetailScreen({ route, navigation }: Props) {
 
         <SellerOrderBuyerInfoSection order={displayOrder} onContactBuyer={handleContactBuyer} />
 
-        {(shippingMethod || trackingNumber || carrier) && (
-          <OrderDetailSection title="Shipping Info" icon="navigate-outline">
+        {(shippingMethod || trackingNumber || (carrier && carrier !== '—')) && (
+          <OrderDetailCollapsibleSection
+            title="Shipping Info"
+            icon="navigate-outline"
+            collapsedPreview={
+              trackingNumber ? (
+                <AppText variant="caption" color="textSecondary" numberOfLines={1}>
+                  {trackingNumber}
+                </AppText>
+              ) : (
+                <AppText variant="caption" color="textSecondary" numberOfLines={1}>
+                  {shippingMethod ?? carrier}
+                </AppText>
+              )
+            }
+          >
             {shippingMethod ? (
               <AppText variant="bodySmall" color="textSecondary">
                 Method: {shippingMethod}
               </AppText>
             ) : null}
-            {carrier ? (
+            {carrier && carrier !== '—' ? (
               <AppText variant="bodySmall" color="textSecondary">
                 Carrier: {carrier}
               </AppText>
@@ -201,10 +216,23 @@ export function SellerOrderDetailScreen({ route, navigation }: Props) {
                 Shipment tracking: {shipping.shipmentContext.trackingNumber}
               </AppText>
             ) : null}
-          </OrderDetailSection>
+            {shipping.shipmentContext?.shipmentId ? (
+              <AppText variant="bodySmall" color="textSecondary">
+                Shipment ID: {shipping.shipmentContext.shipmentId}
+              </AppText>
+            ) : null}
+          </OrderDetailCollapsibleSection>
         )}
 
-        <OrderDetailSection title={`Order Items (${lineItems.length})`} icon="cube-outline">
+        <OrderDetailCollapsibleSection
+          title={`Order Items (${lineItems.length})`}
+          icon="cube-outline"
+          collapsedPreview={
+            <AppText variant="caption" color="textSecondary" numberOfLines={1}>
+              {formatOrderMoney(displayOrder, subtotal)}
+            </AppText>
+          }
+        >
           {lineItems.length ? (
             <View style={styles.productList}>
               {lineItems.map((line: CartLineItem, index: number) => (
@@ -219,7 +247,7 @@ export function SellerOrderDetailScreen({ route, navigation }: Props) {
               No products found for this order.
             </AppText>
           )}
-        </OrderDetailSection>
+        </OrderDetailCollapsibleSection>
 
         <SellerOrderLineFulfillmentSection
           order={displayOrder}
@@ -228,36 +256,38 @@ export function SellerOrderDetailScreen({ route, navigation }: Props) {
           onFulfillmentStatusChange={handleLineFulfillmentChange}
         />
 
-        {hasShippingOps ? (
-          <SellerOrderQuickActionsSection
-            shippingDisabled={displayOrder.status === 'Cancelled'}
-            canDownloadLabel={shipping.canDownloadLabel}
-            canPrintPackingSlip={shipping.canPrintPackingSlip}
-            canSchedulePickup={shipping.canSchedulePickup}
-            isOpeningLabel={shipping.isOpeningLabel}
-            isOpeningInvoice={shipping.isOpeningInvoice}
-            isGeneratingLabel={shipping.isGeneratingLabel}
-            onDownloadLabel={() => {
-              shipping.clearShippingError();
-              void shipping.openShippingDocument('label');
-            }}
-            onPrintPackingSlip={() => {
-              shipping.clearShippingError();
-              void shipping.openShippingDocument('invoice');
-            }}
-            onSchedulePickup={() => {
-              shipping.clearPickupError();
-              shipping.openPickupSheet();
-            }}
-          />
-        ) : null}
-
         <SellerOrderPaymentSummaryCard
           order={displayOrder}
           itemCount={itemCount}
           subtotal={subtotal}
           shipping={shippingTotal}
           total={total}
+          footer={
+            hasShippingOps ? (
+              <SellerOrderQuickActionsSection
+                embedded
+                shippingDisabled={displayOrder.status === 'Cancelled'}
+                canDownloadLabel={shipping.canDownloadLabel}
+                canPrintPackingSlip={shipping.canPrintPackingSlip}
+                canSchedulePickup={shipping.canSchedulePickup}
+                isOpeningLabel={shipping.isOpeningLabel}
+                isOpeningInvoice={shipping.isOpeningInvoice}
+                isGeneratingLabel={shipping.isGeneratingLabel}
+                onDownloadLabel={() => {
+                  shipping.clearShippingError();
+                  void shipping.openShippingDocument('label');
+                }}
+                onPrintPackingSlip={() => {
+                  shipping.clearShippingError();
+                  void shipping.openShippingDocument('invoice');
+                }}
+                onSchedulePickup={() => {
+                  shipping.clearPickupError();
+                  shipping.openPickupSheet();
+                }}
+              />
+            ) : null
+          }
         />
       </ScrollView>
 
@@ -281,7 +311,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   centeredState: {
     flex: 1,

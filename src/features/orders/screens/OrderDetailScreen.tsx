@@ -22,8 +22,8 @@ import { authReturnTo } from '../../auth/utils/authNavigation';
 import { CustomerOrderActionsSection } from '../components/CustomerOrderActionsSection';
 import { CustomerOrderDetailHero } from '../components/CustomerOrderDetailHero';
 import { CustomerOrderDetailLineRow } from '../components/CustomerOrderDetailLineRow';
+import { OrderDetailCollapsibleSection } from '../components/OrderDetailCollapsibleSection';
 import { OrderDetailInfoRow } from '../components/OrderDetailInfoRow';
-import { OrderDetailSection } from '../components/OrderDetailSection';
 import { useCancelOrder } from '../hooks/useCancelOrder';
 import { useOrderDetail } from '../hooks/useOrderDetail';
 import {
@@ -39,6 +39,7 @@ import {
   calculateOrderItemsSubTotal,
   calculateOrderServiceFees,
   calculateOrderShippingTotal,
+  formatOrderMoney,
 } from '../utils/orderPricing';
 import type { CartLineItem } from '../../../services/types/cart';
 
@@ -154,6 +155,7 @@ export function OrderDetailScreen({ route, navigation }: Props) {
   const itemCount = lineItems.reduce((sum, line) => sum + (line.orderQuantiy ?? 0), 0);
   const shippingMethod = getOrderShippingMethodLabel(displayOrder);
   const trackingNumber = getOrderTrackingNumber(displayOrder);
+  const hasShippingSection = Boolean(shippingMethod || trackingNumber || shipping > 0);
   const cancellable = canCancelCustomerOrder(displayOrder);
   const cancelDisabledReason = getCustomerOrderCancelDisabledReason(displayOrder);
 
@@ -206,11 +208,34 @@ export function OrderDetailScreen({ route, navigation }: Props) {
 
       <AdminOrderBuyerInfoSection order={displayOrder} />
 
-      {(shippingMethod || trackingNumber) && (
-        <OrderDetailSection title="Shipping Info" icon="navigate-outline">
+      {hasShippingSection ? (
+        <OrderDetailCollapsibleSection
+          title="Shipping Info"
+          icon="navigate-outline"
+          collapsedPreview={
+            trackingNumber ? (
+              <AppText variant="caption" color="textSecondary" numberOfLines={1}>
+                {trackingNumber}
+              </AppText>
+            ) : shippingMethod ? (
+              <AppText variant="caption" color="textSecondary" numberOfLines={1}>
+                {shippingMethod}
+              </AppText>
+            ) : (
+              <AppText variant="caption" color="textSecondary" numberOfLines={1}>
+                {formatOrderMoney(displayOrder, shipping)}
+              </AppText>
+            )
+          }
+        >
           {shippingMethod ? (
             <AppText variant="bodySmall" color="textSecondary">
               Method: {shippingMethod}
+            </AppText>
+          ) : null}
+          {shipping > 0 ? (
+            <AppText variant="bodySmall" color="textSecondary">
+              Shipping: {formatOrderMoney(displayOrder, shipping)}
             </AppText>
           ) : null}
           {trackingNumber ? (
@@ -221,10 +246,18 @@ export function OrderDetailScreen({ route, navigation }: Props) {
               onCopy={() => void handleCopyTracking(trackingNumber)}
             />
           ) : null}
-        </OrderDetailSection>
-      )}
+        </OrderDetailCollapsibleSection>
+      ) : null}
 
-      <OrderDetailSection title={`Order Items (${lineItems.length})`} icon="cube-outline">
+      <OrderDetailCollapsibleSection
+        title={`Order Items (${lineItems.length})`}
+        icon="cube-outline"
+        collapsedPreview={
+          <AppText variant="caption" color="textSecondary" numberOfLines={1}>
+            {formatOrderMoney(displayOrder, subtotal)}
+          </AppText>
+        }
+      >
         {lineItems.length ? (
           <View style={styles.productList}>
             {lineItems.map((line: CartLineItem, index: number) => (
@@ -239,7 +272,7 @@ export function OrderDetailScreen({ route, navigation }: Props) {
             No products found for this order.
           </AppText>
         )}
-      </OrderDetailSection>
+      </OrderDetailCollapsibleSection>
 
       <AdminOrderPaymentSummaryCard
         order={displayOrder}
@@ -268,7 +301,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   centeredState: {
     flex: 1,

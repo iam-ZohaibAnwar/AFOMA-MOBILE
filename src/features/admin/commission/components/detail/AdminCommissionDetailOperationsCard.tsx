@@ -1,15 +1,13 @@
 import { StyleSheet, View } from 'react-native';
 
 import { AppButton } from '../../../../../components/ui/AppButton';
-import { AppText } from '../../../../../components/ui/AppText';
 import { spacing } from '../../../../../design-system';
-import { AdminProductDetailCardShell } from '../../../product-management/components/detail/AdminProductDetailCardShell';
 import type { AdminCommissionDisplayRow } from '../../types/adminCommission';
+import { getInitiatePayoutButtonLabel } from '../../utils/adminCommissionFormatters';
 import {
   canInitiateAdminCommissionPayout,
   canUpdateAdminCommissionPayoutStatus,
 } from '../../utils/adminCommissionMutationGuards';
-import { getInitiatePayoutButtonLabel } from '../../utils/adminCommissionFormatters';
 
 export interface AdminCommissionDetailOperationsCardProps {
   row: AdminCommissionDisplayRow;
@@ -34,34 +32,30 @@ export function AdminCommissionDetailOperationsCard({
     canUpdateAdminCommissionPayoutStatus(row, updatingStatusCommissionId);
 
   return (
-    <AdminProductDetailCardShell title="Payout Actions" icon="send-outline" iconVariant="solid" accent>
-      <View style={styles.body}>
-        <AppText variant="bodySmall" color="textSecondary">
-          Initiate a Korapay payout link email or manually update payout status.
-        </AppText>
-
-        <AppButton
-          label={getInitiatePayoutButtonLabel(row, isInitiating)}
-          variant="outline"
-          disabled={!canInitiate}
-          loading={isInitiating}
-          onPress={onInitiatePress}
-        />
-
-        <AppButton
-          label={isUpdatingStatus ? 'Updating status...' : 'Change payout status'}
-          variant="secondary"
-          disabled={!canUpdateStatus}
-          loading={isUpdatingStatus}
-          onPress={onStatusPress}
-        />
-      </View>
-    </AdminProductDetailCardShell>
+    <View style={styles.actions}>
+      <AppButton
+        label={getInitiatePayoutButtonLabel(row, isInitiating)}
+        variant="primary"
+        disabled={!canInitiate}
+        loading={isInitiating}
+        onPress={onInitiatePress}
+        fullWidth
+      />
+      <AppButton
+        label={isUpdatingStatus ? 'Updating status…' : 'Change payout status'}
+        variant="outline"
+        disabled={!canUpdateStatus}
+        loading={isUpdatingStatus}
+        onPress={onStatusPress}
+        fullWidth
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  body: {
+  actions: {
     gap: spacing.md,
+    paddingTop: spacing.xs,
   },
 });

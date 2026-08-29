@@ -12,3 +12,7 @@ export function buildAdminCouponCardActions(coupon: AdminCouponListItem): AdminP
     { id: 'delete', label: 'Delete coupon', destructive: true },
   ];
 }
+
+export function buildAdminCouponDetailMenuActions(coupon: AdminCouponListItem): AdminProductCardAction[] {
+  return buildAdminCouponCardActions(coupon).filter((action) => action.id !== 'view');
+}

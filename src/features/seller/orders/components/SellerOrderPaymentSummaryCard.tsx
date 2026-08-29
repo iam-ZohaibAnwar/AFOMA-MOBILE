@@ -1,9 +1,10 @@
+import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 
 import { AppDivider } from '../../../../components/ui/AppDivider';
 import { AppText } from '../../../../components/ui/AppText';
-import { colors, radius, spacing } from '../../../../design-system';
+import { colors, spacing } from '../../../../design-system';
+import { OrderDetailCollapsibleSection } from '../../../orders/components/OrderDetailCollapsibleSection';
 import { formatOrderMoney } from '../../../orders/utils/orderPricing';
 import type { SellerOrderDetail } from '../types/sellerOrder';
 import { formatSellerPaymentStatus } from '../utils/sellerOrderDetailDisplay';
@@ -14,6 +15,7 @@ interface SellerOrderPaymentSummaryCardProps {
   subtotal: number;
   shipping: number;
   total: number;
+  footer?: ReactNode;
 }
 
 function SummaryRow({
@@ -46,18 +48,22 @@ export function SellerOrderPaymentSummaryCard({
   subtotal,
   shipping,
   total,
+  footer,
 }: SellerOrderPaymentSummaryCardProps) {
   const paymentStatus = formatSellerPaymentStatus(order.paymentStatus);
 
   return (
-    <View style={styles.card}>
-      <View style={styles.header}>
-        <Ionicons name="receipt-outline" size={18} color={colors.textInverse} />
-        <AppText variant="bodyMedium" style={styles.headerTitle}>
-          Your Order Summary
+    <OrderDetailCollapsibleSection
+      title="Payment Summary"
+      icon="cash-outline"
+      variant="primary"
+      initiallyExpanded
+      collapsedPreview={
+        <AppText variant="caption" style={styles.collapsedTotal} numberOfLines={1}>
+          {formatOrderMoney(order, total)}
         </AppText>
-      </View>
-
+      }
+    >
       <SummaryRow
         label={`Subtotal (${itemCount} item${itemCount === 1 ? '' : 's'})`}
         value={formatOrderMoney(order, subtotal)}
@@ -79,27 +85,13 @@ export function SellerOrderPaymentSummaryCard({
       <AppText variant="caption" style={styles.scopeHint}>
         Totals reflect only your products in this order.
       </AppText>
-    </View>
+
+      {footer ? <View style={styles.footer}>{footer}</View> : null}
+    </OrderDetailCollapsibleSection>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.large,
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.xs,
-  },
-  headerTitle: {
-    color: colors.textInverse,
-    fontWeight: '700',
-  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -134,8 +126,19 @@ const styles = StyleSheet.create({
     color: colors.textInverse,
     fontWeight: '800',
   },
+  collapsedTotal: {
+    color: colors.textInverse,
+    fontWeight: '700',
+  },
   scopeHint: {
     color: 'rgba(255,255,255,0.72)',
     marginTop: spacing.xs,
+  },
+  footer: {
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.22)',
   },
 });

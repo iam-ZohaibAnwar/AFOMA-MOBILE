@@ -1,5 +1,6 @@
-import { useCallback, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,6 +11,10 @@ import { getErrorMessage } from '../../../../services/api/errors';
 import { authReturnTo } from '../../../auth/utils/authNavigation';
 import { useAuth } from '../../../auth/hooks/useAuth';
 import { resolveAuthUserId } from '../../../auth/utils/resolveAuthUserId';
+import {
+  AdminProductCardActionsMenu,
+  type AdminProductCardActionId,
+} from '../../product-management/components/AdminProductCardActionsMenu';
 import { useRequireAdmin } from '../../hooks/useRequireAdmin';
 import type { AdminStackParamList } from '../../navigation/adminTypes';
 import { deleteAdminCoupon, notifyAdminCouponUsers } from '../api/adminCouponsApi';
@@ -18,8 +23,10 @@ import { AdminCouponDetailInfoCard } from '../components/detail/AdminCouponDetai
 import { AdminCouponDetailOperationsCard } from '../components/detail/AdminCouponDetailOperationsCard';
 import { useAdminCouponDetail } from '../hooks/useAdminCoupons';
 import { navigateToAdminCouponForm } from '../navigation/adminCouponsNavigation';
+import { buildAdminCouponDetailMenuActions } from '../utils/adminCouponCardActions';
 import { getAdminCouponCreatedById } from '../utils/adminCouponsContent';
 import { isAdminCouponExpired } from '../utils/adminCouponsDisplay';
+import { getAdminCouponMenuTitle } from '../utils/adminCouponListDisplay';
 
 type Props = NativeStackScreenProps<AdminStackParamList, 'AdminCouponDetail'>;
 
@@ -30,6 +37,7 @@ export function AdminCouponDetailScreen({ navigation, route }: Props) {
   const { isAuthorized } = useRequireAdmin(returnTo);
   const { user } = useAuth();
   const adminUserId = resolveAuthUserId(user);
+  const [menuVisible, setMenuVisible] = useState(false);
 
   const listTab =
     initialCoupon && adminUserId && getAdminCouponCreatedById(initialCoupon) !== adminUserId
@@ -45,6 +53,13 @@ export function AdminCouponDetailScreen({ navigation, route }: Props) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isNotifying, setIsNotifying] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  const displayCoupon = coupon ?? initialCoupon;
+
+  const menuActions = useMemo(
+    () => (displayCoupon ? buildAdminCouponDetailMenuActions(displayCoupon) : []),
+    [displayCoupon],
+  );
 
   const handleEdit = useCallback(() => {
     if (!couponId) {
@@ -82,7 +97,7 @@ export function AdminCouponDetailScreen({ navigation, route }: Props) {
 
     Alert.alert(
       'Delete coupon',
-      `Are you sure you want to delete ${coupon?.couponCode || 'this coupon'}?`,
+      `Are you sure you want to delete ${displayCoupon?.couponCode || 'this coupon'}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -94,7 +109,7 @@ export function AdminCouponDetailScreen({ navigation, route }: Props) {
         },
       ],
     );
-  }, [coupon?.couponCode, isDeleting, performDelete]);
+  }, [displayCoupon?.couponCode, isDeleting, performDelete]);
 
   const handleNotifyPress = useCallback(() => {
     if (!couponId || isNotifying) {
@@ -103,7 +118,7 @@ export function AdminCouponDetailScreen({ navigation, route }: Props) {
 
     Alert.alert(
       'Notify users',
-      `Send a marketplace notification for ${coupon?.couponCode || 'this coupon'}?`,
+      `Send a marketplace notification for ${displayCoupon?.couponCode || 'this coupon'}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -126,13 +141,51 @@ export function AdminCouponDetailScreen({ navigation, route }: Props) {
         },
       ],
     );
-  }, [coupon?.couponCode, couponId, isNotifying]);
+  }, [displayCoupon?.couponCode, couponId, isNotifying]);
+
+  const handleMenuSelect = useCallback(
+    (actionId: AdminProductCardActionId) => {
+      setMenuVisible(false);
+
+      switch (actionId) {
+        case 'edit':
+          handleEdit();
+          break;
+        case 'preview':
+          handleNotifyPress();
+          break;
+        case 'delete':
+          handleDeletePress();
+          break;
+        default:
+          break;
+      }
+    },
+    [handleDeletePress, handleEdit, handleNotifyPress],
+  );
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: 'Coupon Detail',
+      headerRight: () => (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Coupon actions"
+          onPress={() => setMenuVisible(true)}
+          hitSlop={8}
+          style={styles.headerAction}
+        >
+          <Ionicons name="ellipsis-vertical" size={20} color={colors.textPrimary} />
+        </Pressable>
+      ),
+    });
+  }, [navigation]);
 
   if (!isAuthorized) {
     return <View style={[styles.screen, { paddingTop: insets.top }]} />;
   }
 
-  if (isLoading && !coupon && !error) {
+  if (isLoading && !displayCoupon && !error) {
     return (
       <View style={[styles.centeredState, { paddingBottom: insets.bottom }]}>
         <AppText variant="bodySmall" color="textSecondary">
@@ -142,7 +195,7 @@ export function AdminCouponDetailScreen({ navigation, route }: Props) {
     );
   }
 
-  if (error && !coupon) {
+  if (error && !displayCoupon) {
     return (
       <View style={[styles.centeredState, { paddingBottom: insets.bottom }]}>
         <ErrorState message={error} onAction={() => void reload()} />
@@ -150,43 +203,53 @@ export function AdminCouponDetailScreen({ navigation, route }: Props) {
     );
   }
 
-  if (!coupon) {
+  if (!displayCoupon) {
     return null;
   }
 
-  const notifyDisabled = isAdminCouponExpired(coupon.expirationDate);
+  const notifyDisabled = isAdminCouponExpired(displayCoupon.expirationDate);
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
-      refreshControl={
-        <RefreshControl refreshing={isRefreshing} onRefresh={() => void reload()} tintColor={colors.primary} />
-      }
-      showsVerticalScrollIndicator={false}
-    >
-      {error ? <ErrorState message={error} onAction={() => void reload()} style={styles.inlineError} /> : null}
+    <>
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={() => void reload()} tintColor={colors.primary} />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        {error ? <ErrorState message={error} onAction={() => void reload()} style={styles.inlineError} /> : null}
 
-      {actionError ? (
-        <ErrorState
-          message={actionError}
-          actionLabel="Dismiss"
-          onAction={() => setActionError(null)}
-          style={styles.inlineError}
+        {actionError ? (
+          <ErrorState
+            message={actionError}
+            actionLabel="Dismiss"
+            onAction={() => setActionError(null)}
+            style={styles.inlineError}
+          />
+        ) : null}
+
+        <AdminCouponDetailHero coupon={displayCoupon} listTab={listTab} />
+        <AdminCouponDetailInfoCard coupon={displayCoupon} showCreator={listTab === 'seller'} />
+        <AdminCouponDetailOperationsCard
+          isDeleting={isDeleting}
+          isNotifying={isNotifying}
+          notifyDisabled={notifyDisabled}
+          onEditPress={handleEdit}
+          onNotifyPress={handleNotifyPress}
+          onDeletePress={handleDeletePress}
         />
-      ) : null}
+      </ScrollView>
 
-      <AdminCouponDetailHero coupon={coupon} listTab={listTab} />
-      <AdminCouponDetailInfoCard coupon={coupon} showCreator={listTab === 'seller'} />
-      <AdminCouponDetailOperationsCard
-        isDeleting={isDeleting}
-        isNotifying={isNotifying}
-        notifyDisabled={notifyDisabled}
-        onEditPress={handleEdit}
-        onNotifyPress={handleNotifyPress}
-        onDeletePress={handleDeletePress}
+      <AdminProductCardActionsMenu
+        visible={menuVisible}
+        productName={getAdminCouponMenuTitle(displayCoupon)}
+        actions={menuActions}
+        onClose={() => setMenuVisible(false)}
+        onSelect={handleMenuSelect}
       />
-    </ScrollView>
+    </>
   );
 }
 
@@ -198,7 +261,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   centeredState: {
     flex: 1,
@@ -209,5 +272,9 @@ const styles = StyleSheet.create({
   },
   inlineError: {
     marginBottom: 0,
+  },
+  headerAction: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
 });
