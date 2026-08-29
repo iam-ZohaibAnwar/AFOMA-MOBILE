@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { getErrorMessage } from '../../../../services/api/errors';
 import { getSellerOrdersPage } from '../api/sellerOrdersApi';
 import type { SellerOrderStatusFilter, SellerOrderSummary } from '../types/sellerOrder';
+import { peekSellerOrderSessionPatches } from '../state/sellerOrderSessionPatch';
 
 const ITEMS_PER_PAGE = 10;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -13,15 +15,14 @@ export function useSellerOrders(sellerId?: string) {
   const [totalPages, setTotalPages] = useState(1);
   const [totalOrders, setTotalOrders] = useState(0);
   const [isLoading, setIsLoading] = useState(Boolean(sellerId));
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<SellerOrderStatusFilter>('');
 
-  const loadingMoreRef = useRef(false);
   const requestVersionRef = useRef(0);
+  const hasCachedOrdersRef = useRef(false);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -32,7 +33,7 @@ export function useSellerOrders(sellerId?: string) {
   }, [searchInput]);
 
   const loadPage = useCallback(
-    async (page: number, mode: 'initial' | 'more' | 'refresh') => {
+    async (page: number, mode: 'initial' | 'refresh') => {
       if (!sellerId) {
         setOrders([]);
         setError(null);
@@ -43,53 +44,56 @@ export function useSellerOrders(sellerId?: string) {
       const requestVersion = requestVersionRef.current + 1;
       requestVersionRef.current = requestVersion;
 
-      if (mode === 'more') {
-        if (loadingMoreRef.current) {
-          return;
-        }
-        loadingMoreRef.current = true;
-        setIsLoadingMore(true);
-      } else if (mode === 'refresh') {
+      if (mode === 'refresh') {
         setIsRefreshing(true);
-      } else {
+      } else if (!hasCachedOrdersRef.current) {
         setIsLoading(true);
       }
 
       setError(null);
 
       try {
-        const response = await getSellerOrdersPage(sellerId, {
-          page,
+        let resolvedPage = page;
+        let response = await getSellerOrdersPage(sellerId, {
+          page: resolvedPage,
           limit: ITEMS_PER_PAGE,
           status: statusFilter || undefined,
           search: searchTerm || undefined,
         });
 
+        const maxPage = Math.max(1, response.totalPages ?? 1);
+        if (resolvedPage > maxPage) {
+          resolvedPage = maxPage;
+          response = await getSellerOrdersPage(sellerId, {
+            page: resolvedPage,
+            limit: ITEMS_PER_PAGE,
+            status: statusFilter || undefined,
+            search: searchTerm || undefined,
+          });
+        }
+
         if (requestVersion !== requestVersionRef.current) {
           return;
         }
 
-        const nextOrders = Array.isArray(response.orders) ? response.orders : [];
-
-        setOrders((current) => (mode === 'more' ? [...current, ...nextOrders] : nextOrders));
-        setCurrentPage(response.currentPage ?? page);
-        setTotalPages(response.totalPages ?? 1);
-        setTotalOrders(response.totalOrders ?? nextOrders.length);
+        setOrders(Array.isArray(response.orders) ? response.orders : []);
+        setTotalPages(Math.max(1, response.totalPages ?? 1));
+        setTotalOrders(response.totalOrders ?? 0);
+        setCurrentPage(resolvedPage);
+        hasCachedOrdersRef.current = true;
       } catch (err) {
         if (requestVersion !== requestVersionRef.current) {
           return;
         }
 
-        if (mode !== 'more') {
+        if (!hasCachedOrdersRef.current) {
           setOrders([]);
         }
         setError(getErrorMessage(err, 'Failed to load orders'));
       } finally {
         if (requestVersion === requestVersionRef.current) {
           setIsLoading(false);
-          setIsLoadingMore(false);
           setIsRefreshing(false);
-          loadingMoreRef.current = false;
         }
       }
     },
@@ -97,44 +101,81 @@ export function useSellerOrders(sellerId?: string) {
   );
 
   useEffect(() => {
-    void loadPage(1, 'initial');
+    setCurrentPage(1);
+    void loadPage(1, hasCachedOrdersRef.current ? 'refresh' : 'initial');
   }, [loadPage]);
-
-  const hasMore = currentPage < totalPages;
 
   const refresh = useCallback(async () => {
-    await loadPage(1, 'refresh');
-  }, [loadPage]);
+    await loadPage(currentPage, 'refresh');
+  }, [currentPage, loadPage]);
 
-  const loadMore = useCallback(() => {
-    if (!hasMore || isLoading || isLoadingMore || isRefreshing) {
+  const goToPreviousPage = useCallback(() => {
+    const nextPage = Math.max(1, currentPage - 1);
+    if (nextPage === currentPage) {
       return;
     }
+    void loadPage(nextPage, 'initial');
+  }, [currentPage, loadPage]);
 
-    void loadPage(currentPage + 1, 'more');
-  }, [currentPage, hasMore, isLoading, isLoadingMore, isRefreshing, loadPage]);
+  const goToNextPage = useCallback(() => {
+    const nextPage = Math.min(totalPages, currentPage + 1);
+    if (nextPage === currentPage) {
+      return;
+    }
+    void loadPage(nextPage, 'initial');
+  }, [currentPage, loadPage, totalPages]);
+
+  const applyStatusFilter = useCallback((nextStatus: SellerOrderStatusFilter) => {
+    setStatusFilter(nextStatus);
+  }, []);
 
   const hasActiveFilters = useMemo(
     () => Boolean(searchTerm || statusFilter),
     [searchTerm, statusFilter],
   );
 
+  const applySessionPatchesToList = useCallback(() => {
+    const patches = peekSellerOrderSessionPatches();
+    if (patches.size === 0) {
+      return;
+    }
+
+    setOrders((current) =>
+      current.map((order) => {
+        const orderId = order._id;
+        if (!orderId) {
+          return order;
+        }
+
+        const patch = patches.get(orderId);
+        return patch ? { ...order, ...patch } : order;
+      }),
+    );
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      applySessionPatchesToList();
+    }, [applySessionPatchesToList]),
+  );
+
   return {
     orders,
-    totalOrders,
     currentPage,
     totalPages,
-    hasMore,
+    totalOrders,
     isLoading,
-    isLoadingMore,
     isRefreshing,
     error,
     searchInput,
     setSearchInput,
     statusFilter,
-    setStatusFilter,
     hasActiveFilters,
+    applyStatusFilter,
     refresh,
-    loadMore,
+    goToPreviousPage,
+    goToNextPage,
+    canGoPrevious: currentPage > 1 && !isLoading,
+    canGoNext: currentPage < totalPages && !isLoading,
   };
 }

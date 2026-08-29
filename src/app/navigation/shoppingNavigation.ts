@@ -73,6 +73,16 @@ export function navigateToShop(navigation: Nav, slug: string) {
     return;
   }
 
-  navigation.navigate('SellerShop', { slug: trimmed });
+  const routeNames = navigation.getState?.().routeNames ?? [];
+
+  if (routeNames.includes('SellerShop')) {
+    navigation.navigate('SellerShop', { slug: trimmed });
+    return;
+  }
+
+  navigation.navigate('Shopping', {
+    screen: 'SellerShop',
+    params: { slug: trimmed },
+  });
 }
 

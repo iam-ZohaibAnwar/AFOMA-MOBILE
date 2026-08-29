@@ -15,6 +15,11 @@ import type {
 } from '../../admin/commission/types/adminCommission';
 import type { AdminCommissionRateSettingType } from '../../admin/settings/types/adminSettings';
 import type { SellerStackParamList } from '../../../app/navigation/sellerTypes';
+import type { SellerCoupon } from '../../seller/coupons/types/sellerCoupon';
+import type { SellerCommissionRecord } from '../../seller/earnings/types/sellerEarning';
+import type { SellerReviewListItem } from '../../seller/reviews/types/sellerReview';
+import type { ReferralCommissionRecord } from '../../account/referral-earnings/types/referralEarning';
+import type { OrderSummary } from '../../../services/types/order';
 
 type ShoppingScreenName = Exclude<keyof ShoppingStackParamList, 'MainTabs'>;
 type SellerScreenName = keyof SellerStackParamList;
@@ -54,9 +59,23 @@ export const authReturnTo = {
   payment: (): AuthReturnTo => ({ kind: 'screen', name: 'Payment' }),
   accountDetails: (): AuthReturnTo => ({ kind: 'screen', name: 'AccountDetails' }),
   addressBook: (): AuthReturnTo => ({ kind: 'screen', name: 'AddressBook' }),
-  referralEarnings: (): AuthReturnTo => ({ kind: 'screen', name: 'ReferralEarnings' }),
+  referralEarnings: (payoutStatus?: 'Pending' | 'Paid'): AuthReturnTo => ({
+    kind: 'screen',
+    name: 'ReferralEarnings',
+    params: payoutStatus ? { payoutStatus } : undefined,
+  }),
+  referralEarningDetail: (
+    commissionId: string,
+    initialRecord?: ReferralCommissionRecord,
+  ): AuthReturnTo => ({
+    kind: 'screen',
+    name: 'ReferralEarningDetail',
+    params: { commissionId, initialRecord },
+  }),
   messages: (): AuthReturnTo => ({ kind: 'screen', name: 'ChatList' }),
   termsConditions: (): AuthReturnTo => ({ kind: 'screen', name: 'TermsConditions' }),
+  notificationPreferences: (): AuthReturnTo => ({ kind: 'screen', name: 'NotificationPreferences' }),
+  bellNotifications: (): AuthReturnTo => ({ kind: 'screen', name: 'BellNotifications' }),
   adminDashboard: (): AuthReturnTo => ({ kind: 'root', name: 'Admin', screen: 'AdminDashboard' }),
   adminProductManagement: (params?: AdminProductManagementParams): AuthReturnTo => ({
     kind: 'root',
@@ -294,14 +313,35 @@ export const authReturnTo = {
   sellerOrders: (): AuthReturnTo => ({ kind: 'root', name: 'Seller', screen: 'SellerOrders' }),
   sellerShippingConfig: (): AuthReturnTo => ({ kind: 'root', name: 'Seller', screen: 'SellerShippingConfig' }),
   sellerCoupons: (): AuthReturnTo => ({ kind: 'root', name: 'Seller', screen: 'SellerCoupons' }),
+  sellerCouponDetail: (couponId: string, initialCoupon?: SellerCoupon): AuthReturnTo => ({
+    kind: 'root',
+    name: 'Seller',
+    screen: 'SellerCouponDetail',
+    params: { couponId, initialCoupon },
+  }),
+  sellerCouponForm: (couponId?: string, initialCoupon?: SellerCoupon): AuthReturnTo => ({
+    kind: 'root',
+    name: 'Seller',
+    screen: 'SellerCouponForm',
+    params: couponId || initialCoupon ? { couponId, initialCoupon } : {},
+  }),
   sellerAttributes: (): AuthReturnTo => ({ kind: 'root', name: 'Seller', screen: 'SellerAttributes' }),
   sellerEarnings: (): AuthReturnTo => ({ kind: 'root', name: 'Seller', screen: 'SellerEarnings' }),
+  sellerEarningDetail: (
+    commissionId: string,
+    initialRecord?: SellerCommissionRecord,
+  ): AuthReturnTo => ({
+    kind: 'root',
+    name: 'Seller',
+    screen: 'SellerEarningDetail',
+    params: { commissionId, initialRecord },
+  }),
   sellerReviews: (): AuthReturnTo => ({ kind: 'root', name: 'Seller', screen: 'SellerReviews' }),
-  sellerReviewDetail: (reviewId: string): AuthReturnTo => ({
+  sellerReviewDetail: (reviewId: string, initialReview?: SellerReviewListItem): AuthReturnTo => ({
     kind: 'root',
     name: 'Seller',
     screen: 'SellerReviewDetail',
-    params: { reviewId },
+    params: { reviewId, initialReview },
   }),
   sellerProductType: (): AuthReturnTo => ({ kind: 'root', name: 'Seller', screen: 'SellerProductType' }),
   sellerSetup: (): AuthReturnTo => ({ kind: 'root', name: 'Seller', screen: 'SellerSetup' }),
@@ -312,10 +352,10 @@ export const authReturnTo = {
   }),
   sellerShopProfile: (): AuthReturnTo => ({ kind: 'root', name: 'Seller', screen: 'SellerShopProfile' }),
   sellerShopSettings: (): AuthReturnTo => ({ kind: 'root', name: 'Seller', screen: 'SellerShopSettings' }),
-  orderDetail: (orderId: string): AuthReturnTo => ({
+  orderDetail: (orderId: string, initialOrder?: OrderSummary): AuthReturnTo => ({
     kind: 'screen',
     name: 'OrderDetail',
-    params: { orderId },
+    params: { orderId, initialOrder },
   }),
 } as const;
 

@@ -20,6 +20,9 @@ function MarketplaceNavigationHost({ children }: { children: ReactNode }) {
 
   const handleReady = useCallback(() => {
     setRootNavigationState(marketplaceNavigationRef.getRootState());
+    void import('../../../services/push/pushNavigation').then(({ flushPendingChatNavigation }) => {
+      flushPendingChatNavigation();
+    });
   }, [setRootNavigationState]);
 
   return (

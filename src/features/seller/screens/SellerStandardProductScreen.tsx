@@ -149,7 +149,7 @@ export function SellerStandardProductScreen({ navigation, route }: Props) {
       case 'basic':
         return (
           <View style={styles.stepContent}>
-            <AppInput
+            <AppInput tone="surface"
               label="Product name *"
               value={wizard.values.productName}
               onChangeText={(text) => wizard.updateField('productName', text)}
@@ -157,7 +157,7 @@ export function SellerStandardProductScreen({ navigation, route }: Props) {
               maxLength={120}
               error={wizard.fieldErrors.productName}
             />
-            <AppInput
+            <AppInput tone="surface"
               label="Description *"
               value={wizard.values.description}
               onChangeText={(text) => wizard.updateField('description', text)}
@@ -176,7 +176,7 @@ export function SellerStandardProductScreen({ navigation, route }: Props) {
             {categories.isLoadingParents ? (
               <ActivityIndicator size="small" color={colors.primary} />
             ) : (
-              <SelectField
+              <SelectField tone="surface"
                 label="Parent category *"
                 value={wizard.values.categoryId}
                 options={categories.parentOptions}
@@ -195,7 +195,7 @@ export function SellerStandardProductScreen({ navigation, route }: Props) {
               categories.isLoadingSubCategories ? (
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : (
-                <SelectField
+                <SelectField tone="surface"
                   label="Subcategory *"
                   value={wizard.values.subCategoryId}
                   options={categories.subCategoryOptions}
@@ -214,7 +214,7 @@ export function SellerStandardProductScreen({ navigation, route }: Props) {
               categories.isLoadingChildCategories ? (
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : categories.childCategoryOptions.length > 0 ? (
-                <SelectField
+                <SelectField tone="surface"
                   label="Child category"
                   value={wizard.values.childCategoryId}
                   options={categories.childCategoryOptions}
@@ -251,7 +251,7 @@ export function SellerStandardProductScreen({ navigation, route }: Props) {
       case 'pricing':
         return (
           <View style={styles.stepContent}>
-            <SelectField
+            <SelectField tone="surface"
               label="Inventory *"
               value={wizard.values.inventory}
               options={SELLER_INVENTORY_OPTIONS.map((option) => ({
@@ -266,7 +266,7 @@ export function SellerStandardProductScreen({ navigation, route }: Props) {
               modalTitle="Inventory"
             />
 
-            <AppInput
+            <AppInput tone="surface"
               label="Quantity *"
               value={wizard.values.quantity}
               onChangeText={(text) => wizard.updateField('quantity', text)}
@@ -275,7 +275,7 @@ export function SellerStandardProductScreen({ navigation, route }: Props) {
               error={wizard.fieldErrors.quantity}
             />
 
-            <SelectField
+            <SelectField tone="surface"
               label="Currency"
               value={wizard.values.currency}
               options={wizard.currencyOptions}
@@ -286,7 +286,7 @@ export function SellerStandardProductScreen({ navigation, route }: Props) {
             />
 
             {wizard.values.currency !== 'cad' ? (
-              <AppInput
+              <AppInput tone="surface"
                 label={`Price in ${wizard.values.currency.toUpperCase()}`}
                 value={wizard.values.currencyPrice}
                 onChangeText={(text) => wizard.updateField('currencyPrice', text)}
@@ -296,7 +296,7 @@ export function SellerStandardProductScreen({ navigation, route }: Props) {
               />
             ) : null}
 
-            <AppInput
+            <AppInput tone="surface"
               label="Price (CAD) *"
               value={wizard.values.price}
               onChangeText={(text) => wizard.updateField('price', text)}
@@ -312,7 +312,7 @@ export function SellerStandardProductScreen({ navigation, route }: Props) {
         return (
           <View style={styles.stepContent}>
             {(['weight', 'length', 'width', 'height', 'dispatchDays'] as const).map((field) => (
-              <AppInput
+              <AppInput tone="surface"
                 key={field}
                 label={`${field === 'dispatchDays' ? 'Dispatch days' : field.charAt(0).toUpperCase() + field.slice(1)} *`}
                 value={wizard.values[field]}
@@ -355,7 +355,7 @@ export function SellerStandardProductScreen({ navigation, route }: Props) {
                     trackColor={{ false: colors.borderStrong, true: colors.primary }}
                   />
                 </View>
-                <AppInput
+                <AppInput tone="surface"
                   label="Handling fee *"
                   value={wizard.values.handlingFee}
                   onChangeText={(text) => wizard.updateField('handlingFee', text)}
@@ -363,7 +363,7 @@ export function SellerStandardProductScreen({ navigation, route }: Props) {
                   keyboardType="decimal-pad"
                   error={wizard.fieldErrors.handlingFee}
                 />
-                <AppInput
+                <AppInput tone="surface"
                   label="Additional cost"
                   value={wizard.values.additionalCost}
                   onChangeText={(text) => wizard.updateField('additionalCost', text)}
@@ -379,25 +379,25 @@ export function SellerStandardProductScreen({ navigation, route }: Props) {
       case 'additional':
         return (
           <View style={styles.stepContent}>
-            <AppInput
+            <AppInput tone="surface"
               label="Commodity code"
               value={wizard.values.commodityCode}
               onChangeText={(text) => wizard.updateField('commodityCode', text)}
               placeholder="Optional HS code"
             />
-            <AppInput
+            <AppInput tone="surface"
               label="Meta title"
               value={wizard.values.metaTitle}
               onChangeText={(text) => wizard.updateField('metaTitle', text)}
               placeholder="Optional SEO title"
             />
-            <AppInput
+            <AppInput tone="surface"
               label="Meta keywords"
               value={wizard.values.metaKeywords}
               onChangeText={(text) => wizard.updateField('metaKeywords', text)}
               placeholder="Optional keywords"
             />
-            <AppInput
+            <AppInput tone="surface"
               label="Meta description"
               value={wizard.values.metaDesc}
               onChangeText={(text) => wizard.updateField('metaDesc', text)}
@@ -406,7 +406,7 @@ export function SellerStandardProductScreen({ navigation, route }: Props) {
               numberOfLines={4}
               style={styles.textArea}
             />
-            <AppInput
+            <AppInput tone="surface"
               label="Discount (%)"
               value={wizard.values.discountCode}
               onChangeText={(text) => wizard.updateField('discountCode', text)}
@@ -420,7 +420,7 @@ export function SellerStandardProductScreen({ navigation, route }: Props) {
         return (
           <View style={styles.stepContent}>
             <AppText variant="bodyMedium" style={styles.reviewTitle}>
-              Review your product
+              Review product
             </AppText>
             <AppText variant="bodySmall" color="textSecondary">
               Name: {wizard.values.productName || '—'}

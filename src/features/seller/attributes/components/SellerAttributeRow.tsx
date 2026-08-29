@@ -1,73 +1,69 @@
-import { Alert, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-import { AppButton } from '../../../../components/ui/AppButton';
 import { AppText } from '../../../../components/ui/AppText';
 import { colors, spacing } from '../../../../design-system';
 
 export interface SellerAttributeRowProps {
   name: string;
-  onEdit: () => void;
+  index: number;
+  onRename: () => void;
   onDelete: () => void;
-  isUpdating?: boolean;
+  isRenaming?: boolean;
   isDeleting?: boolean;
   disabled?: boolean;
+  showDivider?: boolean;
 }
 
 export function SellerAttributeRow({
   name,
-  onEdit,
+  onRename,
   onDelete,
-  isUpdating = false,
+  isRenaming = false,
   isDeleting = false,
   disabled = false,
+  showDivider = true,
 }: SellerAttributeRowProps) {
-  const isBusy = isUpdating || isDeleting;
-
-  const handleDeletePress = () => {
-    if (disabled || isBusy) {
-      return;
-    }
-
-    Alert.alert(
-      'Delete attribute',
-      `Are you sure you want to delete "${name}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: onDelete,
-        },
-      ],
-    );
-  };
+  const isBusy = isRenaming || isDeleting;
 
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, showDivider ? styles.rowDivider : null]}>
       <AppText variant="bodyMedium" style={styles.name} numberOfLines={2}>
         {name}
       </AppText>
 
       <View style={styles.actions}>
-        <AppButton
-          label={isUpdating ? 'Saving...' : 'Edit'}
-          variant="outline"
-          size="md"
-          loading={isUpdating}
-          disabled={disabled || isBusy}
-          onPress={onEdit}
-          style={styles.actionButton}
-        />
-        <AppButton
-          label={isDeleting ? 'Deleting...' : 'Delete'}
-          variant="outline"
-          size="md"
-          loading={isDeleting}
-          disabled={disabled || isBusy}
-          onPress={handleDeletePress}
-          style={styles.actionButton}
-          labelStyle={styles.deleteLabel}
-        />
+        {isRenaming ? (
+          <ActivityIndicator size="small" color={colors.primary} style={styles.spinner} />
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Rename ${name}`}
+            disabled={disabled || isBusy}
+            onPress={onRename}
+            style={({ pressed }) => [styles.iconButton, pressed && !disabled ? styles.pressed : null]}
+            hitSlop={8}
+          >
+            <AppText variant="bodyMedium" style={styles.icon}>
+              ✎
+            </AppText>
+          </Pressable>
+        )}
+
+        {isDeleting ? (
+          <ActivityIndicator size="small" color={colors.error} style={styles.spinner} />
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Delete ${name}`}
+            disabled={disabled || isBusy}
+            onPress={onDelete}
+            style={({ pressed }) => [styles.iconButton, pressed && !disabled ? styles.pressed : null]}
+            hitSlop={8}
+          >
+            <Ionicons name="trash-outline" size={18} color={colors.error} />
+          </Pressable>
+        )}
       </View>
     </View>
   );
@@ -80,6 +76,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.md,
     paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    minHeight: 52,
+  },
+  rowDivider: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.divider,
   },
@@ -93,10 +93,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  actionButton: {
-    minWidth: 84,
+  iconButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
   },
-  deleteLabel: {
-    color: colors.error,
+  icon: {
+    color: colors.textSecondary,
+    fontSize: 18,
+    lineHeight: 22,
+  },
+  spinner: {
+    width: 36,
+    height: 36,
+  },
+  pressed: {
+    backgroundColor: colors.surfaceMuted,
   },
 });

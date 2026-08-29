@@ -1,16 +1,14 @@
-import { useMemo } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { useMemo, useRef } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { CountryStateFields, DateField } from '../../../components/forms';
+import {
+  CountryStateFields,
+  DateField,
+  KeyboardAwareFormScreen,
+  useKeyboardAwareForm,
+} from '../../../components/forms';
 import { ErrorState } from '../../../components/ecommerce/ErrorState';
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppCard } from '../../../components/ui/AppCard';
@@ -43,6 +41,9 @@ function SectionTitle({ children }: { children: string }) {
 
 export function AccountDetailsScreen(_props: Props) {
   const insets = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView>(null);
+  const formControls = useKeyboardAwareForm(scrollRef);
+  const onFieldFocus = formControls.onFieldFocus;
   const onMarketplaceScroll = useMarketplaceScrollHandler();
   const { isAuthorized } = useRequireAuth(ACCOUNT_DETAILS_RETURN_TO);
   const { user } = useAuth();
@@ -61,8 +62,6 @@ export function AccountDetailsScreen(_props: Props) {
     saveProfile,
     retry,
   } = useAccountDetails(authUserId, user);
-
-  const bottomPadding = useMemo(() => insets.bottom + spacing.xxl, [insets.bottom]);
 
   const countryStateValue = useMemo(
     () => ({
@@ -94,33 +93,30 @@ export function AccountDetailsScreen(_props: Props) {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    <KeyboardAwareFormScreen
+      scrollRef={scrollRef}
+      formControls={formControls}
+      contentContainerStyle={styles.content}
+      scrollProps={{
+        onScroll: onMarketplaceScroll,
+        ...marketplaceScrollProps,
+      }}
     >
-      <ScrollView
-        style={styles.screen}
-        contentContainerStyle={[styles.content, { paddingBottom: bottomPadding }]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        onScroll={onMarketplaceScroll}
-        {...marketplaceScrollProps}
-      >
-        {loadError ? (
-          <ErrorState message={loadError} onAction={() => void retry()} style={styles.banner} />
-        ) : null}
+      {loadError ? (
+        <ErrorState message={loadError} onAction={() => void retry()} style={styles.banner} />
+      ) : null}
 
-        {saveSuccessMessage ? (
-          <AppCard variant="flat" style={styles.successBanner}>
-            <AppText variant="bodySmall" color="success">
-              {saveSuccessMessage}
-            </AppText>
-          </AppCard>
-        ) : null}
+      {saveSuccessMessage ? (
+        <AppCard variant="flat" style={styles.successBanner}>
+          <AppText variant="bodySmall" color="success">
+            {saveSuccessMessage}
+          </AppText>
+        </AppCard>
+      ) : null}
 
-        {saveError ? <ErrorState message={saveError} style={styles.banner} /> : null}
+      {saveError ? <ErrorState message={saveError} style={styles.banner} /> : null}
 
-        <AppCard variant="flat">
+      <AppCard variant="flat">
           <SectionTitle>Account Information</SectionTitle>
 
           <View style={styles.fieldGroup}>
@@ -129,6 +125,7 @@ export function AccountDetailsScreen(_props: Props) {
               label="First Name *"
               value={values.firstName}
               onChangeText={(text) => updateField('firstName', text)}
+              onFocus={onFieldFocus}
               error={fieldErrors.firstName}
               autoCapitalize="words"
               editable={!isSaving}
@@ -138,6 +135,7 @@ export function AccountDetailsScreen(_props: Props) {
               label="Last Name *"
               value={values.lastName}
               onChangeText={(text) => updateField('lastName', text)}
+              onFocus={onFieldFocus}
               error={fieldErrors.lastName}
               autoCapitalize="words"
               editable={!isSaving}
@@ -147,6 +145,7 @@ export function AccountDetailsScreen(_props: Props) {
               label="Email *"
               value={values.email}
               onChangeText={(text) => updateField('email', text)}
+              onFocus={onFieldFocus}
               error={fieldErrors.email}
               keyboardType="email-address"
               autoCapitalize="none"
@@ -158,6 +157,7 @@ export function AccountDetailsScreen(_props: Props) {
               label="Contact No. *"
               value={values.phone}
               onChangeText={(text) => updateField('phone', text)}
+              onFocus={onFieldFocus}
               error={fieldErrors.phone}
               keyboardType="phone-pad"
               editable={!isSaving}
@@ -198,6 +198,7 @@ export function AccountDetailsScreen(_props: Props) {
               label="City *"
               value={values.city}
               onChangeText={(text) => updateField('city', text)}
+              onFocus={onFieldFocus}
               error={fieldErrors.city}
               autoCapitalize="words"
               editable={!isSaving}
@@ -207,6 +208,7 @@ export function AccountDetailsScreen(_props: Props) {
               label="Street Address *"
               value={values.streetAddress}
               onChangeText={(text) => updateField('streetAddress', text)}
+              onFocus={onFieldFocus}
               error={fieldErrors.streetAddress}
               editable={!isSaving}
             />
@@ -215,6 +217,7 @@ export function AccountDetailsScreen(_props: Props) {
               label="Zip/Postal Code *"
               value={values.zipCode}
               onChangeText={(text) => updateField('zipCode', text)}
+              onFocus={onFieldFocus}
               error={fieldErrors.zipCode}
               autoCapitalize="characters"
               editable={!isSaving}
@@ -222,27 +225,18 @@ export function AccountDetailsScreen(_props: Props) {
           </View>
         </AppCard>
 
-        <AppButton
-          label="Save"
-          fullWidth
-          size="lg"
-          loading={isSaving}
-          onPress={() => void saveProfile()}
-        />
-      </ScrollView>
-    </KeyboardAvoidingView>
+      <AppButton
+        label="Save"
+        fullWidth
+        size="lg"
+        loading={isSaving}
+        onPress={() => void saveProfile()}
+      />
+    </KeyboardAwareFormScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  screen: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   content: {
     padding: spacing.lg,
     gap: spacing.lg,

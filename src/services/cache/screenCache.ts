@@ -5,6 +5,44 @@ import type { Seller } from '../types/seller';
 import type { SellerProfile } from '../../features/seller/types/sellerProfile';
 import type { SubCategoryBrowserSection } from '../../features/categories/types/subCategoryBrowser';
 import type { ChatSummary } from '../../features/chat/types/chat';
+import type { BellNotification } from '../../features/notifications/types';
+import type { AffiliateCommissionRecord } from '../types/commission';
+import type { ReferralEarningsSummary } from '../../features/account/referral-earnings/types/referralEarning';
+
+export interface ReferralEarningsListCacheEntry {
+  commissions: AffiliateCommissionRecord[];
+  totalPages: number;
+  totalCount: number;
+  currentPage: number;
+  statusFilter: string;
+}
+
+const referralEarningsListCache = new Map<string, ReferralEarningsListCacheEntry>();
+const referralEarningsSummaryCache = new Map<string, ReferralEarningsSummary>();
+
+export function buildReferralEarningsListCacheKey(
+  userId: string,
+  page: number,
+  statusFilter: string,
+): string {
+  return `${userId}:${page}:${statusFilter || 'all'}`;
+}
+
+export function getReferralEarningsListCache(key: string): ReferralEarningsListCacheEntry | undefined {
+  return referralEarningsListCache.get(key);
+}
+
+export function setReferralEarningsListCache(key: string, entry: ReferralEarningsListCacheEntry): void {
+  referralEarningsListCache.set(key, entry);
+}
+
+export function getReferralEarningsSummaryCache(userId: string): ReferralEarningsSummary | undefined {
+  return referralEarningsSummaryCache.get(userId);
+}
+
+export function setReferralEarningsSummaryCache(userId: string, summary: ReferralEarningsSummary): void {
+  referralEarningsSummaryCache.set(userId, summary);
+}
 
 export interface OrdersListCacheEntry {
   orders: OrderSummary[];
@@ -26,6 +64,7 @@ const categorySectionsCache = new Map<string, SubCategoryBrowserSection[]>();
 const sellerProfileCache = new Map<string, SellerProfile>();
 const ordersListCache = new Map<string, OrdersListCacheEntry>();
 const chatInboxCache = new Map<string, ChatSummary[]>();
+const bellNotificationsCache = new Map<string, BellNotification[]>();
 
 const ORDERS_LIST_CACHE_VERSION = 2;
 
@@ -47,6 +86,14 @@ export function getChatInboxCache(userId: string): ChatSummary[] | undefined {
 
 export function setChatInboxCache(userId: string, chats: ChatSummary[]): void {
   chatInboxCache.set(userId, chats);
+}
+
+export function getBellNotificationsCache(userId: string): BellNotification[] | undefined {
+  return bellNotificationsCache.get(userId);
+}
+
+export function setBellNotificationsCache(userId: string, notifications: BellNotification[]): void {
+  bellNotificationsCache.set(userId, notifications);
 }
 
 export function getShopCache(slug: string): ShopCacheEntry | undefined {

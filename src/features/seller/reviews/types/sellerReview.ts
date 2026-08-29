@@ -19,3 +19,9 @@ export interface SellerReviewsResponse {
   data?: SellerReviewListItem[];
   totalPages?: number;
 }
+
+/** Client-side filter on the current API page — server has no status query param. */
+export type SellerReviewStatusFilter = '' | 'Pending' | 'Approved' | 'Disapproved';
+
+/** Client-side reply filter for seller workflow. */
+export type SellerReviewReplyFilter = '' | 'needs-reply' | 'replied';

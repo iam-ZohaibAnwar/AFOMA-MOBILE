@@ -1,6 +1,6 @@
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, View } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
+import { Alert, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
@@ -8,36 +8,62 @@ import { AppButton } from '../../../../components/ui/AppButton';
 import { AppCard } from '../../../../components/ui/AppCard';
 import { AppText } from '../../../../components/ui/AppText';
 import { colors, spacing } from '../../../../design-system';
+import { AdminSettingsDetailHero } from '../../../admin/settings/components/AdminSettingsDetailHero';
+import { AdminSettingsHubCardSkeleton } from '../../../admin/settings/components/AdminSettingsHubCardSkeleton';
+import { AdminSettingsHubSection } from '../../../admin/settings/components/AdminSettingsHubSection';
 import type { SellerStackParamList } from '../../../../app/navigation/sellerTypes';
 import { authReturnTo } from '../../../auth/utils/authNavigation';
 import { useRequireSeller } from '../../hooks/useRequireSeller';
 import { SellerAbandonedCartEmailModal } from '../components/SellerAbandonedCartEmailModal';
+import { SellerAbandonedCartSettingCard } from '../components/SellerAbandonedCartSettingCard';
+import { SellerShopVisibilityCard } from '../components/SellerShopVisibilityCard';
 import { useSellerAbandonedCartEmail } from '../hooks/useSellerAbandonedCartEmail';
 import { useSellerShopVisibility } from '../hooks/useSellerShopVisibility';
 import {
   getSellerShopDisplayName,
   getSellerShopVisibilityLabel,
+  resolveSellerShopVisibilityMeta,
 } from '../utils/shopVisibilityDisplay';
 
 type Props = NativeStackScreenProps<SellerStackParamList, 'SellerShopSettings'>;
 
 const RETURN_TO = authReturnTo.sellerShopSettings();
+const SKELETON_ITEMS = ['s1', 's2'] as const;
+
+function ActionErrorBanner({
+  message,
+  onDismiss,
+}: {
+  message: string;
+  onDismiss: () => void;
+}) {
+  return (
+    <View style={styles.actionErrorBanner}>
+      <AppText variant="bodySmall" color="error" style={styles.actionErrorText}>
+        {message}
+      </AppText>
+      <AppButton label="Dismiss" variant="ghost" size="md" onPress={onDismiss} />
+    </View>
+  );
+}
 
 export function SellerShopSettingsScreen(_props: Props) {
   const insets = useSafeAreaInsets();
   const [emailModalVisible, setEmailModalVisible] = useState(false);
   const { isAuthorized, sellerId } = useRequireSeller(RETURN_TO);
+
   const {
     profile,
     isLoading,
+    isRefreshing,
     error,
     isUpdating,
     updateError,
-    isVisible,
     setShopVisibility,
     reload,
     clearUpdateError,
   } = useSellerShopVisibility(isAuthorized ? sellerId : undefined);
+
   const {
     isSending,
     sendError,
@@ -98,101 +124,85 @@ export function SellerShopSettingsScreen(_props: Props) {
   };
 
   if (!isAuthorized) {
-    return (
-      <View style={styles.centeredState}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
-
-  if (isLoading && !profile) {
-    return (
-      <View style={styles.centeredState}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <View style={[styles.screen, { paddingTop: insets.top }]} />;
   }
 
   const shopName = getSellerShopDisplayName(profile);
-  const visibilityLabel = getSellerShopVisibilityLabel(profile);
+  const visibilityMeta = resolveSellerShopVisibilityMeta(profile);
+  const showSkeleton = isLoading && !profile && !error;
+
+  if (error && !profile) {
+    return (
+      <View style={[styles.centeredState, { paddingBottom: insets.bottom }]}>
+        <ErrorState message={error} onAction={() => void reload()} />
+      </View>
+    );
+  }
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
-      showsVerticalScrollIndicator={false}
-    >
-      <AppCard variant="muted">
-        <AppText variant="bodyMedium" style={styles.title}>
-          Shop settings
+    <>
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => void reload()}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        <AdminSettingsDetailHero
+          title="Shop settings"
+          subtitle={shopName}
+          icon="settings-outline"
+          statusLabel={getSellerShopVisibilityLabel(profile)}
+          statusIcon={visibilityMeta.icon}
+        />
+
+        <AppText variant="bodySmall" color="textSecondary" style={styles.lead}>
+          Manage shop visibility and send abandoned-cart recovery emails.
         </AppText>
-        <AppText variant="bodySmall" color="textSecondary" style={styles.copy}>
-          Manage shop visibility and send abandoned-cart recovery emails to customers.
-        </AppText>
-      </AppCard>
 
-      {successMessage ? (
-        <AppCard variant="flat">
-          <AppText variant="bodySmall" color="success">
-            {successMessage}
-          </AppText>
-        </AppCard>
-      ) : null}
+        {successMessage ? (
+          <AppCard variant="flat" style={styles.successBanner}>
+            <AppText variant="bodySmall" color="success">
+              {successMessage}
+            </AppText>
+          </AppCard>
+        ) : null}
 
-      {error ? <ErrorState message={error} onAction={() => void reload()} style={styles.error} /> : null}
-      {updateError ? (
-        <ErrorState message={updateError} onAction={clearUpdateError} style={styles.error} />
-      ) : null}
+        {updateError ? (
+          <ActionErrorBanner message={updateError} onDismiss={clearUpdateError} />
+        ) : null}
 
-      <AppCard variant="flat">
-        <View style={styles.visibilityRow}>
-          <View style={styles.visibilityCopy}>
-            <AppText variant="bodyMedium" style={styles.rowTitle}>
-              Shop visibility
-            </AppText>
-            <AppText variant="bodySmall" color="textSecondary">
-              {shopName}
-            </AppText>
-            <AppText variant="caption" color={isVisible ? 'success' : 'textMuted'}>
-              {visibilityLabel}
-            </AppText>
+        {error && profile ? (
+          <ErrorState message={error} onAction={() => void reload()} style={styles.inlineError} />
+        ) : null}
+
+        {showSkeleton ? (
+          <View style={styles.skeletonList}>
+            {SKELETON_ITEMS.map((key) => (
+              <AdminSettingsHubCardSkeleton key={key} />
+            ))}
           </View>
+        ) : (
+          <>
+            <AdminSettingsHubSection title="Storefront">
+              <SellerShopVisibilityCard
+                profile={profile}
+                isUpdating={isUpdating}
+                onVisibilityChange={handleVisibilityChange}
+              />
+            </AdminSettingsHubSection>
 
-          <View style={styles.switchWrap}>
-            {isUpdating ? <ActivityIndicator size="small" color={colors.primary} /> : null}
-            <Switch
-              value={isVisible}
-              onValueChange={handleVisibilityChange}
-              disabled={isUpdating}
-              trackColor={{ false: colors.borderStrong, true: colors.primarySoft }}
-              thumbColor={isVisible ? colors.primary : colors.surface}
-            />
-          </View>
-        </View>
-
-        <AppText variant="bodySmall" color="textSecondary" style={styles.helper}>
-          When visibility is off, your shop and products are hidden from the marketplace.
-        </AppText>
-      </AppCard>
-
-      <AppCard variant="flat">
-        <View style={styles.emailRow}>
-          <View style={styles.emailCopy}>
-            <AppText variant="bodyMedium" style={styles.rowTitle}>
-              Abandoned-cart email
-            </AppText>
-            <AppText variant="bodySmall" color="textSecondary">
-              Send a recovery email to a customer who left items in their cart.
-            </AppText>
-          </View>
-
-          <AppButton label="Send" variant="outline" size="md" onPress={handleOpenEmailModal} />
-        </View>
-
-        <AppText variant="bodySmall" color="textSecondary" style={styles.helper}>
-          Use the coupon code you want to offer and the event ID from the notification email.
-        </AppText>
-      </AppCard>
+            <AdminSettingsHubSection title="Customer outreach">
+              <SellerAbandonedCartSettingCard onPress={handleOpenEmailModal} />
+            </AdminSettingsHubSection>
+          </>
+        )}
+      </ScrollView>
 
       <SellerAbandonedCartEmailModal
         visible={emailModalVisible}
@@ -203,53 +213,50 @@ export function SellerShopSettingsScreen(_props: Props) {
           void handleSendAbandonedCartEmail(eventId, couponCode);
         }}
       />
-    </ScrollView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.lg, gap: spacing.lg },
+  screen: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  content: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    gap: spacing.xl,
+  },
   centeredState: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.background,
+    paddingHorizontal: spacing.lg,
   },
-  title: { color: colors.textPrimary, fontWeight: '700', marginBottom: spacing.sm },
-  copy: { lineHeight: 20 },
-  error: { alignSelf: 'stretch', marginHorizontal: 0 },
-  visibilityRow: {
+  lead: {
+    marginTop: -spacing.md,
+  },
+  successBanner: {
+    marginTop: -spacing.sm,
+  },
+  actionErrorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  visibilityCopy: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  rowTitle: {
-    color: colors.textPrimary,
-    fontWeight: '600',
-  },
-  switchWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: 12,
+    backgroundColor: colors.surfaceMuted,
+    marginTop: -spacing.sm,
   },
-  helper: {
-    lineHeight: 20,
-    marginTop: spacing.sm,
-  },
-  emailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  emailCopy: {
+  actionErrorText: {
     flex: 1,
-    gap: spacing.xs,
+  },
+  inlineError: {
+    marginHorizontal: 0,
+  },
+  skeletonList: {
+    gap: spacing.md,
   },
 });

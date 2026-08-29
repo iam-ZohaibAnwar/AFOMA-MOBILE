@@ -1,5 +1,7 @@
 export type SellerCouponType = 'percentage' | 'fixed';
 
+export type SellerCouponStatusFilter = '' | 'active' | 'expired';
+
 export interface SellerCoupon {
   _id?: string;
   couponCode: string;

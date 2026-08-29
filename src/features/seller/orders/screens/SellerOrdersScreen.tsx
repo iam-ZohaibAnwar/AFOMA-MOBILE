@@ -7,7 +7,6 @@ import {
   View,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmptyState } from '../../../../components/ecommerce/EmptyState';
@@ -17,10 +16,12 @@ import { colors, spacing } from '../../../../design-system';
 import type { SellerStackParamList } from '../../../../app/navigation/sellerTypes';
 import { authReturnTo } from '../../../auth/utils/authNavigation';
 import { useRequireSeller } from '../../hooks/useRequireSeller';
+import { OrderListPagination } from '../../../orders/components/OrderListPagination';
 import { OrderListSearchBar } from '../../../orders/components/OrderListSearchBar';
 import { SellerOrderCard } from '../components/SellerOrderCard';
 import { SellerOrderStatusTabs } from '../components/SellerOrderStatusTabs';
 import { useSellerOrders } from '../hooks/useSellerOrders';
+import type { SellerOrderSummary } from '../types/sellerOrder';
 
 type Props = NativeStackScreenProps<SellerStackParamList, 'SellerOrders'>;
 
@@ -31,69 +32,44 @@ export function SellerOrdersScreen({ navigation }: Props) {
   const { isAuthorized, sellerId } = useRequireSeller(ORDERS_RETURN_TO);
   const {
     orders,
+    currentPage,
+    totalPages,
     totalOrders,
     isLoading,
-    isLoadingMore,
     isRefreshing,
     error,
     searchInput,
     setSearchInput,
     statusFilter,
-    setStatusFilter,
     hasActiveFilters,
-    hasMore,
+    applyStatusFilter,
     refresh,
-    loadMore,
+    goToPreviousPage,
+    goToNextPage,
+    canGoPrevious,
+    canGoNext,
   } = useSellerOrders(isAuthorized ? sellerId : undefined);
 
-  useFocusEffect(
-    useCallback(() => {
-      if (isAuthorized && sellerId) {
-        void refresh();
+  const handleOrderPress = useCallback(
+    (order: SellerOrderSummary) => {
+      if (!order._id) {
+        return;
       }
-    }, [isAuthorized, refresh, sellerId]),
-  );
 
-  const handlePressOrder = useCallback(
-    (orderId: string) => {
-      navigation.navigate('SellerOrderDetail', { orderId });
+      navigation.navigate('SellerOrderDetail', {
+        orderId: order._id,
+        initialOrder: order,
+      });
     },
     [navigation],
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: (typeof orders)[number] }) => (
-      <SellerOrderCard order={item} onPress={handlePressOrder} />
+    ({ item }: { item: SellerOrderSummary }) => (
+      <SellerOrderCard order={item} onPress={handleOrderPress} />
     ),
-    [handlePressOrder],
+    [handleOrderPress],
   );
-
-  if (!isAuthorized) {
-    return (
-      <View style={styles.centeredState}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
-
-  if (isLoading && orders.length === 0 && !error) {
-    return (
-      <View style={styles.centeredState}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <AppText variant="bodySmall" color="textSecondary">
-          Loading orders...
-        </AppText>
-      </View>
-    );
-  }
-
-  if (error && orders.length === 0 && totalOrders === 0) {
-    return (
-      <View style={[styles.centeredState, { paddingBottom: insets.bottom }]}>
-        <ErrorState message={error} onAction={() => void refresh()} />
-      </View>
-    );
-  }
 
   const listHeader = (
     <View style={styles.headerContent}>
@@ -104,58 +80,82 @@ export function SellerOrdersScreen({ navigation }: Props) {
         accessibilityLabel="Search orders by customer name"
       />
 
-      <SellerOrderStatusTabs activeStatus={statusFilter} onStatusChange={setStatusFilter} />
+      <SellerOrderStatusTabs activeStatus={statusFilter} onStatusChange={applyStatusFilter} />
 
-      {error ? (
+      {totalOrders > 0 ? (
+        <AppText variant="bodySmall" color="textSecondary" style={styles.countText}>
+          {totalOrders} {totalOrders === 1 ? 'order' : 'orders'}
+        </AppText>
+      ) : null}
+
+      {error && orders.length > 0 ? (
         <ErrorState message={error} onAction={() => void refresh()} style={styles.inlineError} />
       ) : null}
 
-      {totalOrders > 0 ? (
-        <AppText variant="bodySmall" color="textSecondary">
-          {hasActiveFilters ? `${orders.length} loaded orders` : `${totalOrders} orders`}
-        </AppText>
+      {isLoading && orders.length === 0 && !error ? (
+        <View style={styles.inlineLoading}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <AppText variant="bodySmall" color="textSecondary">
+            Loading orders...
+          </AppText>
+        </View>
       ) : null}
     </View>
   );
 
+  if (!isAuthorized) {
+    return <View style={[styles.screen, { paddingTop: insets.top }]} />;
+  }
+
   return (
     <FlatList
       style={styles.screen}
-      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
+      contentContainerStyle={[
+        styles.content,
+        { paddingBottom: insets.bottom + spacing.xxl },
+        orders.length === 0 && styles.emptyContent,
+      ]}
       data={orders}
-      keyExtractor={(item, index) => item._id ?? `order-${index}`}
+      keyExtractor={(item, index) => item._id ?? `seller-order-${index}`}
       renderItem={renderItem}
       ItemSeparatorComponent={() => <View style={styles.separator} />}
       ListHeaderComponent={listHeader}
-      ListEmptyComponent={
-        <EmptyState
-          title={hasActiveFilters ? 'No matching orders' : 'No orders received'}
-          message={
-            hasActiveFilters
-              ? 'Try adjusting your search or status tab.'
-              : 'Orders from customers will appear here.'
-          }
-          style={styles.emptyState}
-        />
-      }
       ListFooterComponent={
-        isLoadingMore ? (
-          <View style={styles.footerLoading}>
-            <ActivityIndicator size="small" color={colors.primary} />
-          </View>
+        orders.length > 0 ? (
+          <OrderListPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            canGoPrevious={canGoPrevious}
+            canGoNext={canGoNext}
+            isLoading={isLoading}
+            onPrevious={goToPreviousPage}
+            onNext={goToNextPage}
+          />
+        ) : null
+      }
+      ListEmptyComponent={
+        !isLoading && !error ? (
+          <EmptyState
+            title={hasActiveFilters ? 'No matching orders' : 'No orders received'}
+            message={
+              hasActiveFilters || searchInput.trim()
+                ? 'Try adjusting your search or status tab.'
+                : 'Orders from customers will appear here once they checkout.'
+            }
+          />
+        ) : error && orders.length === 0 ? (
+          <ErrorState message={error} onAction={() => void refresh()} style={styles.inlineError} />
         ) : null
       }
       refreshControl={
-        <RefreshControl refreshing={isRefreshing} onRefresh={() => void refresh()} tintColor={colors.primary} />
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={() => void refresh()}
+          tintColor={colors.primary}
+        />
       }
-      onEndReached={() => {
-        if (hasMore) {
-          loadMore();
-        }
-      }}
-      onEndReachedThreshold={0.4}
-      showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
     />
   );
 }
@@ -169,31 +169,27 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.md,
   },
+  emptyContent: {
+    flexGrow: 1,
+  },
   headerContent: {
     gap: spacing.md,
-    marginBottom: spacing.md,
+    paddingBottom: spacing.xs,
   },
-  centeredState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.md,
-    padding: spacing.xl,
-    backgroundColor: colors.background,
+  countText: {
+    fontWeight: '600',
   },
   inlineError: {
     alignSelf: 'stretch',
     marginHorizontal: 0,
   },
+  inlineLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+  },
   separator: {
     height: spacing.md,
-  },
-  emptyState: {
-    marginHorizontal: 0,
-    alignSelf: 'stretch',
-  },
-  footerLoading: {
-    paddingVertical: spacing.lg,
-    alignItems: 'center',
   },
 });

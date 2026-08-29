@@ -6,7 +6,7 @@ import { useSellerProfile } from '../../hooks/useSellerProfile';
 import { isSellerShopVisible } from '../utils/shopVisibilityDisplay';
 
 export function useSellerShopVisibility(sellerId?: string) {
-  const { profile, isLoading, error, reload } = useSellerProfile(sellerId);
+  const { profile, isLoading, isRefreshing, error, reload } = useSellerProfile(sellerId);
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
 
@@ -42,6 +42,7 @@ export function useSellerShopVisibility(sellerId?: string) {
   return {
     profile,
     isLoading,
+    isRefreshing,
     error,
     isUpdating,
     updateError,

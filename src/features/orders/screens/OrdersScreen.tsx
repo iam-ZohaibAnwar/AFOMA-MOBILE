@@ -1,15 +1,17 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  RefreshControl,
   StyleSheet,
   View,
 } from 'react-native';
-import { Skeleton } from '../../../components/ecommerce';
+import { useFocusEffect } from '@react-navigation/native';
 import { useNavigation } from '@react-navigation/native';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { navigateToHomeTab } from '../../../app/navigation/shoppingNavigation';
 import {
@@ -17,19 +19,28 @@ import {
   useMarketplaceScrollHandler,
 } from '../../../app/navigation/marketplaceChrome';
 import type { RootStackParamList, ShoppingStackParamList } from '../../../app/navigation/types';
-import { AppButton } from '../../../components/ui/AppButton';
+import { EmptyState } from '../../../components/ecommerce/EmptyState';
+import { ErrorState } from '../../../components/ecommerce/ErrorState';
 import { AppText } from '../../../components/ui/AppText';
-import { colors, radius, spacing } from '../../../design-system';
+import { colors, spacing } from '../../../design-system';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { resolveAuthUserId } from '../../auth/utils/resolveAuthUserId';
 import { useRequireAuth } from '../../auth/hooks/useRequireAuth';
 import { authReturnTo } from '../../auth/utils/authNavigation';
+import { CustomerOrderStatusTabs } from '../components/CustomerOrderStatusTabs';
 import { OrderListItem } from '../components/OrderListItem';
 import { OrderListPagination } from '../components/OrderListPagination';
 import { OrderListSearchBar } from '../components/OrderListSearchBar';
-import { OrderStatusTabs } from '../components/OrderStatusTabs';
 import { useOrders } from '../hooks/useOrders';
-import { filterOrdersList, type OrderStatusTabId } from '../utils/orderListFilters';
+import {
+  applyCustomerOrderSessionPatch,
+  peekCustomerOrderSessionPatches,
+} from '../state/customerOrderSessionPatch';
+import {
+  filterCustomerOrdersList,
+  type CustomerOrderStatusFilter,
+} from '../utils/customerOrderListFilters';
+import type { OrderSummary } from '../../../services/types/order';
 
 type Props = NativeStackScreenProps<ShoppingStackParamList, 'Orders'>;
 
@@ -40,40 +51,22 @@ type OrdersNavigationProp = CompositeNavigationProp<
 
 const ORDERS_RETURN_TO = authReturnTo.orders();
 
-const PAGE_SKELETON_ROW_COUNT = 3;
-
-function OrderListPageSkeleton() {
-  return (
-    <View style={styles.pageSkeletonList}>
-      {Array.from({ length: PAGE_SKELETON_ROW_COUNT }, (_, index) => (
-        <View key={`orders-page-skeleton-${index}`} style={styles.pageSkeletonCard}>
-          <Skeleton variant="text" height={12} width="42%" />
-          <View style={styles.pageSkeletonThumbs}>
-            <Skeleton variant="rect" width={52} height={52} />
-            <Skeleton variant="rect" width={52} height={52} />
-            <Skeleton variant="rect" width={52} height={52} />
-          </View>
-          <Skeleton variant="text" height={24} width="38%" />
-        </View>
-      ))}
-    </View>
-  );
-}
-
 export function OrdersScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const rootNavigation = useNavigation<OrdersNavigationProp>();
   const onMarketplaceScroll = useMarketplaceScrollHandler();
   const { user } = useAuth();
   const authUserId = resolveAuthUserId(user);
   const { isAuthorized } = useRequireAuth(ORDERS_RETURN_TO);
-  const [activeStatusTab, setActiveStatusTab] = useState<OrderStatusTabId>('all');
+  const [statusFilter, setStatusFilter] = useState<CustomerOrderStatusFilter>('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [sessionPatchVersion, setSessionPatchVersion] = useState(0);
+
   const {
     orders,
     totalOrders,
     totalPages,
     currentPage,
-    hasLoadedOnce,
     isLoading,
     isRefreshing,
     isPageLoading,
@@ -85,35 +78,55 @@ export function OrdersScreen({ navigation }: Props) {
     canGoNext,
   } = useOrders(isAuthorized ? authUserId : undefined);
 
-  const filteredOrders = useMemo(
-    () => filterOrdersList(orders, activeStatusTab, searchQuery),
-    [activeStatusTab, orders, searchQuery],
+  useFocusEffect(
+    useCallback(() => {
+      if (peekCustomerOrderSessionPatches().size > 0) {
+        setSessionPatchVersion((version) => version + 1);
+      }
+    }, []),
   );
 
-  const hasActiveFilters = activeStatusTab !== 'all' || searchQuery.trim().length > 0;
+  const patchedOrders = useMemo(
+    () =>
+      orders.map((order) => applyCustomerOrderSessionPatch(order) ?? order),
+    [orders, sessionPatchVersion],
+  );
+
+  const filteredOrders = useMemo(
+    () => filterCustomerOrdersList(patchedOrders, statusFilter, searchQuery),
+    [patchedOrders, searchQuery, statusFilter],
+  );
+
+  const hasActiveFilters = statusFilter !== '' || searchQuery.trim().length > 0;
+
+  const handleOrderPress = useCallback(
+    (pressedOrderId: string) => {
+      const matchedOrder = patchedOrders.find((entry) => entry._id === pressedOrderId);
+      navigation.navigate('OrderDetail', {
+        orderId: pressedOrderId,
+        initialOrder: matchedOrder,
+      });
+    },
+    [navigation, patchedOrders],
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: OrderSummary }) => (
+      <OrderListItem order={item} onPress={handleOrderPress} />
+    ),
+    [handleOrderPress],
+  );
 
   if (!isAuthorized) {
     return (
-      <View style={styles.centeredState}>
+      <View style={[styles.centeredState, { paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
-  const isPageLoadingEmpty = isPageLoading && orders.length === 0;
-  const showEmptyState =
-    hasLoadedOnce &&
-    filteredOrders.length === 0 &&
-    !isLoading &&
-    !isPageLoadingEmpty &&
-    !error;
-  const showInlineError =
-    Boolean(error) && orders.length === 0 && !isLoading && !isPageLoadingEmpty;
-  const showPagination =
-    (orders.length > 0 || isPageLoadingEmpty) && (totalOrders > 0 || totalPages > 1);
-
   const listHeader = (
-    <View style={styles.listHeader}>
+    <View style={styles.headerContent}>
       <OrderListSearchBar
         value={searchQuery}
         onChangeText={setSearchQuery}
@@ -121,7 +134,7 @@ export function OrdersScreen({ navigation }: Props) {
         accessibilityLabel="Search orders by ID or product"
       />
 
-      <OrderStatusTabs activeTabId={activeStatusTab} onTabChange={setActiveStatusTab} />
+      <CustomerOrderStatusTabs activeStatus={statusFilter} onStatusChange={setStatusFilter} />
 
       {totalOrders > 0 ? (
         <AppText variant="bodySmall" color="textSecondary" style={styles.countText}>
@@ -131,90 +144,36 @@ export function OrdersScreen({ navigation }: Props) {
         </AppText>
       ) : null}
 
-      {isRefreshing ? (
-        <View style={styles.refreshRow}>
-          <ActivityIndicator size="small" color={colors.primary} />
-          <AppText variant="caption" color="textMuted">
-            Updating orders...
-          </AppText>
-        </View>
+      {error && orders.length > 0 ? (
+        <ErrorState message={error} onAction={() => void retry()} style={styles.inlineError} />
       ) : null}
 
-      {error && orders.length > 0 ? (
-        <View style={styles.inlineError}>
-          <AppText variant="bodySmall" color="error" style={styles.errorText}>
-            {error}
+      {isLoading && orders.length === 0 && !error ? (
+        <View style={styles.inlineLoading}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <AppText variant="bodySmall" color="textSecondary">
+            Loading orders...
           </AppText>
-          <AppButton label="Try again" onPress={() => void retry()} />
         </View>
       ) : null}
     </View>
   );
 
-  const listEmpty = showEmptyState ? (
-    <View style={styles.emptyState}>
-      <AppText variant="h3" style={styles.title}>
-        {hasActiveFilters ? 'No matching orders' : 'No orders yet'}
-      </AppText>
-      <AppText variant="body" color="textSecondary" style={styles.subtitle}>
-        {hasActiveFilters
-          ? 'Try another status tab or adjust your search.'
-          : 'When you place an order, it will appear here.'}
-      </AppText>
-      {hasActiveFilters ? (
-        <AppButton
-          label="Clear filters"
-          variant="secondary"
-          onPress={() => {
-            setActiveStatusTab('all');
-            setSearchQuery('');
-          }}
-        />
-      ) : (
-        <AppButton label="Continue Shopping" onPress={() => navigateToHomeTab(rootNavigation)} />
-      )}
-    </View>
-  ) : showInlineError ? (
-    <View style={styles.emptyState}>
-      <AppText variant="bodySmall" color="error" style={styles.errorText}>
-        {error}
-      </AppText>
-      <AppButton label="Try again" onPress={() => void retry()} />
-    </View>
-  ) : isPageLoadingEmpty ? (
-    <OrderListPageSkeleton />
-  ) : isLoading ? (
-    <View style={styles.inlineLoading}>
-      <ActivityIndicator size="small" color={colors.primary} />
-      <AppText variant="bodySmall" color="textMuted">
-        Loading orders...
-      </AppText>
-    </View>
-  ) : null;
-
   return (
     <FlatList
+      style={styles.screen}
+      contentContainerStyle={[
+        styles.content,
+        { paddingBottom: insets.bottom + spacing.xxl },
+        filteredOrders.length === 0 && styles.emptyContent,
+      ]}
       data={filteredOrders}
       keyExtractor={(item, index) => item._id ?? `order-${index}`}
-      style={styles.list}
-      contentContainerStyle={[
-        styles.listContent,
-        filteredOrders.length === 0 && styles.listContentEmpty,
-      ]}
-      showsVerticalScrollIndicator={false}
-      onScroll={onMarketplaceScroll}
-      keyboardShouldPersistTaps="handled"
-      {...marketplaceScrollProps}
-      renderItem={({ item }) => (
-        <OrderListItem
-          order={item}
-          onPress={(orderId) => navigation.navigate('OrderDetail', { orderId })}
-        />
-      )}
+      renderItem={renderItem}
+      ItemSeparatorComponent={() => <View style={styles.separator} />}
       ListHeaderComponent={listHeader}
-      ListEmptyComponent={listEmpty}
       ListFooterComponent={
-        showPagination ? (
+        orders.length > 0 || isPageLoading ? (
           <OrderListPagination
             currentPage={currentPage}
             totalPages={totalPages}
@@ -226,82 +185,80 @@ export function OrdersScreen({ navigation }: Props) {
           />
         ) : null
       }
+      ListEmptyComponent={
+        !isLoading && !error ? (
+          <EmptyState
+            title={hasActiveFilters ? 'No matching orders' : 'No orders yet'}
+            message={
+              hasActiveFilters
+                ? 'Try adjusting your search or status tab.'
+                : 'When you place an order, it will appear here.'
+            }
+            actionLabel={hasActiveFilters ? 'Clear filters' : 'Continue Shopping'}
+            onAction={
+              hasActiveFilters
+                ? () => {
+                    setStatusFilter('');
+                    setSearchQuery('');
+                  }
+                : () => navigateToHomeTab(rootNavigation)
+            }
+          />
+        ) : error && orders.length === 0 ? (
+          <ErrorState message={error} onAction={() => void retry()} style={styles.inlineError} />
+        ) : null
+      }
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={() => void retry()}
+          tintColor={colors.primary}
+        />
+      }
+      onScroll={onMarketplaceScroll}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+      {...marketplaceScrollProps}
     />
   );
 }
 
 const styles = StyleSheet.create({
-  list: {
+  screen: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  listContent: {
+  content: {
     padding: spacing.lg,
     gap: spacing.md,
-    paddingBottom: spacing['3xl'],
   },
-  listContentEmpty: {
+  emptyContent: {
     flexGrow: 1,
   },
-  listHeader: {
+  headerContent: {
     gap: spacing.md,
     paddingBottom: spacing.xs,
   },
   countText: {
     fontWeight: '600',
   },
-  refreshRow: {
+  inlineError: {
+    alignSelf: 'stretch',
+    marginHorizontal: 0,
+  },
+  inlineLoading: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    paddingVertical: spacing.md,
   },
-  inlineError: {
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-  },
-  inlineLoading: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing['3xl'],
-    gap: spacing.sm,
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing['3xl'],
-    paddingHorizontal: spacing.lg,
-    gap: spacing.md,
+  separator: {
+    height: spacing.md,
   },
   centeredState: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.xl,
     backgroundColor: colors.background,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  subtitle: {
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  errorText: {
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  pageSkeletonList: {
-    gap: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  pageSkeletonCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.large,
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  pageSkeletonThumbs: {
-    flexDirection: 'row',
-    gap: spacing.sm,
   },
 });

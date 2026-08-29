@@ -89,25 +89,29 @@ export function AccountScreen(_props: Props) {
     goSeller('SellerSetup');
   };
 
-  const handlePersonalInfoPress = () => {
-    if (isSeller) {
-      goSeller('SellerPersonalInformation');
-      return;
-    }
-    stackNavigation.navigate('AccountDetails');
-  };
-
   const personalItems: AccountMenuItem[] = [
     {
       key: 'account-details',
       icon: 'account-details',
-      label: isSeller ? 'Personal information' : 'Account details',
-      onPress: handlePersonalInfoPress,
+      label: 'Account Details',
+      onPress: () => stackNavigation.navigate('AccountDetails'),
     },
+  ];
+
+  if (isSeller) {
+    personalItems.push({
+      key: 'shop-profile',
+      icon: 'shop-profile',
+      label: 'Shop Profile',
+      onPress: () => goSeller('SellerShopProfile'),
+    });
+  }
+
+  personalItems.push(
     {
       key: 'orders',
       icon: 'orders',
-      label: 'My orders',
+      label: 'My Orders',
       onPress: () => stackNavigation.navigate('Orders'),
     },
     {
@@ -116,90 +120,78 @@ export function AccountScreen(_props: Props) {
       label: 'Messages',
       onPress: () => stackNavigation.navigate('ChatList'),
     },
-  ];
-
-  if (!isSeller) {
-    personalItems.push({
+    {
       key: 'addresses',
       icon: 'addresses',
       label: 'Addresses',
       onPress: () => stackNavigation.navigate('AddressBook'),
-    });
-  }
+    },
+    {
+      key: 'referral-earnings',
+      icon: 'referral-earnings',
+      label: isSeller ? 'Referral Earning' : 'Referral Earnings',
+      onPress: () => stackNavigation.navigate('ReferralEarnings'),
+    },
+  );
 
-  personalItems.push({
-    key: 'referral-earnings',
-    icon: 'referral-earnings',
-    label: 'Referral earnings',
-    onPress: () => stackNavigation.navigate('ReferralEarnings'),
-  });
-
-  const sellerItems: AccountMenuItem[] = [];
-
-  if (isSeller) {
-    sellerItems.push(
-      {
-        key: 'shop-profile',
-        icon: 'shop-profile',
-        label: 'Shop profile',
-        onPress: () => goSeller('SellerShopProfile'),
-      },
-      {
-        key: 'dashboard',
-        icon: 'dashboard',
-        label: 'Dashboard',
-        onPress: () => goSeller('SellerDashboard'),
-      },
-      {
-        key: 'products',
-        icon: 'products',
-        label: 'Products',
-        onPress: () => goSeller('SellerProducts'),
-      },
-      {
-        key: 'seller-orders',
-        icon: 'seller-orders',
-        label: 'Orders',
-        onPress: () => goSeller('SellerOrders'),
-      },
-      {
-        key: 'shipping',
-        icon: 'shipping',
-        label: 'Shipping',
-        onPress: () => goSeller('SellerShippingConfig'),
-      },
-      {
-        key: 'shop-settings',
-        icon: 'shop-settings',
-        label: 'Shop settings',
-        onPress: () => goSeller('SellerShopSettings'),
-      },
-      {
-        key: 'seller-earnings',
-        icon: 'seller-earnings',
-        label: 'Seller earnings',
-        onPress: () => goSeller('SellerEarnings', {}),
-      },
-      {
-        key: 'coupons',
-        icon: 'coupons',
-        label: 'Coupons',
-        onPress: () => goSeller('SellerCoupons'),
-      },
-      {
-        key: 'attributes',
-        icon: 'attributes',
-        label: 'Custom attributes',
-        onPress: () => goSeller('SellerAttributes'),
-      },
-      {
-        key: 'reviews',
-        icon: 'reviews',
-        label: 'Reviews',
-        onPress: () => goSeller('SellerReviews'),
-      },
-    );
-  }
+  const sellerItems: AccountMenuItem[] = isSeller
+    ? [
+        {
+          key: 'dashboard',
+          icon: 'dashboard',
+          label: 'Dashboard',
+          onPress: () => goSeller('SellerDashboard'),
+        },
+        {
+          key: 'seller-orders',
+          icon: 'seller-orders',
+          label: 'Order Management',
+          onPress: () => goSeller('SellerOrders'),
+        },
+        {
+          key: 'products',
+          icon: 'products',
+          label: 'Product Management',
+          onPress: () => goSeller('SellerProducts'),
+        },
+        {
+          key: 'seller-earnings',
+          icon: 'seller-earnings',
+          label: 'Earnings',
+          onPress: () => goSeller('SellerEarnings', {}),
+        },
+        {
+          key: 'shipping',
+          icon: 'shipping',
+          label: 'Shipping',
+          onPress: () => goSeller('SellerShippingConfig'),
+        },
+        {
+          key: 'attributes',
+          icon: 'attributes',
+          label: 'Custom Attributes',
+          onPress: () => goSeller('SellerAttributes'),
+        },
+        {
+          key: 'coupons',
+          icon: 'coupons',
+          label: 'Coupon',
+          onPress: () => goSeller('SellerCoupons'),
+        },
+        {
+          key: 'reviews',
+          icon: 'reviews',
+          label: 'Reviews',
+          onPress: () => goSeller('SellerReviews'),
+        },
+        {
+          key: 'shop-settings',
+          icon: 'shop-settings',
+          label: 'Settings',
+          onPress: () => goSeller('SellerShopSettings'),
+        },
+      ]
+    : [];
 
   const adminItems: AccountMenuItem[] = [];
 
@@ -219,12 +211,12 @@ export function AccountScreen(_props: Props) {
       key: 'notifications',
       icon: 'notifications',
       label: 'Notifications',
-      onPress: () => showComingSoon('Notifications'),
+      onPress: () => stackNavigation.navigate('NotificationPreferences'),
     },
     {
       key: 'help',
       icon: 'help',
-      label: 'Help & support',
+      label: 'Help & Support',
       onPress: () => showComingSoon('Help and support'),
     },
     {
@@ -276,19 +268,24 @@ export function AccountScreen(_props: Props) {
         onAvatarPress={openPhotoActions}
       />
 
-      {showSellerSetupCard ? (
-        <AccountSellerSetupCard
-          profileSetup={profile?.profileSetup}
-          onContinueSetup={handleContinueSellerSetup}
-        />
-      ) : null}
-
       <View style={styles.menuList}>
         <View style={styles.section}>
           <AccountMenuSectionLabel title="Personal" />
           {renderMenuItems(personalItems)}
-          {renderMenuItems(sellerItems)}
         </View>
+
+        {sellerItems.length > 0 ? (
+          <View style={styles.section}>
+            {showSellerSetupCard ? (
+              <AccountSellerSetupCard
+                profileSetup={profile?.profileSetup}
+                onContinueSetup={handleContinueSellerSetup}
+              />
+            ) : null}
+            <AccountMenuSectionLabel title="Seller" />
+            {renderMenuItems(sellerItems)}
+          </View>
+        ) : null}
 
         {adminItems.length > 0 ? (
           <View style={styles.section}>

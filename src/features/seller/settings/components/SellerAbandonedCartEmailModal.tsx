@@ -1,11 +1,19 @@
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useEffect, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '../../../../components/ui/AppButton';
 import { AppInput } from '../../../../components/ui/AppInput';
 import { AppText } from '../../../../components/ui/AppText';
-import { colors, spacing } from '../../../../design-system';
+import { colors, radius, spacing } from '../../../../design-system';
 
 export interface SellerAbandonedCartEmailModalProps {
   visible: boolean;
@@ -60,67 +68,67 @@ export function SellerAbandonedCartEmailModal({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View
-        style={[
-          styles.container,
-          { paddingTop: insets.top, paddingBottom: insets.bottom + spacing.md },
-        ]}
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <Pressable style={styles.backdrop} onPress={onClose} />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardWrap}
       >
-        <View style={styles.header}>
-          <AppText variant="h3">Abandoned-cart email</AppText>
-          <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose}>
-            <AppText variant="bodyMedium" color="textLink">
-              Close
-            </AppText>
-          </Pressable>
-        </View>
-
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <AppText variant="body" color="textSecondary">
-            Send a recovery email to a customer who left items in their cart. Use the coupon code
-            you want to offer and the event ID from the notification email.
+        <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.lg }]}>
+          <AppText variant="bodyMedium" style={styles.title}>
+            Abandoned-cart email
+          </AppText>
+          <AppText variant="bodySmall" color="textSecondary" style={styles.subtitle}>
+            Send a recovery email with a coupon to win back the customer.
           </AppText>
 
-          <AppInput
-            label="Coupon code"
-            value={couponCode}
-            onChangeText={(text) => {
-              setCouponCode(text);
-              if (couponError) {
-                setCouponError(null);
-              }
-            }}
-            placeholder="Write your coupon code"
-            autoCapitalize="characters"
-            editable={!isSending}
-            error={couponError ?? undefined}
-          />
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.form}
+            showsVerticalScrollIndicator={false}
+          >
+            <AppInput
+              label="Coupon code"
+              tone="surface"
+              value={couponCode}
+              onChangeText={(text) => {
+                setCouponCode(text);
+                if (couponError) {
+                  setCouponError(null);
+                }
+              }}
+              placeholder="Write your coupon code"
+              autoCapitalize="characters"
+              editable={!isSending}
+              error={couponError ?? undefined}
+            />
 
-          <AppInput
-            label="Event ID"
-            value={eventId}
-            onChangeText={(text) => {
-              setEventId(text);
-              if (eventIdError) {
-                setEventIdError(null);
-              }
-            }}
-            placeholder="Write ID you received in email"
-            autoCapitalize="none"
-            autoCorrect={false}
-            editable={!isSending}
-            error={eventIdError ?? undefined}
-          />
+            <AppInput
+              label="Event ID"
+              tone="surface"
+              value={eventId}
+              onChangeText={(text) => {
+                setEventId(text);
+                if (eventIdError) {
+                  setEventIdError(null);
+                }
+              }}
+              placeholder="Write ID you received in email"
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!isSending}
+              error={eventIdError ?? undefined}
+            />
 
-          {errorMessage ? (
-            <AppText variant="bodySmall" color="error">
-              {errorMessage}
-            </AppText>
-          ) : null}
+            {errorMessage ? (
+              <AppText variant="bodySmall" color="error">
+                {errorMessage}
+              </AppText>
+            ) : null}
+          </ScrollView>
 
           <View style={styles.actions}>
-            <AppButton label="Cancel" variant="outline" onPress={onClose} disabled={isSending} />
+            <AppButton label="Cancel" variant="ghost" onPress={onClose} disabled={isSending} />
             <AppButton
               label="Send email"
               onPress={handleSubmit}
@@ -128,34 +136,45 @@ export function SellerAbandonedCartEmailModal({
               disabled={isSending}
             />
           </View>
-        </ScrollView>
-      </View>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+  },
+  keyboardWrap: {
     flex: 1,
+    justifyContent: 'flex-end',
+  },
+  sheet: {
     backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    paddingTop: spacing.lg,
+    gap: spacing.md,
+    maxHeight: '88%',
   },
-  content: {
-    padding: spacing.lg,
-    gap: spacing.lg,
+  title: {
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  subtitle: {
+    marginTop: -spacing.xs,
+  },
+  form: {
+    gap: spacing.md,
+    paddingBottom: spacing.sm,
   },
   actions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: spacing.md,
+    gap: spacing.sm,
     marginTop: spacing.sm,
   },
 });

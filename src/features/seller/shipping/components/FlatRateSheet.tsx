@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import {
-  KeyboardAvoidingView,
+  Keyboard,
   Modal,
   Platform,
   Pressable,
@@ -8,7 +8,6 @@ import {
   StyleSheet,
   Switch,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -26,8 +25,6 @@ export interface FlatRateSheetProps {
   onSave: (value: FlatRateOptionsForm, enabled: boolean) => void;
 }
 
-const SHEET_HEIGHT_RATIO = 0.88;
-
 export function FlatRateSheet({
   visible,
   currency,
@@ -36,8 +33,7 @@ export function FlatRateSheet({
   onSave,
 }: FlatRateSheetProps) {
   const insets = useSafeAreaInsets();
-  const { height: windowHeight } = useWindowDimensions();
-  const sheetMaxHeight = Math.round(windowHeight * SHEET_HEIGHT_RATIO);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [draft, setDraft] = useState(value);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,6 +43,29 @@ export function FlatRateSheet({
       setError(null);
     }
   }, [value, visible]);
+
+  useEffect(() => {
+    if (!visible) {
+      setKeyboardHeight(0);
+      return;
+    }
+
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (event) => {
+      setKeyboardHeight(event.endCoordinates.height);
+    });
+
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [visible]);
 
   const setMode = (mode: 'free' | 'fixed' | 'weighted') => {
     setDraft((current) => ({
@@ -118,16 +137,17 @@ export function FlatRateSheet({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.keyboardWrap}
-      >
+      <View style={styles.overlay}>
+        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close flat rate" />
+
         <View
           style={[
             styles.sheet,
             shadows.modal,
-            { maxHeight: sheetMaxHeight, paddingBottom: insets.bottom + spacing.lg },
+            {
+              marginBottom: keyboardHeight,
+              paddingBottom: insets.bottom + spacing.lg,
+            },
           ]}
         >
           <View style={styles.handle} />
@@ -139,10 +159,11 @@ export function FlatRateSheet({
           </AppText>
 
           <ScrollView
-            style={styles.scroll}
-            contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
             showsVerticalScrollIndicator={false}
+            bounces={false}
+            contentContainerStyle={styles.scrollContent}
           >
             <OptionCard
               title="Free shipping"
@@ -213,14 +234,14 @@ export function FlatRateSheet({
                 {error}
               </AppText>
             ) : null}
-          </ScrollView>
 
-          <View style={styles.actions}>
-            <AppButton label="Save flat rate" onPress={handleSave} />
-            <AppButton label="Disable flat rate" variant="secondary" onPress={handleDisable} />
-          </View>
+            <View style={styles.actions}>
+              <AppButton label="Save flat rate" onPress={handleSave} />
+              <AppButton label="Disable flat rate" variant="secondary" onPress={handleDisable} />
+            </View>
+          </ScrollView>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
@@ -259,13 +280,13 @@ function OptionCard({
 }
 
 const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.45)',
-  },
-  keyboardWrap: {
-    flex: 1,
-    justifyContent: 'flex-end',
   },
   sheet: {
     backgroundColor: colors.surface,
@@ -273,6 +294,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: radius.xl,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
+    maxHeight: '88%',
   },
   handle: {
     alignSelf: 'center',
@@ -289,12 +311,9 @@ const styles = StyleSheet.create({
   copy: {
     marginBottom: spacing.md,
   },
-  scroll: {
-    maxHeight: 420,
-  },
   scrollContent: {
     gap: spacing.md,
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.sm,
   },
   optionCard: {
     borderWidth: StyleSheet.hairlineWidth,
@@ -318,6 +337,6 @@ const styles = StyleSheet.create({
   },
   actions: {
     gap: spacing.sm,
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
   },
 });

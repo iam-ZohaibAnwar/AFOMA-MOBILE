@@ -17,6 +17,24 @@ export async function getSellerCouponsPage(
   );
 }
 
+const DEFAULT_PAGE_SIZE = 10;
+
+/** Loads every page for client-side search/filter (seller-owned coupon sets are typically small). */
+export async function getAllSellerCoupons(userId: string): Promise<SellerCoupon[]> {
+  const firstPage = await getSellerCouponsPage(userId, { page: 1, limit: DEFAULT_PAGE_SIZE });
+  const totalPages = Math.max(1, firstPage.totalPages ?? 1);
+  let coupons = Array.isArray(firstPage.coupons) ? [...firstPage.coupons] : [];
+
+  for (let page = 2; page <= totalPages; page += 1) {
+    const response = await getSellerCouponsPage(userId, { page, limit: DEFAULT_PAGE_SIZE });
+    if (Array.isArray(response.coupons)) {
+      coupons = coupons.concat(response.coupons);
+    }
+  }
+
+  return coupons;
+}
+
 export async function getSellerCoupon(couponId: string): Promise<SellerCoupon> {
   return apiGet<SellerCoupon>(
     `/coupon/${encodeURIComponent(couponId)}`,

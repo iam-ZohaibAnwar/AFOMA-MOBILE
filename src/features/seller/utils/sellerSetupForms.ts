@@ -25,7 +25,6 @@ export interface BasicInfoFormValues {
   gender: string;
   dob: string;
   phone: string;
-  web3address: string;
 }
 
 export interface SellerDetailsFormValues {
@@ -57,7 +56,6 @@ export interface PaymentInfoFormValues {
   swiftCode: string;
   bankName: string;
   ibanNumber: string;
-  web3address: string;
 }
 
 export interface SellerPoliciesFormValues {
@@ -88,7 +86,6 @@ export function basicInfoFormFromProfile(profile?: SellerProfile | null): BasicI
     gender: profile?.gender?.trim() ?? '',
     dob: profile?.DOB ? profile.DOB.slice(0, 10) : '',
     phone: profile?.phone?.trim() ?? '',
-    web3address: profile?.web3address?.trim() ?? '',
   };
 }
 
@@ -139,7 +136,6 @@ export function paymentInfoFormFromProfile(profile?: SellerProfile | null): Paym
     swiftCode: toTrimmedString(payment?.swiftCode),
     bankName: toTrimmedString(payment?.bankName),
     ibanNumber: toTrimmedString(payment?.ibanNumber),
-    web3address: toTrimmedString(profile?.web3address),
   };
 }
 
@@ -243,7 +239,6 @@ export function buildBasicInfoPayload(values: BasicInfoFormValues) {
     DOB: values.dob.trim(),
     gender: values.gender.trim(),
     phone: values.phone.trim(),
-    web3address: values.web3address.trim() || undefined,
     data: 'basicInfo',
     profileSetup: { basicInfo: true },
   };
@@ -293,7 +288,6 @@ export function buildPaymentInfoPayload(values: PaymentInfoFormValues, profile?:
         productStatus: profile?.status,
       },
     ],
-    web3address: values.web3address.trim() || undefined,
     data: 'paymentInfo',
     profileSetup: { paymentInfo: true },
   };

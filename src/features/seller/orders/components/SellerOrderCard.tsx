@@ -1,96 +1,254 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-import { AppBadge } from '../../../../components/ui/AppBadge';
 import { AppText } from '../../../../components/ui/AppText';
-import { colors, radius, spacing } from '../../../../design-system';
-import { formatCustomerName, formatOrderDate, formatOrderDisplayId } from '../../../orders/utils/orderDisplay';
-import type { SellerOrderSummary } from '../types/sellerOrder';
+import { colors, radius, shadows, spacing } from '../../../../design-system';
 import {
-  formatSellerOrderStatus,
-  getSellerOrderCarrierLabel,
-  getSellerOrderItemCount,
-  orderStatusBadgeVariant,
-} from '../utils/sellerOrderMappers';
+  formatOrderDateShort,
+  formatOrderDisplayId,
+} from '../../../orders/utils/orderDisplay';
+import { getOrderListPreviewImages } from '../../../orders/utils/orderListDisplay';
+import {
+  getOrderStatusColor,
+  getOrderStatusIconName,
+} from '../../../orders/utils/orderDetailDisplay';
+import type { SellerOrderSummary } from '../types/sellerOrder';
+import { formatSellerOrderStatus, getSellerOrderCarrierLabel } from '../utils/sellerOrderMappers';
+import {
+  formatSellerOrderListTotal,
+  getSellerOrderCustomerName,
+} from '../utils/sellerOrderDisplay';
 
 export interface SellerOrderCardProps {
   order: SellerOrderSummary;
-  onPress: (orderId: string) => void;
+  onPress: (order: SellerOrderSummary) => void;
+}
+
+function OrderPreviewThumbnail({
+  uri,
+  label,
+  isOverflow,
+}: {
+  uri?: string;
+  label?: string;
+  isOverflow?: boolean;
+}) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const showImage = Boolean(uri) && !imageFailed && !isOverflow;
+
+  return (
+    <View style={[styles.thumbnail, isOverflow && styles.thumbnailOverflow]}>
+      {showImage ? (
+        <Image
+          source={{ uri }}
+          style={styles.thumbnailImage}
+          resizeMode="cover"
+          onError={() => setImageFailed(true)}
+        />
+      ) : isOverflow ? (
+        <AppText variant="caption" style={styles.overflowLabel}>
+          {label}
+        </AppText>
+      ) : (
+        <Ionicons name="bag-outline" size={18} color={colors.textInverse} />
+      )}
+    </View>
+  );
 }
 
 export function SellerOrderCard({ order, onPress }: SellerOrderCardProps) {
   const orderId = order._id;
-  const customerName = formatCustomerName(order.userInfo) ?? '—';
-  const itemCount = getSellerOrderItemCount(order);
+  const { images, overflowCount } = getOrderListPreviewImages(order);
+  const statusLabel = formatSellerOrderStatus(order.status);
+  const statusColor = getOrderStatusColor(order.status);
+  const customerName = getSellerOrderCustomerName(order);
   const carrier = getSellerOrderCarrierLabel(order);
+  const previewSlots =
+    images.length > 0
+      ? [
+          ...images.map((uri) => ({ uri, isOverflow: false as const })),
+          ...(overflowCount > 0 ? [{ isOverflow: true as const, label: `+${overflowCount}` }] : []),
+        ]
+      : [{ isOverflow: false as const, uri: undefined }];
 
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={`View order ${formatOrderDisplayId(orderId)}`}
       disabled={!orderId}
-      onPress={() => {
-        if (orderId) {
-          onPress(orderId);
-        }
-      }}
+      onPress={() => onPress(order)}
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
     >
       <View style={styles.headerRow}>
-        <AppText variant="bodyMedium" style={styles.orderId}>
-          {formatOrderDisplayId(orderId)}
-        </AppText>
-        <AppBadge
-          label={formatSellerOrderStatus(order.status)}
-          variant={orderStatusBadgeVariant(order.status)}
-        />
+        <View style={styles.headerMeta}>
+          <AppText variant="caption" color="textMuted" style={styles.orderLabel}>
+            ORDER #{formatOrderDisplayId(orderId)}
+          </AppText>
+          <AppText variant="bodySmall" color="textSecondary">
+            {formatOrderDateShort(order.createdAt)}
+          </AppText>
+        </View>
+
+        <View style={styles.statusWrap}>
+          <Ionicons name={getOrderStatusIconName(order.status)} size={14} color={statusColor} />
+          <AppText variant="bodySmall" style={[styles.statusLabel, { color: statusColor }]}>
+            {statusLabel}
+          </AppText>
+        </View>
       </View>
 
-      <AppText variant="bodySmall" color="textSecondary">
-        {formatOrderDate(order.createdAt)}
-      </AppText>
-
-      <AppText variant="bodyMedium" style={styles.customerName}>
-        {customerName}
-      </AppText>
-
-      <AppText variant="bodySmall" color="textSecondary">
-        {itemCount === 1 ? '1 item' : `${itemCount} items`}
-      </AppText>
-
-      {carrier ? (
-        <AppText variant="caption" color="textMuted">
-          {carrier}
+      <View style={styles.partyBlock}>
+        <AppText variant="bodySmall" color="textSecondary" numberOfLines={1}>
+          Customer: {customerName}
         </AppText>
-      ) : null}
+        {carrier ? (
+          <AppText variant="bodySmall" color="textSecondary" numberOfLines={1}>
+            Carrier: {carrier}
+          </AppText>
+        ) : null}
+      </View>
+
+      <View style={styles.previewRow}>
+        {previewSlots.map((slot, index) => (
+          <OrderPreviewThumbnail
+            key={`${orderId ?? 'order'}-preview-${index}`}
+            uri={'uri' in slot ? slot.uri : undefined}
+            label={'label' in slot ? slot.label : undefined}
+            isOverflow={slot.isOverflow}
+          />
+        ))}
+      </View>
+
+      <View style={styles.footerRow}>
+        <View style={styles.totalBlock}>
+          <AppText variant="caption" color="textMuted" style={styles.totalLabel}>
+            YOUR TOTAL
+          </AppText>
+          <AppText variant="h3" style={styles.totalValue}>
+            {formatSellerOrderListTotal(order)}
+          </AppText>
+        </View>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`View order ${formatOrderDisplayId(orderId)}`}
+          disabled={!orderId}
+          onPress={() => onPress(order)}
+          style={({ pressed }) => [styles.viewButton, pressed && styles.viewButtonPressed]}
+        >
+          <AppText variant="bodySmall" style={styles.viewButtonLabel}>
+            View Order
+          </AppText>
+        </Pressable>
+      </View>
     </Pressable>
   );
 }
+
+const THUMBNAIL_SIZE = 52;
 
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.large,
     borderWidth: 1,
-    borderColor: colors.borderStrong,
+    borderColor: colors.border,
     padding: spacing.lg,
-    gap: spacing.sm,
+    gap: spacing.md,
+    ...shadows.card,
   },
   cardPressed: {
-    opacity: 0.88,
+    opacity: 0.92,
   },
   headerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: spacing.md,
   },
-  orderId: {
-    color: colors.textPrimary,
-    fontWeight: '700',
+  headerMeta: {
     flex: 1,
+    gap: 2,
   },
-  customerName: {
-    color: colors.textPrimary,
+  orderLabel: {
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  statusWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flexShrink: 0,
+  },
+  statusLabel: {
     fontWeight: '600',
-    marginTop: spacing.xs,
+  },
+  partyBlock: {
+    gap: 2,
+  },
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  thumbnail: {
+    width: THUMBNAIL_SIZE,
+    height: THUMBNAIL_SIZE,
+    borderRadius: radius.medium,
+    overflow: 'hidden',
+    backgroundColor: colors.primary,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumbnailOverflow: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
+  },
+  overflowLabel: {
+    color: colors.textInverse,
+    fontWeight: '700',
+  },
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  totalBlock: {
+    flex: 1,
+    gap: 2,
+  },
+  totalLabel: {
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  totalValue: {
+    color: colors.primary,
+    fontWeight: '800',
+  },
+  viewButton: {
+    borderRadius: radius.medium,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  viewButtonPressed: {
+    backgroundColor: colors.primaryPressed,
+  },
+  viewButtonLabel: {
+    color: colors.textInverse,
+    fontWeight: '700',
   },
 });

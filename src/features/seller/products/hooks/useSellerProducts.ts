@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
-  deleteSellerProduct,
   getSellerProductsManagementPage,
 } from '../../../../services/api/productsApi';
 import { getErrorMessage } from '../../../../services/api/errors';
@@ -13,6 +12,7 @@ import {
 } from '../utils/sellerProductListDisplay';
 
 const ITEMS_PER_PAGE = 10;
+const SEARCH_DEBOUNCE_MS = 300;
 
 export function useSellerProducts(sellerId?: string) {
   const [products, setProducts] = useState<Product[]>([]);
@@ -20,19 +20,26 @@ export function useSellerProducts(sellerId?: string) {
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
   const [isLoading, setIsLoading] = useState(Boolean(sellerId));
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
+  const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [approvalStatusFilter, setApprovalStatusFilter] = useState<SellerApprovalStatusFilter>('');
-  const [inventoryStatusFilter, setInventoryStatusFilter] = useState<SellerInventoryStatusFilter>('');
+  const [approvalFilter, setApprovalFilter] = useState<SellerApprovalStatusFilter>('');
+  const [inventoryFilter, setInventoryFilter] = useState<SellerInventoryStatusFilter>('');
 
-  const loadingMoreRef = useRef(false);
+  const requestVersionRef = useRef(0);
+  const hasCachedProductsRef = useRef(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchTerm(searchInput.trim());
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   const loadPage = useCallback(
-    async (page: number, mode: 'initial' | 'more' | 'refresh') => {
+    async (page: number, mode: 'initial' | 'refresh') => {
       if (!sellerId) {
         setProducts([]);
         setError(null);
@@ -40,118 +47,124 @@ export function useSellerProducts(sellerId?: string) {
         return;
       }
 
-      if (mode === 'more') {
-        if (loadingMoreRef.current) {
-          return;
-        }
-        loadingMoreRef.current = true;
-        setIsLoadingMore(true);
-      } else if (mode === 'refresh') {
+      const requestVersion = requestVersionRef.current + 1;
+      requestVersionRef.current = requestVersion;
+
+      if (mode === 'refresh') {
         setIsRefreshing(true);
-      } else {
+      } else if (!hasCachedProductsRef.current) {
         setIsLoading(true);
       }
 
       setError(null);
 
       try {
-        const response = await getSellerProductsManagementPage(sellerId, {
-          page,
+        let resolvedPage = page;
+        let response = await getSellerProductsManagementPage(sellerId, {
+          page: resolvedPage,
           limit: ITEMS_PER_PAGE,
         });
 
-        setProducts((current) =>
-          mode === 'more' ? [...current, ...response.products] : response.products,
-        );
-        setCurrentPage(response.pagination?.currentPage ?? page);
-        setTotalPages(response.pagination?.totalPages ?? 1);
-        setTotalProducts(
-          response.pagination?.totalProducts ?? response.products.length,
-        );
+        const maxPage = Math.max(1, response.pagination?.totalPages ?? 1);
+        if (resolvedPage > maxPage) {
+          resolvedPage = maxPage;
+          response = await getSellerProductsManagementPage(sellerId, {
+            page: resolvedPage,
+            limit: ITEMS_PER_PAGE,
+          });
+        }
+
+        if (requestVersion !== requestVersionRef.current) {
+          return;
+        }
+
+        setProducts(Array.isArray(response.products) ? response.products : []);
+        setTotalPages(Math.max(1, response.pagination?.totalPages ?? 1));
+        setTotalProducts(response.pagination?.totalProducts ?? 0);
+        setCurrentPage(resolvedPage);
+        hasCachedProductsRef.current = true;
       } catch (err) {
-        if (mode !== 'more') {
+        if (requestVersion !== requestVersionRef.current) {
+          return;
+        }
+
+        if (!hasCachedProductsRef.current) {
           setProducts([]);
         }
         setError(getErrorMessage(err, 'Failed to load products'));
       } finally {
-        setIsLoading(false);
-        setIsLoadingMore(false);
-        setIsRefreshing(false);
-        loadingMoreRef.current = false;
+        if (requestVersion === requestVersionRef.current) {
+          setIsLoading(false);
+          setIsRefreshing(false);
+        }
       }
     },
     [sellerId],
   );
 
   useEffect(() => {
-    void loadPage(1, 'initial');
+    setCurrentPage(1);
+    void loadPage(1, hasCachedProductsRef.current ? 'refresh' : 'initial');
   }, [loadPage]);
 
   const filteredProducts = useMemo(
-    () =>
-      filterSellerProducts(
-        products,
-        searchTerm,
-        approvalStatusFilter,
-        inventoryStatusFilter,
-      ),
-    [approvalStatusFilter, inventoryStatusFilter, products, searchTerm],
+    () => filterSellerProducts(products, searchTerm, approvalFilter, inventoryFilter),
+    [approvalFilter, inventoryFilter, products, searchTerm],
   );
 
-  const hasMore = currentPage < totalPages;
+  const refresh = useCallback(async () => {
+    await loadPage(currentPage, 'refresh');
+  }, [currentPage, loadPage]);
 
-  const loadMore = useCallback(() => {
-    if (!hasMore || isLoading || isLoadingMore || isRefreshing) {
+  const goToPreviousPage = useCallback(() => {
+    const nextPage = Math.max(1, currentPage - 1);
+    if (nextPage === currentPage) {
       return;
     }
+    void loadPage(nextPage, 'initial');
+  }, [currentPage, loadPage]);
 
-    void loadPage(currentPage + 1, 'more');
-  }, [currentPage, hasMore, isLoading, isLoadingMore, isRefreshing, loadPage]);
+  const goToNextPage = useCallback(() => {
+    const nextPage = Math.min(totalPages, currentPage + 1);
+    if (nextPage === currentPage) {
+      return;
+    }
+    void loadPage(nextPage, 'initial');
+  }, [currentPage, loadPage, totalPages]);
 
-  const refresh = useCallback(() => {
-    void loadPage(1, 'refresh');
-  }, [loadPage]);
+  const applyApprovalFilter = useCallback((nextFilter: SellerApprovalStatusFilter) => {
+    setApprovalFilter(nextFilter);
+  }, []);
 
-  const removeProduct = useCallback(
-    async (productId: string) => {
-      setDeletingProductId(productId);
-      setDeleteError(null);
+  const applyInventoryFilter = useCallback((nextFilter: SellerInventoryStatusFilter) => {
+    setInventoryFilter(nextFilter);
+  }, []);
 
-      try {
-        await deleteSellerProduct(productId);
-        setProducts((current) => current.filter((product) => product._id !== productId));
-        setTotalProducts((count) => Math.max(0, count - 1));
-        return true;
-      } catch (err) {
-        setDeleteError(getErrorMessage(err, 'Failed to delete product'));
-        return false;
-      } finally {
-        setDeletingProductId(null);
-      }
-    },
-    [],
+  const hasActiveFilters = useMemo(
+    () => Boolean(searchTerm || approvalFilter || inventoryFilter),
+    [approvalFilter, inventoryFilter, searchTerm],
   );
 
   return {
-    products,
-    filteredProducts,
+    products: filteredProducts,
+    pageProducts: products,
     totalProducts,
+    currentPage,
+    totalPages,
     isLoading,
-    isLoadingMore,
     isRefreshing,
     error,
-    deleteError,
-    deletingProductId,
-    searchTerm,
-    setSearchTerm,
-    approvalStatusFilter,
-    setApprovalStatusFilter,
-    inventoryStatusFilter,
-    setInventoryStatusFilter,
-    hasMore,
-    loadMore,
+    searchInput,
+    setSearchInput,
+    approvalFilter,
+    inventoryFilter,
+    hasActiveFilters,
+    applyApprovalFilter,
+    applyInventoryFilter,
     refresh,
-    removeProduct,
-    clearDeleteError: () => setDeleteError(null),
+    goToPreviousPage,
+    goToNextPage,
+    canGoPrevious: currentPage > 1 && !isLoading,
+    canGoNext: currentPage < totalPages && !isLoading,
   };
 }

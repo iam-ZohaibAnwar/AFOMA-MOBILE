@@ -2,9 +2,9 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useState } from 'react';
 
 import { AppButton } from '../../../../components/ui/AppButton';
-import { AppCard } from '../../../../components/ui/AppCard';
 import { AppText } from '../../../../components/ui/AppText';
 import { colors, spacing } from '../../../../design-system';
+import { AdminProductDetailCardShell } from '../../../admin/product-management/components/detail/AdminProductDetailCardShell';
 import type { Review } from '../../../../services/types/review';
 import {
   formatSellerReviewStatus,
@@ -61,11 +61,7 @@ export function SellerReviewReplySection({
 
   if (hasReply || sellerReply) {
     return (
-      <AppCard variant="flat">
-        <AppText variant="bodyMedium" style={styles.sectionTitle}>
-          Your reply
-        </AppText>
-
+      <AdminProductDetailCardShell title="Your reply" icon="chatbubble-ellipses-outline" iconVariant="solid">
         {isLoadingReply && !sellerReply ? (
           <View style={styles.loadingRow}>
             <ActivityIndicator size="small" color={colors.primary} />
@@ -82,25 +78,22 @@ export function SellerReviewReplySection({
         ) : null}
 
         {sellerReply ? (
-          <>
+          <View style={styles.replyBody}>
             <AppText variant="bodyMedium" style={styles.replyText}>
               {getSellerReviewText(sellerReply)}
             </AppText>
             <AppText variant="caption" color="textSecondary">
               Status: {formatSellerReviewStatus(sellerReply.reviewStatus)}
             </AppText>
-          </>
+          </View>
         ) : null}
-      </AppCard>
+      </AdminProductDetailCardShell>
     );
   }
 
   return (
     <>
-      <AppCard variant="flat">
-        <AppText variant="bodyMedium" style={styles.sectionTitle}>
-          Seller reply
-        </AppText>
+      <AdminProductDetailCardShell title="Seller reply" icon="chatbubble-outline" iconVariant="solid">
         <AppText variant="bodySmall" color="textSecondary" style={styles.helper}>
           Respond to the customer review. Replies are reviewed before publication.
         </AppText>
@@ -124,7 +117,7 @@ export function SellerReviewReplySection({
           size="md"
           style={styles.actionButton}
         />
-      </AppCard>
+      </AdminProductDetailCardShell>
 
       <SellerReviewReplyComposer
         visible={composerVisible}
@@ -138,11 +131,6 @@ export function SellerReviewReplySection({
 }
 
 const styles = StyleSheet.create({
-  sectionTitle: {
-    color: colors.textPrimary,
-    fontWeight: '700',
-    marginBottom: spacing.sm,
-  },
   helper: {
     lineHeight: 20,
     marginBottom: spacing.md,
@@ -150,10 +138,12 @@ const styles = StyleSheet.create({
   actionButton: {
     alignSelf: 'flex-start',
   },
+  replyBody: {
+    gap: spacing.sm,
+  },
   replyText: {
     color: colors.textPrimary,
     lineHeight: 22,
-    marginBottom: spacing.sm,
   },
   loadingRow: {
     paddingVertical: spacing.sm,

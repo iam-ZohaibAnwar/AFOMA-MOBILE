@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
   FlatList,
+  Pressable,
   RefreshControl,
   StyleSheet,
   View,
@@ -10,46 +9,83 @@ import {
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
 import { EmptyState } from '../../../../components/ecommerce/EmptyState';
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
-import { AppButton } from '../../../../components/ui/AppButton';
 import { AppCard } from '../../../../components/ui/AppCard';
 import { AppText } from '../../../../components/ui/AppText';
-import { colors, spacing } from '../../../../design-system';
+import { colors, radius, shadows, spacing } from '../../../../design-system';
+import { OrderListPagination } from '../../../orders/components/OrderListPagination';
+import { OrderListSearchBar } from '../../../orders/components/OrderListSearchBar';
+import { AdminCouponCardSkeleton } from '../../../admin/coupons/components/AdminCouponCardSkeleton';
+import { AdminProductCardActionsMenu } from '../../../admin/product-management/components/AdminProductCardActionsMenu';
 import type { SellerStackParamList } from '../../../../app/navigation/sellerTypes';
 import { useAuth } from '../../../auth/hooks/useAuth';
 import { authReturnTo } from '../../../auth/utils/authNavigation';
 import { resolveAuthUserId } from '../../../auth/utils/resolveAuthUserId';
 import { useRequireSeller } from '../../hooks/useRequireSeller';
 import { SellerCouponCard } from '../components/SellerCouponCard';
-import { useSellerCoupons } from '../hooks/useSellerCoupons';
+import { SellerCouponStatusTabs } from '../components/SellerCouponStatusTabs';
+import {
+  useSellerCouponCardActions,
+  useSellerCouponList,
+} from '../hooks/useSellerCoupons';
 import type { SellerCoupon } from '../types/sellerCoupon';
+import { navigateToSellerCouponForm } from '../navigation/sellerCouponsNavigation';
 
 type Props = NativeStackScreenProps<SellerStackParamList, 'SellerCoupons'>;
 
-const COUPONS_RETURN_TO = authReturnTo.sellerCoupons();
+const RETURN_TO = authReturnTo.sellerCoupons();
+const SKELETON_ITEMS = ['c1', 'c2', 'c3'] as const;
 
 export function SellerCouponsScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const userId = resolveAuthUserId(user);
-  const { isAuthorized } = useRequireSeller(COUPONS_RETURN_TO);
+  const { isAuthorized } = useRequireSeller(RETURN_TO);
   const [notice, setNotice] = useState<string | null>(route.params?.notice ?? null);
+
   const {
     coupons,
-    totalCoupons,
+    filteredCount,
+    statusFilter,
+    setStatusFilter,
+    searchInput,
+    setSearchInput,
+    currentPage,
+    totalPages,
+    hasActiveFilters,
     isLoading,
-    isLoadingMore,
     isRefreshing,
-    error,
-    deleteError,
     deletingCouponId,
+    error,
+    actionError,
     refresh,
-    loadMore,
-    removeCoupon,
-    clearDeleteError,
-  } = useSellerCoupons(isAuthorized ? userId : undefined);
+    clearActionError,
+    goToPreviousPage,
+    goToNextPage,
+    canGoPrevious,
+    canGoNext,
+    deleteCoupon,
+  } = useSellerCouponList({
+    userId: isAuthorized ? userId : undefined,
+    enabled: isAuthorized,
+  });
+
+  const {
+    menuCoupon,
+    menuActions,
+    menuTitle,
+    openMenu,
+    closeMenu,
+    handleView,
+    handleMenuAction,
+    busyCouponId,
+  } = useSellerCouponCardActions(navigation, {
+    deletingCouponId,
+    onDeleteCoupon: deleteCoupon,
+  });
 
   useEffect(() => {
     if (route.params?.notice) {
@@ -60,85 +96,45 @@ export function SellerCouponsScreen({ navigation, route }: Props) {
 
   useFocusEffect(
     useCallback(() => {
-      if (isAuthorized && userId) {
+      if (isAuthorized) {
         void refresh();
       }
-    }, [isAuthorized, refresh, userId]),
-  );
-
-  const handlePressEdit = useCallback(
-    (couponId: string) => {
-      navigation.navigate('SellerCouponForm', { couponId });
-    },
-    [navigation],
+    }, [isAuthorized, refresh]),
   );
 
   const handleAddCoupon = useCallback(() => {
-    navigation.navigate('SellerCouponForm', {});
+    navigateToSellerCouponForm(navigation);
   }, [navigation]);
 
-  const handleDeleteCoupon = useCallback(
-    async (coupon: SellerCoupon) => {
-      const couponId = coupon._id;
-      if (!couponId) {
-        return;
-      }
-
-      const deleted = await removeCoupon(couponId);
-      if (deleted) {
-        setNotice('Coupon deleted successfully!');
-      }
-    },
-    [removeCoupon],
-  );
-
   const renderItem = useCallback(
-    ({ item }: { item: (typeof coupons)[number] }) => (
+    ({ item }: { item: SellerCoupon }) => (
       <SellerCouponCard
         coupon={item}
-        onEdit={handlePressEdit}
-        onDelete={handleDeleteCoupon}
-        isDeleting={deletingCouponId === item._id}
+        onPress={handleView}
+        onMenuPress={openMenu}
+        isBusy={busyCouponId === item._id}
       />
     ),
-    [deletingCouponId, handleDeleteCoupon, handlePressEdit],
+    [busyCouponId, handleView, openMenu],
   );
 
+  const showSkeletonList = isLoading && coupons.length === 0 && !error;
+  const listBottomInset = insets.bottom + spacing.xxl + 72;
+
   if (!isAuthorized) {
-    return (
-      <View style={styles.centeredState}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
-
-  if (isLoading && coupons.length === 0 && !error) {
-    return (
-      <View style={styles.centeredState}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <AppText variant="bodySmall" color="textSecondary">
-          Loading coupons...
-        </AppText>
-      </View>
-    );
-  }
-
-  if (error && coupons.length === 0 && totalCoupons === 0) {
-    return (
-      <View style={[styles.centeredState, { paddingBottom: insets.bottom }]}>
-        <ErrorState message={error} onAction={() => void refresh()} />
-      </View>
-    );
+    return <View style={[styles.screen, { paddingTop: insets.top }]} />;
   }
 
   const listHeader = (
     <View style={styles.headerContent}>
-      <View style={styles.headerRow}>
-        <AppText variant="bodyMedium" style={styles.title}>
-          All coupons
-        </AppText>
-        <AppButton label="Add coupon" size="md" onPress={handleAddCoupon} />
-      </View>
+      <OrderListSearchBar
+        value={searchInput}
+        onChangeText={setSearchInput}
+        placeholder="Search by code or description..."
+        accessibilityLabel="Search coupons"
+      />
+
+      <SellerCouponStatusTabs activeStatus={statusFilter} onStatusChange={setStatusFilter} />
 
       {notice ? (
         <AppCard variant="flat" style={styles.successBanner}>
@@ -148,57 +144,101 @@ export function SellerCouponsScreen({ navigation, route }: Props) {
         </AppCard>
       ) : null}
 
-      {deleteError ? (
+      {actionError ? (
         <ErrorState
-          message={deleteError}
-          onAction={clearDeleteError}
+          message={actionError}
+          onAction={clearActionError}
           actionLabel="Dismiss"
           style={styles.inlineError}
         />
       ) : null}
 
-      {error ? (
+      {error && coupons.length > 0 ? (
         <ErrorState message={error} onAction={() => void refresh()} style={styles.inlineError} />
       ) : null}
 
-      {totalCoupons > 0 ? (
-        <AppText variant="bodySmall" color="textSecondary">
-          {totalCoupons} coupon{totalCoupons === 1 ? '' : 's'}
+      {filteredCount > 0 ? (
+        <AppText variant="bodySmall" color="textSecondary" style={styles.countText}>
+          {filteredCount} {filteredCount === 1 ? 'coupon' : 'coupons'}
         </AppText>
+      ) : null}
+
+      {showSkeletonList ? (
+        <View style={styles.skeletonList}>
+          {SKELETON_ITEMS.map((key) => (
+            <AdminCouponCardSkeleton key={key} />
+          ))}
+        </View>
       ) : null}
     </View>
   );
 
+  const listFooter =
+    filteredCount > 0 ? (
+      <OrderListPagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPrevious={goToPreviousPage}
+        onNext={goToNextPage}
+        canGoPrevious={canGoPrevious}
+        canGoNext={canGoNext}
+      />
+    ) : null;
+
+  const emptyMessage = hasActiveFilters
+    ? 'No coupons match your current search or filters.'
+    : 'Create a coupon to offer discounts to your customers.';
+
   return (
-    <FlatList
-      style={styles.screen}
-      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
-      data={coupons}
-      keyExtractor={(item, index) => item._id ?? `coupon-${index}`}
-      renderItem={renderItem}
-      ItemSeparatorComponent={() => <View style={styles.separator} />}
-      ListHeaderComponent={listHeader}
-      ListEmptyComponent={
-        <EmptyState
-          title="No coupons added"
-          message="Create a coupon to offer discounts to your customers."
-          style={styles.emptyState}
-        />
-      }
-      ListFooterComponent={
-        isLoadingMore ? (
-          <View style={styles.footerLoading}>
-            <ActivityIndicator size="small" color={colors.primary} />
-          </View>
-        ) : null
-      }
-      refreshControl={
-        <RefreshControl refreshing={isRefreshing} onRefresh={() => void refresh()} tintColor={colors.primary} />
-      }
-      onEndReached={() => loadMore()}
-      onEndReachedThreshold={0.4}
-      showsVerticalScrollIndicator={false}
-    />
+    <>
+      <FlatList
+        style={styles.screen}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: listBottomInset },
+          filteredCount === 0 && !showSkeletonList && styles.emptyContent,
+        ]}
+        data={showSkeletonList ? [] : coupons}
+        keyExtractor={(item, index) => item._id ?? `coupon-${index}`}
+        renderItem={renderItem}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        ListHeaderComponent={listHeader}
+        ListFooterComponent={listFooter}
+        ListEmptyComponent={
+          showSkeletonList ? null : error && filteredCount === 0 ? (
+            <ErrorState message={error} onAction={() => void refresh()} style={styles.emptyState} />
+          ) : (
+            <EmptyState
+              title={hasActiveFilters ? 'No matching coupons' : 'No coupons yet'}
+              message={emptyMessage}
+              style={styles.emptyState}
+            />
+          )
+        }
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={() => void refresh()} tintColor={colors.primary} />
+        }
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      />
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Create coupon"
+        onPress={handleAddCoupon}
+        style={[styles.fab, { bottom: insets.bottom + spacing.lg }]}
+      >
+        <Ionicons name="add" size={28} color={colors.textInverse} />
+      </Pressable>
+
+      <AdminProductCardActionsMenu
+        visible={Boolean(menuCoupon)}
+        productName={menuTitle}
+        actions={menuActions}
+        onClose={closeMenu}
+        onSelect={handleMenuAction}
+      />
+    </>
   );
 }
 
@@ -212,28 +252,15 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     gap: spacing.md,
   },
-  centeredState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.md,
-    backgroundColor: colors.background,
-    paddingHorizontal: spacing.lg,
+  emptyContent: {
+    flexGrow: 1,
   },
   headerContent: {
     gap: spacing.md,
     marginBottom: spacing.sm,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  title: {
-    color: colors.textPrimary,
-    fontWeight: '700',
-    flex: 1,
+  countText: {
+    marginTop: -spacing.xs,
   },
   successBanner: {
     backgroundColor: colors.successBg,
@@ -242,14 +269,24 @@ const styles = StyleSheet.create({
   inlineError: {
     marginBottom: 0,
   },
+  skeletonList: {
+    gap: spacing.md,
+  },
   separator: {
     height: spacing.md,
   },
   emptyState: {
     marginTop: spacing.xl,
   },
-  footerLoading: {
-    paddingVertical: spacing.lg,
+  fab: {
+    position: 'absolute',
+    right: spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: radius.pill,
+    backgroundColor: colors.secondary,
     alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.floating,
   },
 });

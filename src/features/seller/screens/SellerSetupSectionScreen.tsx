@@ -1,8 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   Switch,
@@ -12,7 +10,13 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorState } from '../../../components/ecommerce/ErrorState';
-import { CountryStateFields, SelectField } from '../../../components/forms';
+import {
+  CountryStateFields,
+  DateField,
+  KeyboardAwareFormScreen,
+  SelectField,
+  useKeyboardAwareForm,
+} from '../../../components/forms';
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppCard } from '../../../components/ui/AppCard';
 import { AppInput } from '../../../components/ui/AppInput';
@@ -51,10 +55,15 @@ import type { SellerSetupImageKind } from '../hooks/useSellerSetupImageUpload';
 type Props = NativeStackScreenProps<SellerStackParamList, 'SellerSetupSection'>;
 
 const SECTION_RETURN_TO = authReturnTo.sellerSetup();
+/** Web `bg-orange-100` — all seller setup inputs, selects, and policy fields. */
+const SELLER_SETUP_FIELD_TONE = 'surface' as const;
 
 export function SellerSetupSectionScreen({ route, navigation }: Props) {
   const { section } = route.params;
   const insets = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView>(null);
+  const formControls = useKeyboardAwareForm(scrollRef);
+  const onFieldFocus = formControls.onFieldFocus;
   const { isAuthorized, sellerId } = useRequireSeller(SECTION_RETURN_TO);
   const { profile, isLoading, error, reload, applyProfileUpdate } = useSellerProfile(
     isAuthorized ? sellerId : undefined,
@@ -97,7 +106,7 @@ export function SellerSetupSectionScreen({ route, navigation }: Props) {
 
   if (isLoading && !profile) {
     return (
-      <View style={styles.centeredState}>
+      <View style={[styles.centeredState, { paddingBottom: insets.bottom }]}>
         <ActivityIndicator size="large" color={colors.primary} />
         <AppText variant="bodySmall" color="textSecondary">
           Loading section...
@@ -108,7 +117,7 @@ export function SellerSetupSectionScreen({ route, navigation }: Props) {
 
   if (error && !profile) {
     return (
-      <View style={styles.centeredState}>
+      <View style={[styles.centeredState, { paddingBottom: insets.bottom }]}>
         <ErrorState message={error} onAction={() => void reload()} />
       </View>
     );
@@ -212,6 +221,22 @@ export function SellerSetupSectionScreen({ route, navigation }: Props) {
     updateField('storeLogo', imageUrl);
   };
 
+  const handleRemoveImage = (kind: SellerSetupImageKind) => {
+    clearUploadError();
+
+    if (kind === 'profile') {
+      updateField('userProfile', '');
+      return;
+    }
+
+    if (kind === 'banner') {
+      updateField('storeBanner', '');
+      return;
+    }
+
+    updateField('storeLogo', '');
+  };
+
   const handleAddFaq = () => {
     const form = values as SellerPoliciesFormValues;
     if (!faqDraftQuestion.trim() || !faqDraftAnswer.trim()) {
@@ -242,13 +267,12 @@ export function SellerSetupSectionScreen({ route, navigation }: Props) {
         const form = values as BasicInfoFormValues;
         return (
           <>
-            <AppInput label="First name *" value={form.firstName} onChangeText={(v) => updateField('firstName', v)} error={fieldErrors.firstName} autoCapitalize="words" />
-            <AppInput label="Last name *" value={form.lastName} onChangeText={(v) => updateField('lastName', v)} error={fieldErrors.lastName} autoCapitalize="words" />
-            <AppInput label="Email *" value={form.email} onChangeText={(v) => updateField('email', v)} error={fieldErrors.email} keyboardType="email-address" autoCapitalize="none" />
-            <AccountGenderSelector value={form.gender} onChange={(v) => updateField('gender', v)} error={fieldErrors.gender} />
-            <AppInput label="Date of birth *" value={form.dob} onChangeText={(v) => updateField('dob', v)} error={fieldErrors.dob} placeholder="YYYY-MM-DD" />
-            <AppInput label="Phone" value={form.phone} onChangeText={(v) => updateField('phone', v)} keyboardType="phone-pad" />
-            <AppInput label="Web3 wallet" value={form.web3address} onChangeText={(v) => updateField('web3address', v)} autoCapitalize="none" />
+            <AppInput tone={SELLER_SETUP_FIELD_TONE} label="First name *" value={form.firstName} onChangeText={(v) => updateField('firstName', v)} onFocus={onFieldFocus} error={fieldErrors.firstName} autoCapitalize="words" />
+            <AppInput tone={SELLER_SETUP_FIELD_TONE} label="Last name *" value={form.lastName} onChangeText={(v) => updateField('lastName', v)} onFocus={onFieldFocus} error={fieldErrors.lastName} autoCapitalize="words" />
+            <AppInput tone={SELLER_SETUP_FIELD_TONE} label="Email *" value={form.email} onChangeText={(v) => updateField('email', v)} onFocus={onFieldFocus} error={fieldErrors.email} keyboardType="email-address" autoCapitalize="none" />
+            <AccountGenderSelector tone={SELLER_SETUP_FIELD_TONE} value={form.gender} onChange={(v) => updateField('gender', v)} error={fieldErrors.gender} />
+            <DateField tone={SELLER_SETUP_FIELD_TONE} label="Date of birth *" value={form.dob} onChange={(v) => updateField('dob', v)} error={fieldErrors.dob} placeholder="Pick a date" />
+            <AppInput tone={SELLER_SETUP_FIELD_TONE} label="Phone" value={form.phone} onChangeText={(v) => updateField('phone', v)} onFocus={onFieldFocus} keyboardType="phone-pad" />
           </>
         );
       }
@@ -257,6 +281,7 @@ export function SellerSetupSectionScreen({ route, navigation }: Props) {
         return (
           <>
             <CountryStateFields
+              tone={SELLER_SETUP_FIELD_TONE}
               value={sellerAddressSelectionFromForm(form)}
               onChange={handleAddressRegionChange}
               countryError={fieldErrors.country}
@@ -264,21 +289,27 @@ export function SellerSetupSectionScreen({ route, navigation }: Props) {
               required
             />
             <AppInput
+              tone={SELLER_SETUP_FIELD_TONE}
               label="Street address *"
               value={form.streetAddress}
               onChangeText={(v) => updateField('streetAddress', v)}
+              onFocus={onFieldFocus}
               error={fieldErrors.streetAddress}
             />
             <AppInput
+              tone={SELLER_SETUP_FIELD_TONE}
               label="City *"
               value={form.city}
               onChangeText={(v) => updateField('city', v)}
+              onFocus={onFieldFocus}
               error={fieldErrors.city}
             />
             <AppInput
+              tone={SELLER_SETUP_FIELD_TONE}
               label="Postal / ZIP code *"
               value={form.ZipCode}
               onChangeText={(v) => updateField('ZipCode', v)}
+              onFocus={onFieldFocus}
               error={fieldErrors.ZipCode}
             />
           </>
@@ -288,37 +319,56 @@ export function SellerSetupSectionScreen({ route, navigation }: Props) {
         const form = values as SellerDetailsFormValues;
         return (
           <>
-            <SellerSetupImageField
-              label="Profile image"
-              kind="profile"
-              imageUrl={form.userProfile}
-              isUploading={isUploading}
-              error={uploadError}
-              onPick={handlePickImage}
-            />
-            <SellerSetupImageField
-              label="Store banner"
-              kind="banner"
-              imageUrl={form.storeBanner}
-              isUploading={isUploading}
-              error={uploadError}
-              onPick={handlePickImage}
-            />
-            <SellerSetupImageField
-              label="Store logo"
-              kind="logo"
-              imageUrl={form.storeLogo}
-              isUploading={isUploading}
-              error={uploadError}
-              onPick={handlePickImage}
-            />
-            <AppInput label="Store title" value={form.storeTitle} onChangeText={(v) => updateField('storeTitle', v)} />
-            <AppInput label="Store description *" value={form.storeDesc} onChangeText={(v) => updateField('storeDesc', v)} error={fieldErrors.storeDesc} multiline numberOfLines={4} />
-            <AppInput label="Twitter URL" value={form.twitter} onChangeText={(v) => updateField('twitter', v)} autoCapitalize="none" />
-            <AppInput label="Facebook URL" value={form.facebook} onChangeText={(v) => updateField('facebook', v)} autoCapitalize="none" />
-            <AppInput label="Instagram URL" value={form.instagram} onChangeText={(v) => updateField('instagram', v)} autoCapitalize="none" />
-            <AppInput label="Tax / VAT number" value={form.taxVatNumber} onChangeText={(v) => updateField('taxVatNumber', v)} error={fieldErrors.taxVatNumber} keyboardType="number-pad" />
-            <AppInput label="Product gallery URL" value={form.productGallery} onChangeText={(v) => updateField('productGallery', v)} autoCapitalize="none" />
+            <View style={styles.imageSection}>
+              <AppText variant="bodyMedium" style={styles.subsectionTitle}>
+                Shop imagery
+              </AppText>
+              <AppText variant="caption" color="textSecondary" style={styles.sectionCopy}>
+                Profile, banner, and logo appear on your public shop page.
+              </AppText>
+
+              <SellerSetupImageField
+                label="Profile image"
+                kind="profile"
+                imageUrl={form.userProfile}
+                isUploading={isUploading}
+                error={uploadError}
+                onPick={handlePickImage}
+                onRemove={handleRemoveImage}
+              />
+              <SellerSetupImageField
+                label="Store banner"
+                kind="banner"
+                imageUrl={form.storeBanner}
+                isUploading={isUploading}
+                error={uploadError}
+                onPick={handlePickImage}
+                onRemove={handleRemoveImage}
+              />
+              <SellerSetupImageField
+                label="Store logo"
+                kind="logo"
+                imageUrl={form.storeLogo}
+                isUploading={isUploading}
+                error={uploadError}
+                onPick={handlePickImage}
+                onRemove={handleRemoveImage}
+              />
+            </View>
+
+            <AppText variant="bodyMedium" style={styles.subsectionTitle}>
+              Shop details
+            </AppText>
+            <AppInput tone={SELLER_SETUP_FIELD_TONE} label="Store title" value={form.storeTitle} onChangeText={(v) => updateField('storeTitle', v)} onFocus={onFieldFocus} placeholder="Enter shop title" />
+            <AppInput tone={SELLER_SETUP_FIELD_TONE} label="Store description *" value={form.storeDesc} onChangeText={(v) => updateField('storeDesc', v)} onFocus={onFieldFocus} error={fieldErrors.storeDesc} multiline numberOfLines={4} placeholder="Describe your company" style={styles.textArea} />
+            <AppText variant="caption" color="textSecondary">
+              Maximum 1000 characters allowed.
+            </AppText>
+            <AppInput tone={SELLER_SETUP_FIELD_TONE} label="Twitter URL" value={form.twitter} onChangeText={(v) => updateField('twitter', v)} onFocus={onFieldFocus} autoCapitalize="none" placeholder="Enter Twitter profile URL" />
+            <AppInput tone={SELLER_SETUP_FIELD_TONE} label="Facebook URL" value={form.facebook} onChangeText={(v) => updateField('facebook', v)} onFocus={onFieldFocus} autoCapitalize="none" placeholder="Enter Facebook profile URL" />
+            <AppInput tone={SELLER_SETUP_FIELD_TONE} label="Instagram URL" value={form.instagram} onChangeText={(v) => updateField('instagram', v)} onFocus={onFieldFocus} autoCapitalize="none" placeholder="Enter Instagram profile URL" />
+            <AppInput tone={SELLER_SETUP_FIELD_TONE} label="Tax / VAT number" value={form.taxVatNumber} onChangeText={(v) => updateField('taxVatNumber', v)} onFocus={onFieldFocus} error={fieldErrors.taxVatNumber} keyboardType="number-pad" placeholder="Enter tax or VAT number" />
+            <AppInput tone={SELLER_SETUP_FIELD_TONE} label="Product gallery URL" value={form.productGallery} onChangeText={(v) => updateField('productGallery', v)} onFocus={onFieldFocus} autoCapitalize="none" placeholder="Enter URL" />
           </>
         );
       }
@@ -326,12 +376,17 @@ export function SellerSetupSectionScreen({ route, navigation }: Props) {
         const form = values as PaymentInfoFormValues;
         return (
           <>
-            <AppInput label="Account holder name *" value={form.accountHolderName} onChangeText={(v) => updateField('accountHolderName', v)} error={fieldErrors.accountHolderName} />
-            <AppInput label="Account number *" value={form.accountNumber} onChangeText={(v) => updateField('accountNumber', v)} error={fieldErrors.accountNumber} keyboardType="number-pad" />
-            <AppInput label="Bank name" value={form.bankName} onChangeText={(v) => updateField('bankName', v)} />
-            <AppInput label="SWIFT code" value={form.swiftCode} onChangeText={(v) => updateField('swiftCode', v)} error={fieldErrors.swiftCode} autoCapitalize="characters" />
-            <AppInput label="IBAN" value={form.ibanNumber} onChangeText={(v) => updateField('ibanNumber', v)} error={fieldErrors.ibanNumber} autoCapitalize="characters" />
-            <AppInput label="Web3 wallet" value={form.web3address} onChangeText={(v) => updateField('web3address', v)} autoCapitalize="none" />
+            <AppText variant="bodyMedium" style={styles.subsectionTitle}>
+              Bank details
+            </AppText>
+            <AppText variant="caption" color="textSecondary" style={styles.sectionCopy}>
+              Payouts are sent to this bank account after orders are completed.
+            </AppText>
+            <AppInput tone={SELLER_SETUP_FIELD_TONE} label="Account holder name *" value={form.accountHolderName} onChangeText={(v) => updateField('accountHolderName', v)} onFocus={onFieldFocus} error={fieldErrors.accountHolderName} autoCapitalize="words" />
+            <AppInput tone={SELLER_SETUP_FIELD_TONE} label="Account number *" value={form.accountNumber} onChangeText={(v) => updateField('accountNumber', v)} onFocus={onFieldFocus} error={fieldErrors.accountNumber} keyboardType="number-pad" />
+            <AppInput tone={SELLER_SETUP_FIELD_TONE} label="Bank name" value={form.bankName} onChangeText={(v) => updateField('bankName', v)} onFocus={onFieldFocus} />
+            <AppInput tone={SELLER_SETUP_FIELD_TONE} label="SWIFT code" value={form.swiftCode} onChangeText={(v) => updateField('swiftCode', v)} onFocus={onFieldFocus} error={fieldErrors.swiftCode} autoCapitalize="characters" />
+            <AppInput tone={SELLER_SETUP_FIELD_TONE} label="IBAN" value={form.ibanNumber} onChangeText={(v) => updateField('ibanNumber', v)} onFocus={onFieldFocus} error={fieldErrors.ibanNumber} autoCapitalize="characters" />
           </>
         );
       }
@@ -340,15 +395,17 @@ export function SellerSetupSectionScreen({ route, navigation }: Props) {
         return (
           <>
             <PolicyToggle label="Accept cancellation policy *" value={form.cancellationPolicy} onChange={(v) => updateField('cancellationPolicy', v)} error={fieldErrors.cancellationPolicy} />
-            <AppInput label="Cancellation policy time" value={form.cancellationPolicyTime} onChangeText={(v) => updateField('cancellationPolicyTime', v)} />
+            <AppInput tone={SELLER_SETUP_FIELD_TONE} label="Cancellation policy time" value={form.cancellationPolicyTime} onChangeText={(v) => updateField('cancellationPolicyTime', v)} onFocus={onFieldFocus} />
             <PolicyToggle label="Accept return policy *" value={form.returnPolicy} onChange={(v) => updateField('returnPolicy', v)} error={fieldErrors.returnPolicy} />
-            <AppInput label="Return policy details" value={form.returnPolicyDetails} onChangeText={(v) => updateField('returnPolicyDetails', v)} multiline numberOfLines={3} />
+            <AppInput tone={SELLER_SETUP_FIELD_TONE} label="Return policy details" value={form.returnPolicyDetails} onChangeText={(v) => updateField('returnPolicyDetails', v)} onFocus={onFieldFocus} multiline numberOfLines={3} style={styles.textArea} />
             <SellerPolicyFaqEditor
+              tone={SELLER_SETUP_FIELD_TONE}
               faqList={form.faqList}
               draftQuestion={faqDraftQuestion}
               draftAnswer={faqDraftAnswer}
               onDraftQuestionChange={setFaqDraftQuestion}
               onDraftAnswerChange={setFaqDraftAnswer}
+              onDraftFieldFocus={onFieldFocus}
               onAdd={handleAddFaq}
               onRemove={handleRemoveFaq}
               error={faqError}
@@ -361,6 +418,7 @@ export function SellerSetupSectionScreen({ route, navigation }: Props) {
         return (
           <>
             <SelectField
+              tone={SELLER_SETUP_FIELD_TONE}
               label="Store currency *"
               value={form.currency}
               options={CURRENCY_OPTIONS}
@@ -379,32 +437,33 @@ export function SellerSetupSectionScreen({ route, navigation }: Props) {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView
-        style={styles.screen}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <AppCard variant="muted">
-          <AppText variant="bodyMedium" style={styles.sectionTitle}>
-            {getSectionTitle(section)}
+    <KeyboardAwareFormScreen
+      scrollRef={scrollRef}
+      formControls={formControls}
+      contentContainerStyle={styles.content}
+    >
+      <AppCard variant="flat">
+        <AppText variant="bodyMedium" style={styles.sectionTitle}>
+          {getSectionTitle(section)}
+        </AppText>
+        <View style={styles.form}>{renderForm()}</View>
+      </AppCard>
+
+      {saveError ? <ErrorState message={saveError} style={styles.footerBanner} /> : null}
+      {saveSuccessMessage ? (
+        <AppCard variant="flat" style={styles.successBanner}>
+          <AppText variant="bodySmall" color="success">
+            {saveSuccessMessage}
           </AppText>
-          <View style={styles.form}>{renderForm()}</View>
         </AppCard>
-
-        {saveError ? <ErrorState message={saveError} style={styles.banner} /> : null}
-        {saveSuccessMessage ? (
-          <AppCard variant="flat" style={styles.successBanner}>
-            <AppText variant="bodySmall" color="success">
-              {saveSuccessMessage}
-            </AppText>
-          </AppCard>
-        ) : null}
-
-        <AppButton label={isSaving ? 'Saving...' : 'Save section'} loading={isSaving} onPress={() => void handleSave()} />
-      </ScrollView>
-    </KeyboardAvoidingView>
+      ) : null}
+      <AppButton
+        label={isSaving ? 'Saving...' : 'Save section'}
+        loading={isSaving}
+        onPress={() => void handleSave()}
+        fullWidth
+      />
+    </KeyboardAwareFormScreen>
   );
 }
 
@@ -435,9 +494,10 @@ function PolicyToggle({
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.background },
-  screen: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.lg, gap: spacing.lg },
+  content: {
+    padding: spacing.lg,
+    gap: spacing.lg,
+  },
   centeredState: {
     flex: 1,
     alignItems: 'center',
@@ -447,9 +507,26 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   sectionTitle: { color: colors.textPrimary, fontWeight: '700', marginBottom: spacing.md },
+  subsectionTitle: { color: colors.textPrimary, fontWeight: '700', marginBottom: spacing.sm },
   sectionCopy: { lineHeight: 20, marginBottom: spacing.sm },
   form: { gap: spacing.md },
-  banner: { alignSelf: 'stretch', marginHorizontal: 0 },
+  imageSection: {
+    gap: spacing.lg,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+    marginBottom: spacing.sm,
+  },
+  textArea: {
+    minHeight: 112,
+    textAlignVertical: 'top',
+  },
+  footerBanner: {
+    alignSelf: 'stretch',
+    marginHorizontal: 0,
+    marginTop: 0,
+    marginBottom: 0,
+  },
   successBanner: { backgroundColor: colors.successBg, borderColor: colors.successSoft },
   toggleRow: {
     flexDirection: 'row',

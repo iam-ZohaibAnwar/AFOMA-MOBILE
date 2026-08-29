@@ -1,6 +1,8 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
+  Alert,
+  Keyboard,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -20,16 +22,44 @@ import { colors, spacing } from '../../../../design-system';
 import type { SellerStackParamList } from '../../../../app/navigation/sellerTypes';
 import { authReturnTo } from '../../../auth/utils/authNavigation';
 import { useRequireSeller } from '../../hooks/useRequireSeller';
+import { SellerAttributeRenameModal } from '../components/SellerAttributeRenameModal';
 import { SellerAttributeRow } from '../components/SellerAttributeRow';
 import { useSellerAttributes } from '../hooks/useSellerAttributes';
+import type { SellerAttributeListItem } from '../types/sellerAttribute';
+import {
+  findAttributeByIndex,
+  normalizeAttributeName,
+  validateAddAttributeName,
+  validateRenameAttributeName,
+} from '../utils/sellerAttributeValidation';
 
 type Props = NativeStackScreenProps<SellerStackParamList, 'SellerAttributes'>;
 
 const ATTRIBUTES_RETURN_TO = authReturnTo.sellerAttributes();
 
+function ActionErrorBanner({
+  message,
+  onDismiss,
+}: {
+  message: string;
+  onDismiss: () => void;
+}) {
+  return (
+    <View style={styles.actionErrorBanner}>
+      <AppText variant="bodySmall" color="error" style={styles.actionErrorText}>
+        {message}
+      </AppText>
+      <AppButton label="Dismiss" variant="ghost" size="md" onPress={onDismiss} />
+    </View>
+  );
+}
+
 export function SellerAttributesScreen(_props: Props) {
   const insets = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const { isAuthorized, sellerId } = useRequireSeller(ATTRIBUTES_RETURN_TO);
+
   const {
     attributes,
     isLoading,
@@ -46,8 +76,10 @@ export function SellerAttributesScreen(_props: Props) {
     clearActionError,
   } = useSellerAttributes(isAuthorized ? sellerId : undefined);
 
-  const [attributeName, setAttributeName] = useState('');
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [newAttributeName, setNewAttributeName] = useState('');
+  const [addError, setAddError] = useState<string | null>(null);
+  const [renameTarget, setRenameTarget] = useState<SellerAttributeListItem | null>(null);
+  const [renameError, setRenameError] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -57,59 +89,131 @@ export function SellerAttributesScreen(_props: Props) {
     }, [isAuthorized, refresh, sellerId]),
   );
 
-  const isEditing = editingIndex != null;
-  const isFormBusy = isAdding || updatingIndex != null;
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
-  const resetForm = () => {
-    setAttributeName('');
-    setEditingIndex(null);
+    const showSub = Keyboard.addListener(showEvent, (event) => {
+      setKeyboardHeight(event.endCoordinates.height);
+    });
+
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const scrollAddFieldIntoView = useCallback(() => {
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    });
+  }, []);
+
+  const keyboardPadding =
+    Platform.OS === 'ios' ? keyboardHeight : keyboardHeight > 0 ? spacing.xxl : 0;
+
+  const closeRenameModal = useCallback(() => {
+    setRenameTarget(null);
+    setRenameError(null);
+  }, []);
+
+  const attributeNames = attributes.map((attribute) => attribute.name);
+  const isMutationBusy = isAdding || updatingIndex != null || deletingName != null;
+
+  const handleAdd = async () => {
     clearActionError();
-  };
+    setAddError(null);
 
-  const handleSubmit = async () => {
-    clearActionError();
-
-    if (isEditing && editingIndex != null) {
-      const updated = await renameAttribute(editingIndex, attributeName);
-      if (updated) {
-        resetForm();
-      }
+    const validationError = validateAddAttributeName(newAttributeName, attributeNames);
+    if (validationError) {
+      setAddError(validationError);
       return;
     }
 
-    const created = await createAttribute(attributeName);
+    const normalizedName = normalizeAttributeName(newAttributeName);
+    const created = await createAttribute(normalizedName);
+
     if (created) {
-      resetForm();
+      setNewAttributeName('');
+      setAddError(null);
     }
   };
 
-  const handleEdit = (index: number, name: string) => {
-    setEditingIndex(index);
-    setAttributeName(name);
+  const handleRenameOpen = (entry: SellerAttributeListItem) => {
     clearActionError();
+    setRenameError(null);
+    setRenameTarget(entry);
   };
 
-  const handleDelete = async (name: string) => {
-    const deleted = await removeAttribute(name);
-    if (deleted && editingIndex != null && attributes[editingIndex]?.name === name) {
-      resetForm();
+  const handleRenameSave = async (rawName: string) => {
+    if (!renameTarget) {
+      return;
     }
+
+    setRenameError(null);
+    clearActionError();
+
+    const currentEntry = findAttributeByIndex(attributes, renameTarget.index);
+    if (!currentEntry) {
+      setRenameError('This attribute was updated elsewhere. Refresh and try again.');
+      return;
+    }
+
+    const validationError = validateRenameAttributeName(rawName, attributeNames, renameTarget.index);
+    if (validationError) {
+      setRenameError(validationError);
+      return;
+    }
+
+    const normalizedName = normalizeAttributeName(rawName);
+    const updated = await renameAttribute(renameTarget.index, normalizedName);
+
+    if (updated) {
+      closeRenameModal();
+    }
+  };
+
+  const handleDeletePress = (entry: SellerAttributeListItem) => {
+    if (isMutationBusy) {
+      return;
+    }
+
+    Alert.alert(
+      'Delete attribute',
+      `Remove "${entry.name}" from your custom attributes? Existing product variations are not updated automatically.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              clearActionError();
+              const deleted = await removeAttribute(entry.name);
+
+              if (renameTarget?.index === entry.index && deleted) {
+                closeRenameModal();
+              }
+            })();
+          },
+        },
+      ],
+    );
   };
 
   if (!isAuthorized) {
-    return (
-      <View style={styles.centeredState}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <View style={[styles.screen, { paddingTop: insets.top }]} />;
   }
 
   if (isLoading && attributes.length === 0 && !error) {
     return (
-      <View style={styles.centeredState}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={[styles.centeredState, { paddingBottom: insets.bottom }]}>
         <AppText variant="bodySmall" color="textSecondary">
-          Loading custom attributes...
+          Loading custom attributes…
         </AppText>
       </View>
     );
@@ -124,87 +228,104 @@ export function SellerAttributesScreen(_props: Props) {
   }
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl refreshing={isRefreshing} onRefresh={() => void refresh()} tintColor={colors.primary} />
-      }
-    >
-      <AppText variant="bodyMedium" style={styles.pageTitle}>
-        Custom Attributes
-      </AppText>
+    <>
+      <View style={styles.screen}>
+        <ScrollView
+          ref={scrollRef}
+          style={styles.screen}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: insets.bottom + spacing.xxl + keyboardPadding },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={isRefreshing} onRefresh={() => void refresh()} tintColor={colors.primary} />
+          }
+        >
+          <AppText variant="bodyMedium" color="textSecondary" style={styles.lead}>
+            Define variation options like Size or Color for your customizable products.
+          </AppText>
 
-      <AppCard variant="flat">
-        <AppText variant="bodyMedium" style={styles.sectionTitle}>
-          {isEditing ? 'Edit custom attribute' : 'Create a custom attribute'}
-        </AppText>
-
-        <View style={styles.formBlock}>
-          <AppInput
-            value={attributeName}
-            onChangeText={(text) => {
-              setAttributeName(text);
-              clearActionError();
-            }}
-            placeholder="Attribute name"
-            editable={!isFormBusy}
-            error={actionError ?? undefined}
-          />
-
-          <AppButton
-            label={isEditing ? 'Update' : 'Add'}
-            onPress={() => void handleSubmit()}
-            loading={isFormBusy}
-            disabled={isFormBusy || deletingName != null}
-            fullWidth
-          />
-
-          {isEditing ? (
-            <AppButton
-              label="Cancel edit"
-              variant="ghost"
-              onPress={resetForm}
-              disabled={isFormBusy}
-            />
+          {attributes.length > 0 ? (
+            <AppText variant="bodySmall" color="textSecondary" style={styles.countText}>
+              {attributes.length} {attributes.length === 1 ? 'attribute' : 'attributes'}
+            </AppText>
           ) : null}
-        </View>
-      </AppCard>
 
-      <AppCard variant="flat">
-        <AppText variant="bodyMedium" style={styles.sectionTitle}>
-          Your attributes
-        </AppText>
+          {error ? (
+            <ErrorState message={error} onAction={() => void refresh()} style={styles.inlineError} />
+          ) : null}
 
-        {error ? (
-          <ErrorState message={error} onAction={() => void refresh()} style={styles.inlineError} />
-        ) : null}
+          {actionError ? (
+            <ActionErrorBanner message={actionError} onDismiss={clearActionError} />
+          ) : null}
 
-        {attributes.length === 0 ? (
-          <EmptyState
-            title="No custom attributes yet"
-            message="Create your first attribute."
-            style={styles.emptyState}
-          />
-        ) : (
-          <View>
-            {attributes.map((attribute) => (
-              <SellerAttributeRow
-                key={`${attribute.index}-${attribute.name}`}
-                name={attribute.name}
-                onEdit={() => handleEdit(attribute.index, attribute.name)}
-                onDelete={() => void handleDelete(attribute.name)}
-                isUpdating={updatingIndex === attribute.index}
-                isDeleting={deletingName === attribute.name}
-                disabled={isFormBusy || (deletingName != null && deletingName !== attribute.name)}
+          <AppCard variant="flat" style={styles.listCard}>
+            {attributes.length === 0 ? (
+              <EmptyState
+                title="No custom attributes yet"
+                message="Add your first variation option below."
+                style={styles.emptyState}
               />
-            ))}
+            ) : (
+              attributes.map((attribute, index) => (
+                <SellerAttributeRow
+                  key={`${attribute.index}-${attribute.name}`}
+                  name={attribute.name}
+                  index={attribute.index}
+                  onRename={() => handleRenameOpen(attribute)}
+                  onDelete={() => handleDeletePress(attribute)}
+                  isRenaming={updatingIndex === attribute.index}
+                  isDeleting={deletingName === attribute.name}
+                  disabled={
+                    isMutationBusy &&
+                    updatingIndex !== attribute.index &&
+                    deletingName !== attribute.name
+                  }
+                  showDivider={index < attributes.length - 1}
+                />
+              ))
+            )}
+          </AppCard>
+
+          <View style={styles.addBlock}>
+            <AppInput
+              value={newAttributeName}
+              tone="surface"
+              onChangeText={(text) => {
+                setNewAttributeName(text);
+                setAddError(null);
+                clearActionError();
+              }}
+              onFocus={scrollAddFieldIntoView}
+              placeholder="Attribute name"
+              editable={!isMutationBusy}
+              error={addError ?? undefined}
+            />
+
+            <AppButton
+              label={isAdding ? 'Adding…' : 'Add attribute'}
+              onPress={() => void handleAdd()}
+              loading={isAdding}
+              disabled={isMutationBusy}
+              fullWidth
+            />
           </View>
-        )}
-      </AppCard>
-    </ScrollView>
+        </ScrollView>
+      </View>
+
+      <SellerAttributeRenameModal
+        visible={renameTarget != null}
+        initialName={renameTarget?.name ?? ''}
+        isSaving={updatingIndex != null}
+        error={renameError}
+        onDismiss={closeRenameModal}
+        onSave={(nextName) => void handleRenameSave(nextName)}
+        onClearError={() => setRenameError(null)}
+      />
+    </>
   );
 }
 
@@ -222,26 +343,41 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.md,
     backgroundColor: colors.background,
     paddingHorizontal: spacing.lg,
   },
-  pageTitle: {
-    color: colors.textPrimary,
-    fontWeight: '700',
+  lead: {
+    marginBottom: spacing.xs,
   },
-  sectionTitle: {
-    color: colors.textPrimary,
-    fontWeight: '700',
-    marginBottom: spacing.md,
-  },
-  formBlock: {
-    gap: spacing.md,
+  countText: {
+    fontWeight: '600',
+    marginTop: -spacing.sm,
   },
   inlineError: {
-    marginBottom: spacing.md,
+    marginBottom: 0,
+  },
+  actionErrorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: 12,
+    backgroundColor: colors.surfaceMuted,
+  },
+  actionErrorText: {
+    flex: 1,
+  },
+  listCard: {
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    overflow: 'hidden',
   },
   emptyState: {
-    marginTop: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
+  },
+  addBlock: {
+    gap: spacing.md,
   },
 });

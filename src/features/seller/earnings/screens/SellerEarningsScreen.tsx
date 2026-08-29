@@ -1,8 +1,6 @@
 import { useCallback, useEffect } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
-  Pressable,
   RefreshControl,
   StyleSheet,
   View,
@@ -13,32 +11,30 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmptyState } from '../../../../components/ecommerce/EmptyState';
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
-import { SearchBar } from '../../../../components/ecommerce/SearchBar';
-import { AppCard } from '../../../../components/ui/AppCard';
 import { AppText } from '../../../../components/ui/AppText';
-import { colors, radius, spacing } from '../../../../design-system';
+import { colors, spacing } from '../../../../design-system';
+import { OrderListPagination } from '../../../orders/components/OrderListPagination';
+import { OrderListSearchBar } from '../../../orders/components/OrderListSearchBar';
+import { AdminCommissionCardSkeleton } from '../../../admin/commission/components/AdminCommissionCardSkeleton';
 import type { SellerStackParamList } from '../../../../app/navigation/sellerTypes';
 import { authReturnTo } from '../../../auth/utils/authNavigation';
 import { useRequireSeller } from '../../hooks/useRequireSeller';
 import { SellerEarningCard } from '../components/SellerEarningCard';
+import { SellerEarningsPayoutStatusTabs } from '../components/SellerEarningsPayoutStatusTabs';
+import { SellerEarningsSummary } from '../components/SellerEarningsSummary';
 import { useSellerEarnings } from '../hooks/useSellerEarnings';
-import type { SellerCommissionRecord, SellerEarningsPayoutStatusFilter } from '../types/sellerEarning';
-import { formatSellerEarningSummaryAmount } from '../utils/sellerEarningsDisplay';
+import { navigateToSellerEarningDetail } from '../navigation/sellerEarningsNavigation';
+import type { SellerCommissionRecord } from '../types/sellerEarning';
 
 type Props = NativeStackScreenProps<SellerStackParamList, 'SellerEarnings'>;
 
 const EARNINGS_RETURN_TO = authReturnTo.sellerEarnings();
+const SKELETON_ITEMS = ['e1', 'e2', 'e3'] as const;
 
-const STATUS_FILTERS: Array<{ label: string; value: SellerEarningsPayoutStatusFilter }> = [
-  { label: 'All', value: '' },
-  { label: 'Pending', value: 'Pending' },
-  { label: 'Paid', value: 'Paid' },
-];
-
-export function SellerEarningsScreen({ route }: Props) {
+export function SellerEarningsScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
-  const { isAuthorized, sellerId } = useRequireSeller(EARNINGS_RETURN_TO);
   const initialStatusFilter = route.params?.payoutStatus ?? '';
+  const { isAuthorized, sellerId } = useRequireSeller(EARNINGS_RETURN_TO);
 
   const {
     commissions,
@@ -47,6 +43,7 @@ export function SellerEarningsScreen({ route }: Props) {
     totalPages,
     statusFilter,
     searchTerm,
+    hasActiveFilters,
     isLoading,
     isRefreshing,
     error,
@@ -54,6 +51,7 @@ export function SellerEarningsScreen({ route }: Props) {
     setStatusFilter,
     setSearchTerm,
     refresh,
+    retrySummary,
     goToPreviousPage,
     goToNextPage,
     canGoPrevious,
@@ -72,122 +70,66 @@ export function SellerEarningsScreen({ route }: Props) {
     }, [isAuthorized, refresh, sellerId]),
   );
 
+  const handlePressRecord = useCallback(
+    (record: SellerCommissionRecord) => {
+      const commissionId = record._id;
+      if (!commissionId) {
+        return;
+      }
+
+      navigateToSellerEarningDetail(navigation, commissionId, record);
+    },
+    [navigation],
+  );
+
+  const showSkeletonList = isLoading && commissions.length === 0 && !error;
+
   const renderItem = useCallback(
-    ({ item }: { item: SellerCommissionRecord }) => <SellerEarningCard record={item} />,
-    [],
+    ({ item }: { item: SellerCommissionRecord }) => (
+      <SellerEarningCard record={item} onPress={handlePressRecord} />
+    ),
+    [handlePressRecord],
   );
 
   const listHeader = (
     <View style={styles.headerContent}>
-      <AppCard variant="flat" style={styles.summaryCard}>
-        <View style={styles.summaryRow}>
-          <View style={styles.summaryColumn}>
-            <AppText variant="caption" color="textSecondary">
-              Pending
-            </AppText>
-            <AppText variant="h3" style={styles.summaryAmount}>
-              {formatSellerEarningSummaryAmount(payoutSummary?.totalPendingPayoutAmount)}
-            </AppText>
-          </View>
-          <View style={styles.summaryDivider} />
-          <View style={styles.summaryColumn}>
-            <AppText variant="caption" color="textSecondary">
-              Completed
-            </AppText>
-            <AppText variant="h3" style={styles.summaryAmount}>
-              {formatSellerEarningSummaryAmount(payoutSummary?.totalPaidPayoutAmount)}
-            </AppText>
-          </View>
-        </View>
-      </AppCard>
-
-      {summaryError ? (
-        <ErrorState message={summaryError} onAction={() => void refresh()} style={styles.inlineError} />
-      ) : null}
-
-      <View style={styles.filterRow}>
-        {STATUS_FILTERS.map((filter) => {
-          const isActive = statusFilter === filter.value;
-
-          return (
-            <Pressable
-              key={filter.label}
-              accessibilityRole="button"
-              accessibilityState={{ selected: isActive }}
-              onPress={() => setStatusFilter(filter.value)}
-              style={[styles.filterChip, isActive && styles.filterChipActive]}
-            >
-              <AppText
-                variant="bodySmall"
-                color={isActive ? 'textInverse' : 'textSecondary'}
-                style={styles.filterChipLabel}
-              >
-                {filter.label}
-              </AppText>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      <SearchBar
-        mode="input"
-        placeholder="Search product..."
-        value={searchTerm}
-        onChangeText={setSearchTerm}
+      <SellerEarningsSummary
+        payoutSummary={payoutSummary}
+        summaryError={summaryError}
+        onRetrySummary={() => void retrySummary()}
       />
 
-      {error ? (
+      <OrderListSearchBar
+        value={searchTerm}
+        onChangeText={setSearchTerm}
+        placeholder="Search product..."
+        accessibilityLabel="Search earnings by product name"
+      />
+
+      <SellerEarningsPayoutStatusTabs activeStatus={statusFilter} onStatusChange={setStatusFilter} />
+
+      {commissions.length > 0 ? (
+        <AppText variant="bodySmall" color="textSecondary" style={styles.countText}>
+          {commissions.length} {commissions.length === 1 ? 'record' : 'records'}
+        </AppText>
+      ) : null}
+
+      {error && commissions.length > 0 ? (
         <ErrorState message={error} onAction={() => void refresh()} style={styles.inlineError} />
       ) : null}
 
-      {isLoading && commissions.length === 0 ? (
-        <View style={styles.inlineLoading}>
-          <ActivityIndicator size="small" color={colors.primary} />
-          <AppText variant="bodySmall" color="textSecondary">
-            Loading earnings...
-          </AppText>
+      {showSkeletonList ? (
+        <View style={styles.skeletonList}>
+          {SKELETON_ITEMS.map((key) => (
+            <AdminCommissionCardSkeleton key={key} />
+          ))}
         </View>
       ) : null}
     </View>
   );
 
-  const listFooter =
-    commissions.length > 0 ? (
-      <View style={styles.pagination}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={goToPreviousPage}
-          disabled={!canGoPrevious}
-          style={[styles.paginationButton, !canGoPrevious && styles.paginationButtonDisabled]}
-        >
-          <AppText variant="bodySmall" color={canGoPrevious ? 'textLink' : 'textMuted'}>
-            Previous
-          </AppText>
-        </Pressable>
-
-        <AppText variant="bodySmall" color="textSecondary">
-          Page {currentPage} of {totalPages}
-        </AppText>
-
-        <Pressable
-          accessibilityRole="button"
-          onPress={goToNextPage}
-          disabled={!canGoNext}
-          style={[styles.paginationButton, !canGoNext && styles.paginationButtonDisabled]}
-        >
-          <AppText variant="bodySmall" color={canGoNext ? 'textLink' : 'textMuted'}>
-            Next
-          </AppText>
-        </Pressable>
-      </View>
-    ) : null;
-
   if (!isAuthorized) {
-    return (
-      <View style={styles.centeredState}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <View style={[styles.screen, { paddingTop: insets.top }]} />;
   }
 
   return (
@@ -198,19 +140,42 @@ export function SellerEarningsScreen({ route }: Props) {
         { paddingBottom: insets.bottom + spacing.xxl },
         commissions.length === 0 && styles.emptyContent,
       ]}
-      data={commissions}
+      data={showSkeletonList ? [] : commissions}
       keyExtractor={(item, index) => item._id ?? `${item.orderId?._id ?? 'earning'}-${index}`}
       renderItem={renderItem}
+      ItemSeparatorComponent={() => <View style={styles.separator} />}
       ListHeaderComponent={listHeader}
-      ListFooterComponent={listFooter}
+      ListFooterComponent={
+        commissions.length > 0 ? (
+          <OrderListPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            canGoPrevious={canGoPrevious}
+            canGoNext={canGoNext}
+            isLoading={isLoading}
+            onPrevious={goToPreviousPage}
+            onNext={goToNextPage}
+          />
+        ) : null
+      }
       ListEmptyComponent={
-        !isLoading && !error ? (
-          <EmptyState title="No orders received" message="Seller earnings will appear here." />
+        !showSkeletonList && !isLoading && !error ? (
+          <EmptyState
+            title="No earnings found"
+            message={
+              hasActiveFilters || searchTerm.trim()
+                ? 'Try adjusting your search or payout status filter.'
+                : 'Seller earnings will appear here once orders are completed.'
+            }
+          />
+        ) : error && commissions.length === 0 ? (
+          <ErrorState message={error} onAction={() => void refresh()} style={styles.inlineError} />
         ) : null
       }
       refreshControl={
         <RefreshControl refreshing={isRefreshing} onRefresh={() => void refresh()} tintColor={colors.primary} />
       }
+      keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     />
   );
@@ -228,80 +193,20 @@ const styles = StyleSheet.create({
   emptyContent: {
     flexGrow: 1,
   },
-  centeredState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.background,
-  },
   headerContent: {
     gap: spacing.md,
+    paddingBottom: spacing.xs,
   },
-  summaryCard: {
-    padding: spacing.lg,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-  },
-  summaryColumn: {
-    flex: 1,
-    gap: spacing.xs,
-    alignItems: 'center',
-  },
-  summaryDivider: {
-    width: StyleSheet.hairlineWidth,
-    backgroundColor: colors.borderStrong,
-    marginHorizontal: spacing.md,
-  },
-  summaryAmount: {
-    color: colors.primary,
-    fontWeight: '700',
-  },
-  filterRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  filterChip: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 40,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.surface,
-  },
-  filterChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  filterChipLabel: {
+  countText: {
     fontWeight: '600',
   },
   inlineError: {
-    marginHorizontal: 0,
-    alignSelf: 'stretch',
+    marginTop: 0,
   },
-  inlineLoading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.lg,
+  skeletonList: {
+    gap: spacing.md,
   },
-  pagination: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: spacing.lg,
-    paddingHorizontal: spacing.sm,
-  },
-  paginationButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-  },
-  paginationButtonDisabled: {
-    opacity: 0.5,
+  separator: {
+    height: spacing.md,
   },
 });

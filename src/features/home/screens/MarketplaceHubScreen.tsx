@@ -50,6 +50,15 @@ export function MarketplaceHubScreen({ navigation }: Props) {
     navigateToAccountTab(hubNavigation);
   };
 
+  const handleNotificationsPress = () => {
+    if (!isLoading && !isAuthenticated) {
+      openAuthLogin(hubNavigation, authReturnTo.bellNotifications());
+      return;
+    }
+
+    hubNavigation.navigate('BellNotifications');
+  };
+
   const handleCategoryBackPress = () => {
     navigateToHomeTab(hubNavigation);
   };
@@ -73,6 +82,7 @@ export function MarketplaceHubScreen({ navigation }: Props) {
       <MarketplaceTopChrome
         onProfilePress={handleProfilePress}
         onSearchPress={handleSearchPress}
+        onNotificationsPress={handleNotificationsPress}
       />
       <View style={styles.content}>
         <HomeMarketplaceContent navigation={contentNavigation} />

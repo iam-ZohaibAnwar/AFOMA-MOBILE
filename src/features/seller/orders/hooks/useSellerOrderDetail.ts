@@ -1,86 +1,142 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ApiError } from '../../../../services/api/errors';
 import { getErrorMessage } from '../../../../services/api/errors';
+import { getSellerOrderDetail } from '../api/sellerOrdersApi';
+import type { SellerOrderDetail, SellerOrderSummary } from '../types/sellerOrder';
 import {
-  getSellerOrderDetail,
-  updateSellerOrderLineShippingStatus,
-} from '../api/sellerOrdersApi';
-import type { SellerLineFulfillmentStatus, SellerOrderDetail } from '../types/sellerOrder';
+  applySellerOrderSessionPatch,
+  setSellerOrderSessionPatch,
+} from '../state/sellerOrderSessionPatch';
 
-export function useSellerOrderDetail(sellerId?: string, orderId?: string) {
-  const [order, setOrder] = useState<SellerOrderDetail | null>(null);
-  const [isLoading, setIsLoading] = useState(Boolean(sellerId && orderId));
+export function useSellerOrderDetail(
+  sellerId: string | undefined,
+  orderId: string | undefined,
+  initialOrder?: SellerOrderSummary,
+) {
+  const [order, setOrder] = useState<SellerOrderDetail | null>(
+    applySellerOrderSessionPatch(initialOrder ?? null) ?? null,
+  );
+  const [isLoading, setIsLoading] = useState(Boolean(sellerId && orderId) && !initialOrder);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isNotFound, setIsNotFound] = useState(false);
-  const [updatingProductId, setUpdatingProductId] = useState<string | null>(null);
-  const [updateError, setUpdateError] = useState<string | null>(null);
 
-  const loadOrder = useCallback(async () => {
-    if (!sellerId || !orderId) {
-      setOrder(null);
-      setError('Order unavailable.');
-      setIsNotFound(false);
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-    setIsNotFound(false);
-
-    try {
-      const response = await getSellerOrderDetail(sellerId, orderId);
-      setOrder(response);
-    } catch (err) {
-      setOrder(null);
-      setIsNotFound(err instanceof ApiError && err.statusCode === 404);
-      setError(
-        err instanceof ApiError && err.statusCode === 404
-          ? 'Order not found.'
-          : getErrorMessage(err, 'Failed to load order'),
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [orderId, sellerId]);
+  const requestVersionRef = useRef(0);
+  const hasCachedOrderRef = useRef(Boolean(initialOrder));
 
   useEffect(() => {
-    void loadOrder();
-  }, [loadOrder]);
+    hasCachedOrderRef.current = Boolean(initialOrder);
+    if (initialOrder) {
+      setOrder(applySellerOrderSessionPatch(initialOrder) ?? initialOrder);
+    } else {
+      setOrder(null);
+    }
+    setError(null);
+    setIsNotFound(false);
+    setIsLoading(Boolean(sellerId && orderId) && !initialOrder);
+  }, [initialOrder, orderId, sellerId]);
 
-  const updateLineFulfillmentStatus = useCallback(
-    async (productId: string, shippingStatus: SellerLineFulfillmentStatus) => {
-      if (!orderId) {
-        return false;
+  const loadOrder = useCallback(
+    async (mode: 'initial' | 'refresh') => {
+      if (!sellerId || !orderId) {
+        setOrder(null);
+        setError('Order unavailable.');
+        setIsNotFound(false);
+        setIsLoading(false);
+        return;
       }
 
-      setUpdatingProductId(productId);
-      setUpdateError(null);
+      const requestVersion = requestVersionRef.current + 1;
+      requestVersionRef.current = requestVersion;
+
+      if (mode === 'refresh') {
+        setIsRefreshing(true);
+      } else if (!hasCachedOrderRef.current) {
+        setIsLoading(true);
+      }
+
+      setError(null);
+      setIsNotFound(false);
 
       try {
-        await updateSellerOrderLineShippingStatus(orderId, productId, shippingStatus);
-        await loadOrder();
-        return true;
+        const response = await getSellerOrderDetail(sellerId, orderId);
+
+        if (requestVersion !== requestVersionRef.current) {
+          return;
+        }
+
+        const merged = applySellerOrderSessionPatch(response) ?? response;
+        setOrder(merged);
+        hasCachedOrderRef.current = true;
       } catch (err) {
-        setUpdateError(getErrorMessage(err, 'Failed to update fulfillment status'));
-        return false;
+        if (requestVersion !== requestVersionRef.current) {
+          return;
+        }
+
+        const notFound = err instanceof ApiError && err.statusCode === 404;
+        setIsNotFound(notFound);
+
+        if (!hasCachedOrderRef.current) {
+          setOrder(null);
+        }
+
+        setError(
+          notFound ? 'Order not found.' : getErrorMessage(err, 'Failed to load order'),
+        );
       } finally {
-        setUpdatingProductId(null);
+        if (requestVersion === requestVersionRef.current) {
+          setIsLoading(false);
+          setIsRefreshing(false);
+        }
       }
     },
-    [loadOrder, orderId],
+    [orderId, sellerId],
+  );
+
+  useEffect(() => {
+    void loadOrder(hasCachedOrderRef.current ? 'refresh' : 'initial');
+  }, [loadOrder]);
+
+  const refresh = useCallback(async () => {
+    await loadOrder('refresh');
+  }, [loadOrder]);
+
+  const syncSessionPatch = useCallback(() => {
+    setOrder((current) => applySellerOrderSessionPatch(current) ?? current);
+  }, []);
+
+  const applyOrderUpdate = useCallback(
+    (updatedOrder: SellerOrderDetail) => {
+      if (!orderId) {
+        return;
+      }
+
+      setSellerOrderSessionPatch(orderId, {
+        _id: updatedOrder._id,
+        status: updatedOrder.status,
+        paymentStatus: updatedOrder.paymentStatus,
+        createdAt: updatedOrder.createdAt,
+        userInfo: updatedOrder.userInfo,
+        cart: updatedOrder.filteredCart?.length
+          ? updatedOrder.filteredCart
+          : updatedOrder.cart,
+        currency: updatedOrder.currency,
+        conversionRate: updatedOrder.conversionRate,
+      });
+      setOrder(updatedOrder);
+    },
+    [orderId],
   );
 
   return {
     order,
     isLoading,
+    isRefreshing,
     error,
     isNotFound,
-    updatingProductId,
-    updateError,
-    clearUpdateError: () => setUpdateError(null),
-    refresh: loadOrder,
-    updateLineFulfillmentStatus,
+    refresh,
+    syncSessionPatch,
+    applyOrderUpdate,
   };
 }

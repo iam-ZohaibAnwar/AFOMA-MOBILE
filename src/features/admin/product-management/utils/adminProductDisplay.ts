@@ -1,11 +1,15 @@
 import type { Product } from '../../../../services/types/product';
-import { colors } from '../../../../design-system';
 import {
-  formatSellerApprovalStatus,
-  formatSellerInventoryStatus,
-  formatSellerListPrice,
-  getSellerProductCategoryLabel,
-} from '../../../seller/products/utils/sellerProductListDisplay';
+  formatProductApprovalStatus,
+  formatProductInventoryStatus,
+  formatProductListPrice,
+  formatProductListStockLabel,
+  getProductListCategoryLabel,
+  isProductListDimmed,
+  resolveProductListAccentColor,
+  resolveProductListStatusChips,
+  type ProductListStatusChip,
+} from '../../../products/utils/productListDisplayShared';
 import type {
   AdminProductApprovalFilter,
   AdminProductInventoryFilter,
@@ -84,19 +88,19 @@ export function resolveAdminProductListTabId(
 }
 
 export function formatAdminProductApprovalStatus(productStatus?: string): string {
-  return formatSellerApprovalStatus(productStatus);
+  return formatProductApprovalStatus(productStatus);
 }
 
 export function formatAdminProductInventoryStatus(status?: number): string {
-  return formatSellerInventoryStatus(status);
+  return formatProductInventoryStatus(status);
 }
 
 export function formatAdminProductListPrice(product: Product): string {
-  return formatSellerListPrice(product);
+  return formatProductListPrice(product);
 }
 
 export function getAdminProductCategoryLabel(product: Product): string {
-  return getSellerProductCategoryLabel(product) ?? '—';
+  return getProductListCategoryLabel(product) ?? '—';
 }
 
 export function getAdminProductSellerUuid(product: AdminProductListItem): string {
@@ -147,65 +151,11 @@ export function inventoryBadgeVariant(status?: number): 'success' | 'warning' | 
 }
 
 export function resolveAdminProductAccentColor(product: AdminProductListItem): string {
-  if (product.status === 0) {
-    return colors.error;
-  }
-
-  if (product.productStatus === 'Disapproved') {
-    return colors.error;
-  }
-
-  if (product.productStatus === 'Pending' || product.productStatus === 'Review') {
-    return colors.secondary;
-  }
-
-  if (product.productStatus === 'Approved' && product.status === 1) {
-    return colors.success;
-  }
-
-  if (product.productStatus === 'Draft') {
-    return colors.textMuted;
-  }
-
-  return colors.borderStrong;
+  return resolveProductListAccentColor(product);
 }
 
 export function formatAdminProductStockLabel(product: AdminProductListItem): string | null {
-  if (product.productType === 'Downloadable') {
-    return null;
-  }
-
-  if (product.productType === 'Customizable') {
-    const total = (product.variations ?? []).reduce((sum, variation) => {
-      const qty = Number(variation.quantity);
-      return sum + (Number.isFinite(qty) ? qty : 0);
-    }, 0);
-
-    if (total <= 0) {
-      return 'Out of stock';
-    }
-
-    if (total <= 5) {
-      return `Low Stock (${total})`;
-    }
-
-    return `${total} in stock`;
-  }
-
-  const quantity = Number(product.quantity);
-  if (!Number.isFinite(quantity)) {
-    return null;
-  }
-
-  if (product.inventory === 'OutOffStock' || quantity <= 0) {
-    return 'Out of stock';
-  }
-
-  if (quantity <= 5) {
-    return `Low Stock (${quantity})`;
-  }
-
-  return `${quantity} in stock`;
+  return formatProductListStockLabel(product);
 }
 
 export function getAdminProductSkuLabel(product: AdminProductListItem): string | null {
@@ -239,79 +189,14 @@ export function getAdminProductSubtitle(product: AdminProductListItem): string {
 }
 
 export function isAdminProductDimmed(product: AdminProductListItem): boolean {
-  return product.status === 0 || product.productStatus === 'Disapproved';
+  return isProductListDimmed(product);
 }
 
-export interface AdminProductListStatusChip {
-  id: string;
-  label: string;
-  icon: string;
-  tone: 'success' | 'info' | 'warning' | 'danger' | 'neutral';
-}
+export interface AdminProductListStatusChip extends ProductListStatusChip {}
 
 /** One primary lifecycle chip + optional stock chip — avoids duplicate approval/visibility badges. */
 export function resolveAdminProductListStatusChips(
   product: AdminProductListItem,
 ): AdminProductListStatusChip[] {
-  const chips: AdminProductListStatusChip[] = [];
-  const approval = product.productStatus?.trim();
-
-  if (approval === 'Disapproved') {
-    chips.push({
-      id: 'disapproved',
-      label: 'Disapproved',
-      icon: 'close-circle',
-      tone: 'danger',
-    });
-  } else if (product.status === 0) {
-    chips.push({
-      id: 'inactive',
-      label: 'Suspended',
-      icon: 'ban',
-      tone: 'danger',
-    });
-  } else if (approval === 'Review') {
-    chips.push({
-      id: 'review',
-      label: 'Review',
-      icon: 'document-text-outline',
-      tone: 'warning',
-    });
-  } else if (approval === 'Pending') {
-    chips.push({
-      id: 'pending',
-      label: 'Pending',
-      icon: 'time-outline',
-      tone: 'warning',
-    });
-  } else if (approval === 'Draft') {
-    chips.push({
-      id: 'draft',
-      label: 'Draft',
-      icon: 'document-outline',
-      tone: 'neutral',
-    });
-  } else if (product.status === 1) {
-    chips.push({
-      id: 'active',
-      label: 'Active',
-      icon: 'checkmark-circle',
-      tone: 'success',
-    });
-  }
-
-  const stockLabel = formatAdminProductStockLabel(product);
-  if (stockLabel && !isAdminProductDimmed(product)) {
-    const lower = stockLabel.toLowerCase();
-    const isStockAlert = lower.includes('low') || lower.includes('out');
-
-    chips.push({
-      id: 'stock',
-      label: stockLabel,
-      icon: isStockAlert ? 'warning-outline' : 'cube-outline',
-      tone: isStockAlert ? 'danger' : 'info',
-    });
-  }
-
-  return chips;
+  return resolveProductListStatusChips(product);
 }

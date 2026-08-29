@@ -26,6 +26,10 @@ export function getSellerReviewProductName(review: Pick<Review, 'productId'>): s
 }
 
 export function getSellerReviewCustomerName(review: Pick<Review, 'UserId'>): string {
+  if (typeof review.UserId === 'string') {
+    return review.UserId.trim() || '—';
+  }
+
   const fullName = [review.UserId?.firstName, review.UserId?.lastName].filter(Boolean).join(' ').trim();
   return fullName || '—';
 }
@@ -44,6 +48,22 @@ export function formatSellerReviewStatus(status?: string | null): string {
   }
 
   return status.trim();
+}
+
+export function sellerReviewStatusBadgeVariant(
+  status?: string | null,
+): 'success' | 'warning' | 'neutral' {
+  const normalized = formatSellerReviewStatus(status);
+
+  if (normalized === 'Approved') {
+    return 'success';
+  }
+
+  if (normalized === 'Disapproved') {
+    return 'warning';
+  }
+
+  return 'neutral';
 }
 
 export function formatSellerReviewDate(review: Pick<Review, 'createdAt' | 'updatedAt'>): string {

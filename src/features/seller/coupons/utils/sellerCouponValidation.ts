@@ -60,6 +60,12 @@ function validateExpirationDate(value: string): string | null {
     return 'Enter a valid expiration date';
   }
 
+  const today = new Date();
+  const todayUtc = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+  if (parsed.getTime() < todayUtc.getTime()) {
+    return 'Expiration date must be today or later';
+  }
+
   return null;
 }
 

@@ -1,3 +1,6 @@
+import type { Ionicons } from '@expo/vector-icons';
+
+import type { AdminProductStatusChipTone } from '../../../admin/product-management/components/AdminProductStatusChip';
 import type { SellerProfile } from '../../types/sellerProfile';
 
 /** Shop is visible unless backend explicitly sets shop_status to 0. */
@@ -20,4 +23,14 @@ export function getSellerShopDisplayName(profile?: SellerProfile | null): string
 
   const fullName = [profile?.firstName, profile?.lastName].filter(Boolean).join(' ').trim();
   return fullName || 'Your shop';
+}
+
+export function resolveSellerShopVisibilityMeta(profile?: Pick<SellerProfile, 'shop_status'> | null) {
+  const visible = isSellerShopVisible(profile);
+
+  return {
+    label: visible ? 'Visible' : 'Hidden',
+    icon: (visible ? 'eye-outline' : 'eye-off-outline') as keyof typeof Ionicons.glyphMap,
+    tone: (visible ? 'success' : 'warning') as AdminProductStatusChipTone,
+  };
 }

@@ -1,7 +1,9 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
 
+import type { ReferralCommissionRecord } from '../../features/account/referral-earnings/types/referralEarning';
 import type { AuthReturnTo } from '../../features/auth/utils/authNavigation';
 import type { AdminStackParamList } from '../../features/admin/navigation/adminTypes';
+import type { OrderSummary } from '../../services/types/order';
 import type { SellerStackParamList } from './sellerTypes';
 
 export type AuthStackParamList = {
@@ -87,15 +89,22 @@ export type ShoppingStackParamList = {
   Orders: undefined;
   AccountDetails: undefined;
   AddressBook: undefined;
-  ReferralEarnings: undefined;
+  ReferralEarnings: { payoutStatus?: 'Pending' | 'Paid' } | undefined;
+  ReferralEarningDetail: {
+    commissionId: string;
+    initialRecord?: ReferralCommissionRecord;
+  };
   ChatList: undefined;
   ChatThread: {
     chatId?: string;
     receiverId?: string;
   };
   TermsConditions: undefined;
+  NotificationPreferences: undefined;
+  BellNotifications: undefined;
   OrderDetail: {
     orderId: string;
+    initialOrder?: OrderSummary;
   };
   SellerShop: {
     slug: string;

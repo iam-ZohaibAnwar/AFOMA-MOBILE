@@ -1,117 +1,112 @@
-import { Alert, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-import { AppButton } from '../../../../components/ui/AppButton';
 import { AppText } from '../../../../components/ui/AppText';
-import { colors, radius, spacing } from '../../../../design-system';
+import { colors, radius, shadows, spacing } from '../../../../design-system';
+import { AdminProductStatusChip } from '../../../admin/product-management/components/AdminProductStatusChip';
+import {
+  formatAdminCouponDiscount,
+  formatAdminCouponExpirationDate,
+} from '../../../admin/coupons/utils/adminCouponsContent';
+import { formatAdminCouponUsage } from '../../../admin/coupons/utils/adminCouponsDisplay';
 import type { SellerCoupon } from '../types/sellerCoupon';
 import {
-  formatSellerCouponDiscount,
-  formatSellerCouponExpiration,
-  formatSellerCouponType,
-  formatSellerCouponUsage,
-} from '../utils/sellerCouponDisplay';
+  getSellerCouponListSubtitle,
+  resolveSellerCouponAccentColor,
+  resolveSellerCouponListIcon,
+  resolveSellerCouponListStatusChips,
+} from '../utils/sellerCouponListDisplay';
 
 export interface SellerCouponCardProps {
   coupon: SellerCoupon;
-  onEdit: (couponId: string) => void;
-  onDelete: (coupon: SellerCoupon) => void;
-  isDeleting?: boolean;
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.detailRow}>
-      <AppText variant="caption" color="textMuted">
-        {label}
-      </AppText>
-      <AppText variant="bodySmall" style={styles.detailValue}>
-        {value}
-      </AppText>
-    </View>
-  );
+  onPress: (coupon: SellerCoupon) => void;
+  onMenuPress: (coupon: SellerCoupon) => void;
+  isBusy?: boolean;
 }
 
 export function SellerCouponCard({
   coupon,
-  onEdit,
-  onDelete,
-  isDeleting = false,
+  onPress,
+  onMenuPress,
+  isBusy = false,
 }: SellerCouponCardProps) {
   const couponId = coupon._id;
-  const couponCode = coupon.couponCode || 'this coupon';
-
-  const handleDeletePress = () => {
-    if (!couponId || isDeleting) {
-      return;
-    }
-
-    Alert.alert(
-      'Delete coupon',
-      `Are you sure you want to delete ${couponCode}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => onDelete(coupon),
-        },
-      ],
-    );
-  };
+  const accentColor = resolveSellerCouponAccentColor(coupon);
+  const statusChips = resolveSellerCouponListStatusChips(coupon);
+  const subtitle = getSellerCouponListSubtitle(coupon);
 
   return (
     <View style={styles.card}>
-      <View style={styles.headerRow}>
-        <AppText variant="bodyMedium" style={styles.code}>
-          {coupon.couponCode || '—'}
-        </AppText>
-      </View>
+      <View style={[styles.accent, { backgroundColor: accentColor }]} />
 
-      <View style={styles.detailsGrid}>
-        <DetailRow label="Type" value={formatSellerCouponType(coupon.couponType)} />
-        <DetailRow label="Discount" value={formatSellerCouponDiscount(coupon)} />
-        <DetailRow
-          label="Minimum cart"
-          value={coupon.minimumCartAmount != null ? `$${coupon.minimumCartAmount}` : '—'}
-        />
-        <DetailRow label="Usage" value={formatSellerCouponUsage(coupon)} />
-        <DetailRow
-          label="Usage limit"
-          value={coupon.usageLimitPerCoupon != null ? String(coupon.usageLimitPerCoupon) : '—'}
-        />
-        <DetailRow
-          label="Per customer"
-          value={
-            coupon.usageLimitPerCustomer != null ? String(coupon.usageLimitPerCustomer) : '—'
-          }
-        />
-        <DetailRow label="Expires" value={formatSellerCouponExpiration(coupon.expirationDate)} />
-      </View>
+      <Pressable
+        accessibilityRole="button"
+        disabled={!couponId || isBusy}
+        onPress={() => onPress(coupon)}
+        style={({ pressed }) => [styles.body, pressed && styles.cardPressed]}
+      >
+        <View style={[styles.iconWrap, { backgroundColor: colors.primary }]}>
+          <Ionicons name={resolveSellerCouponListIcon()} size={22} color={colors.textInverse} />
+        </View>
 
-      <View style={styles.actionsRow}>
-        <AppButton
-          label="Edit"
-          variant="outline"
-          size="md"
-          disabled={!couponId || isDeleting}
-          onPress={() => {
-            if (couponId) {
-              onEdit(couponId);
-            }
-          }}
-          style={styles.actionButton}
-        />
-        <AppButton
-          label={isDeleting ? 'Deleting...' : 'Delete'}
-          variant="outline"
-          size="md"
-          loading={isDeleting}
-          disabled={!couponId || isDeleting}
-          onPress={handleDeletePress}
-          style={styles.actionButton}
-          labelStyle={styles.deleteLabel}
-        />
-      </View>
+        <View style={styles.content}>
+          <AppText variant="bodyMedium" style={styles.code} numberOfLines={1}>
+            {coupon.couponCode?.trim() || 'Untitled coupon'}
+          </AppText>
+
+          <AppText variant="caption" color="textSecondary" numberOfLines={1}>
+            {subtitle}
+          </AppText>
+
+          {statusChips.length > 0 ? (
+            <View style={styles.chipsRow}>
+              {statusChips.map((chip) => (
+                <AdminProductStatusChip
+                  key={chip.id}
+                  label={chip.label}
+                  icon={chip.icon}
+                  tone={chip.tone}
+                />
+              ))}
+            </View>
+          ) : null}
+
+          <View style={styles.footerRow}>
+            <View style={styles.metaBlock}>
+              <AppText variant="caption" color="textSecondary" numberOfLines={1}>
+                Expires {formatAdminCouponExpirationDate(coupon.expirationDate)}
+              </AppText>
+              <AppText variant="caption" color="textSecondary" numberOfLines={1}>
+                Used {formatAdminCouponUsage(coupon)}
+              </AppText>
+            </View>
+
+            <View style={styles.discountBlock}>
+              <AppText variant="caption" color="textMuted" style={styles.metricLabel}>
+                DISCOUNT
+              </AppText>
+              <AppText variant="bodyMedium" style={styles.discountValue} numberOfLines={1}>
+                {formatAdminCouponDiscount(coupon)}
+              </AppText>
+            </View>
+          </View>
+        </View>
+      </Pressable>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Coupon actions"
+        disabled={!couponId || isBusy}
+        onPress={() => onMenuPress(coupon)}
+        style={({ pressed }) => [styles.menuButton, pressed && styles.menuButtonPressed]}
+        hitSlop={8}
+      >
+        {isBusy ? (
+          <ActivityIndicator size="small" color={colors.primary} />
+        ) : (
+          <Ionicons name="ellipsis-vertical" size={18} color={colors.textMuted} />
+        )}
+      </Pressable>
     </View>
   );
 }
@@ -121,47 +116,95 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.large,
     borderWidth: 1,
-    borderColor: colors.borderStrong,
-    padding: spacing.lg,
-    gap: spacing.md,
+    borderColor: colors.border,
+    overflow: 'hidden',
+    position: 'relative',
+    ...shadows.card,
   },
-  headerRow: {
+  accent: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+  },
+  body: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     gap: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+    paddingRight: spacing.md + 28,
+    paddingLeft: spacing.md + 4,
+  },
+  cardPressed: {
+    opacity: 0.92,
+  },
+  iconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.xs,
+    flexShrink: 0,
+  },
+  content: {
+    flex: 1,
+    gap: spacing.xs,
+    minWidth: 0,
   },
   code: {
     color: colors.textPrimary,
     fontWeight: '700',
-    flex: 1,
+    paddingRight: spacing.xs,
   },
-  detailsGrid: {
-    gap: spacing.sm,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  detailValue: {
-    color: colors.textPrimary,
-    fontWeight: '600',
-    textAlign: 'right',
-    flexShrink: 1,
-  },
-  actionsRow: {
+  chipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
+    gap: spacing.xs,
     marginTop: spacing.xs,
   },
-  actionButton: {
-    flexGrow: 1,
-    flexBasis: '48%',
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    marginTop: spacing.sm,
   },
-  deleteLabel: {
-    color: colors.error,
+  metaBlock: {
+    flex: 1,
+    gap: 2,
+    minWidth: 0,
+  },
+  discountBlock: {
+    flexShrink: 0,
+    alignItems: 'flex-end',
+    gap: 2,
+    maxWidth: '42%',
+  },
+  metricLabel: {
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    textAlign: 'right',
+  },
+  discountValue: {
+    color: colors.primary,
+    fontWeight: '800',
+    textAlign: 'right',
+  },
+  menuButton: {
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.sm,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  menuButtonPressed: {
+    opacity: 0.75,
   },
 });

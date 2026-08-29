@@ -1,12 +1,5 @@
 import { useCallback } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,16 +8,24 @@ import { EmptyState } from '../../../../components/ecommerce/EmptyState';
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
 import { AppText } from '../../../../components/ui/AppText';
 import { colors, spacing } from '../../../../design-system';
+import { OrderListPagination } from '../../../orders/components/OrderListPagination';
+import { OrderListSearchBar } from '../../../orders/components/OrderListSearchBar';
+import { AdminReviewCardSkeleton } from '../../../admin/reviews/components/AdminReviewCardSkeleton';
 import type { SellerStackParamList } from '../../../../app/navigation/sellerTypes';
 import { authReturnTo } from '../../../auth/utils/authNavigation';
 import { useRequireSeller } from '../../hooks/useRequireSeller';
 import { SellerReviewCard } from '../components/SellerReviewCard';
+import { SellerReviewReplyTabs } from '../components/SellerReviewReplyTabs';
+import { SellerReviewStatusTabs } from '../components/SellerReviewStatusTabs';
 import { useSellerReviews } from '../hooks/useSellerReviews';
+import { navigateToSellerReviewDetail } from '../navigation/sellerReviewsNavigation';
 import type { SellerReviewListItem } from '../types/sellerReview';
+import { getSellerReviewsEmptyStateMessage } from '../utils/sellerReviewListDisplay';
 
 type Props = NativeStackScreenProps<SellerStackParamList, 'SellerReviews'>;
 
 const REVIEWS_RETURN_TO = authReturnTo.sellerReviews();
+const SKELETON_ITEMS = ['r1', 'r2', 'r3'] as const;
 
 export function SellerReviewsScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
@@ -32,11 +33,19 @@ export function SellerReviewsScreen({ navigation }: Props) {
 
   const {
     reviews,
+    rawReviewCount,
     currentPage,
     totalPages,
+    statusFilter,
+    replyFilter,
+    searchInput,
+    setSearchInput,
+    hasActiveFilters,
     isLoading,
     isRefreshing,
     error,
+    setStatusFilter,
+    setReplyFilter,
     refresh,
     goToPreviousPage,
     goToNextPage,
@@ -52,82 +61,61 @@ export function SellerReviewsScreen({ navigation }: Props) {
     }, [isAuthorized, refresh, sellerId]),
   );
 
+  const handlePressReview = useCallback(
+    (review: SellerReviewListItem) => {
+      if (!review._id) {
+        return;
+      }
+
+      navigateToSellerReviewDetail(navigation, review._id, review);
+    },
+    [navigation],
+  );
+
+  const showSkeletonList = isLoading && rawReviewCount === 0 && !error;
+  const emptyState = getSellerReviewsEmptyStateMessage(statusFilter, replyFilter);
+
   const renderItem = useCallback(
     ({ item }: { item: SellerReviewListItem }) => (
-      <SellerReviewCard
-        review={item}
-        onPress={
-          item._id
-            ? () =>
-                navigation.navigate('SellerReviewDetail', {
-                  reviewId: item._id!,
-                  initialReview: item,
-                })
-            : undefined
-        }
-      />
+      <SellerReviewCard review={item} onPress={handlePressReview} />
     ),
-    [navigation],
+    [handlePressReview],
   );
 
   const listHeader = (
     <View style={styles.headerContent}>
-      <AppText variant="bodyMedium" style={styles.sectionTitle}>
-        All Reviews
-      </AppText>
+      <OrderListSearchBar
+        value={searchInput}
+        onChangeText={setSearchInput}
+        placeholder="Search by customer, product, or review..."
+        accessibilityLabel="Search reviews by customer, product, or review text"
+      />
 
-      {error ? (
+      <SellerReviewReplyTabs activeFilter={replyFilter} onFilterChange={setReplyFilter} />
+      <SellerReviewStatusTabs activeStatus={statusFilter} onStatusChange={setStatusFilter} />
+
+      {rawReviewCount > 0 ? (
+        <AppText variant="bodySmall" color="textSecondary" style={styles.countText}>
+          {reviews.length} on this page · Page {currentPage} of {totalPages}
+        </AppText>
+      ) : null}
+
+      {error && rawReviewCount > 0 ? (
         <ErrorState message={error} onAction={() => void refresh()} style={styles.inlineError} />
       ) : null}
 
-      {isLoading && reviews.length === 0 ? (
-        <View style={styles.inlineLoading}>
-          <ActivityIndicator size="small" color={colors.primary} />
-          <AppText variant="bodySmall" color="textSecondary">
-            Loading reviews...
-          </AppText>
+      {showSkeletonList ? (
+        <View style={styles.skeletonList}>
+          {SKELETON_ITEMS.map((key) => (
+            <AdminReviewCardSkeleton key={key} />
+          ))}
         </View>
       ) : null}
     </View>
   );
 
-  const listFooter =
-    reviews.length > 0 ? (
-      <View style={styles.pagination}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={goToPreviousPage}
-          disabled={!canGoPrevious}
-          style={[styles.paginationButton, !canGoPrevious && styles.paginationButtonDisabled]}
-        >
-          <AppText variant="bodySmall" color={canGoPrevious ? 'textLink' : 'textMuted'}>
-            Previous
-          </AppText>
-        </Pressable>
-
-        <AppText variant="bodySmall" color="textSecondary">
-          Page {currentPage} of {totalPages}
-        </AppText>
-
-        <Pressable
-          accessibilityRole="button"
-          onPress={goToNextPage}
-          disabled={!canGoNext}
-          style={[styles.paginationButton, !canGoNext && styles.paginationButtonDisabled]}
-        >
-          <AppText variant="bodySmall" color={canGoNext ? 'textLink' : 'textMuted'}>
-            Next
-          </AppText>
-        </Pressable>
-      </View>
-    ) : null;
-
   if (!isAuthorized) {
-    return (
-      <View style={styles.centeredState}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <View style={[styles.screen, { paddingTop: insets.top }]} />;
   }
 
   return (
@@ -138,19 +126,42 @@ export function SellerReviewsScreen({ navigation }: Props) {
         { paddingBottom: insets.bottom + spacing.xxl },
         reviews.length === 0 && styles.emptyContent,
       ]}
-      data={reviews}
+      data={showSkeletonList ? [] : reviews}
       keyExtractor={(item, index) => item._id ?? `seller-review-${index}`}
       renderItem={renderItem}
+      ItemSeparatorComponent={() => <View style={styles.separator} />}
       ListHeaderComponent={listHeader}
-      ListFooterComponent={listFooter}
+      ListFooterComponent={
+        rawReviewCount > 0 ? (
+          <OrderListPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            canGoPrevious={canGoPrevious}
+            canGoNext={canGoNext}
+            isLoading={isLoading}
+            onPrevious={goToPreviousPage}
+            onNext={goToNextPage}
+          />
+        ) : null
+      }
       ListEmptyComponent={
-        !isLoading && !error ? (
-          <EmptyState title="No Reviews added." message="Customer reviews will appear here." />
+        !showSkeletonList && !isLoading && !error ? (
+          <EmptyState
+            title={emptyState.title}
+            message={
+              hasActiveFilters || searchInput.trim()
+                ? 'Try adjusting your search or filter tabs on this page.'
+                : emptyState.message
+            }
+          />
+        ) : error && rawReviewCount === 0 ? (
+          <ErrorState message={error} onAction={() => void refresh()} style={styles.inlineError} />
         ) : null
       }
       refreshControl={
         <RefreshControl refreshing={isRefreshing} onRefresh={() => void refresh()} tintColor={colors.primary} />
       }
+      keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     />
   );
@@ -168,42 +179,20 @@ const styles = StyleSheet.create({
   emptyContent: {
     flexGrow: 1,
   },
-  centeredState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.background,
-  },
   headerContent: {
     gap: spacing.md,
+    paddingBottom: spacing.xs,
   },
-  sectionTitle: {
-    color: colors.textPrimary,
-    fontWeight: '700',
+  countText: {
+    fontWeight: '600',
   },
   inlineError: {
-    marginHorizontal: 0,
-    alignSelf: 'stretch',
+    marginTop: 0,
   },
-  inlineLoading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.lg,
+  skeletonList: {
+    gap: spacing.md,
   },
-  pagination: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: spacing.lg,
-    paddingHorizontal: spacing.sm,
-  },
-  paginationButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-  },
-  paginationButtonDisabled: {
-    opacity: 0.5,
+  separator: {
+    height: spacing.md,
   },
 });

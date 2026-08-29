@@ -6,6 +6,9 @@ import { StackHeaderBackButton } from './StackHeaderBackButton';
 import { AccountDetailsScreen } from '../../features/account/screens/AccountDetailsScreen';
 import { AddressBookScreen } from '../../features/account/screens/AddressBookScreen';
 import { ReferralEarningsScreen } from '../../features/account/screens/ReferralEarningsScreen';
+import { ReferralEarningDetailScreen } from '../../features/account/screens/ReferralEarningDetailScreen';
+import { NotificationPreferencesScreen } from '../../features/account/screens/NotificationPreferencesScreen';
+import { BellNotificationsScreen } from '../../features/notifications/screens/BellNotificationsScreen';
 import { TermsConditionsScreen } from '../../features/legal/screens/TermsConditionsScreen';
 import { ChatListScreen } from '../../features/chat/screens/ChatListScreen';
 import { ChatThreadScreen } from '../../features/chat/screens/ChatThreadScreen';
@@ -86,12 +89,27 @@ export function ShoppingNavigator() {
       <Stack.Screen
         name="ReferralEarnings"
         component={ReferralEarningsScreen}
-        options={{ title: 'My Earnings' }}
+        options={{ title: 'Referral Earning' }}
+      />
+      <Stack.Screen
+        name="ReferralEarningDetail"
+        component={ReferralEarningDetailScreen}
+        options={{ title: 'Referral Detail' }}
       />
       <Stack.Screen
         name="TermsConditions"
         component={TermsConditionsScreen}
         options={{ title: 'Terms & Conditions' }}
+      />
+      <Stack.Screen
+        name="NotificationPreferences"
+        component={NotificationPreferencesScreen}
+        options={{ title: 'Notifications' }}
+      />
+      <Stack.Screen
+        name="BellNotifications"
+        component={BellNotificationsScreen}
+        options={{ title: 'Notifications' }}
       />
       <Stack.Screen name="OrderDetail" component={OrderDetailScreen} options={{ title: 'Order Details' }} />
     </Stack.Navigator>

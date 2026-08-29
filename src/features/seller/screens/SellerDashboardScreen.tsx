@@ -1,34 +1,37 @@
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useCallback, useMemo } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { EmptyState } from '../../../components/ecommerce/EmptyState';
-import { ErrorState } from '../../../components/ecommerce/ErrorState';
-import { AppCard } from '../../../components/ui/AppCard';
-import { AppText } from '../../../components/ui/AppText';
 import { colors, spacing } from '../../../design-system';
 import type { SellerStackParamList } from '../../../app/navigation/sellerTypes';
 import { authReturnTo } from '../../auth/utils/authNavigation';
-import { SellerSetupProgress } from '../components/SellerSetupProgress';
-import { SellerDashboardOrderRow } from '../dashboard/components/SellerDashboardOrderRow';
-import { SellerDashboardStatCard } from '../dashboard/components/SellerDashboardStatCard';
+import { SellerDashboardEarningsSection } from '../dashboard/components/SellerDashboardEarningsSection';
+import { SellerDashboardHeader } from '../dashboard/components/SellerDashboardHeader';
+import { SellerDashboardOrderOverviewSection } from '../dashboard/components/SellerDashboardOrderOverviewSection';
+import { SellerDashboardRecentOrdersSection } from '../dashboard/components/SellerDashboardRecentOrdersSection';
+import { SellerDashboardSetupAlert } from '../dashboard/components/SellerDashboardSetupAlert';
+import { SellerOperationalAlertsSection } from '../dashboard/components/SellerOperationalAlertsSection';
 import { useSellerDashboard } from '../dashboard/hooks/useSellerDashboard';
+import type { SellerDashboardOrder } from '../dashboard/types';
+import { sellerDashboardTheme } from '../dashboard/utils/sellerDashboardTheme';
 import { useRequireSeller } from '../hooks/useRequireSeller';
 import { useSellerProfile } from '../hooks/useSellerProfile';
-import {
-  formatDashboardCount,
-  formatDashboardOrderId,
-  formatDashboardPayoutAmount,
-} from '../utils/sellerDashboardDisplay';
+import { hasPendingPayoutAmount } from '../utils/sellerDashboardDisplay';
 import {
   getContinueSetupSection,
   getSellerDisplayName,
   isSellerProductCreationAllowed,
 } from '../utils/sellerSetupSections';
+import type { SellerOrderSummary } from '../orders/types/sellerOrder';
 
 type Props = NativeStackScreenProps<SellerStackParamList, 'SellerDashboard'>;
 
 const DASHBOARD_RETURN_TO = authReturnTo.sellerDashboard();
+
+function sumOptionalCounts(...values: Array<number | null | undefined>): number {
+  return values.reduce<number>((total, value) => total + Math.max(0, Number(value ?? 0)), 0);
+}
 
 export function SellerDashboardScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
@@ -44,129 +47,132 @@ export function SellerDashboardScreen({ navigation }: Props) {
   } = useSellerDashboard(isAuthorized ? sellerId : undefined);
 
   const setupComplete = isSellerProductCreationAllowed(profile?.profileSetup);
+  const shopName = getSellerDisplayName(profile);
 
-  const handleContinueSetup = () => {
+  const alertCount = useMemo(() => {
+    const pendingOrders = Number(orderCounts?.pendingOrdersCount ?? 0);
+    const pendingPayoutFlag = hasPendingPayoutAmount(payoutSummary?.totalPendingPayoutAmount) ? 1 : 0;
+    return sumOptionalCounts(pendingOrders, pendingPayoutFlag);
+  }, [orderCounts?.pendingOrdersCount, payoutSummary?.totalPendingPayoutAmount]);
+
+  const handleBack = useCallback(() => {
+    const parent = navigation.getParent();
+    if (parent?.canGoBack()) {
+      parent.goBack();
+      return;
+    }
+
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    }
+  }, [navigation]);
+
+  const handleOpenOrders = useCallback(() => {
+    navigation.navigate('SellerOrders');
+  }, [navigation]);
+
+  const handleOpenPendingEarnings = useCallback(() => {
+    navigation.navigate('SellerEarnings', { payoutStatus: 'Pending' });
+  }, [navigation]);
+
+  const handleOpenCompletedEarnings = useCallback(() => {
+    navigation.navigate('SellerEarnings', { payoutStatus: 'Paid' });
+  }, [navigation]);
+
+  const handleContinueSetup = useCallback(() => {
     const nextSection = getContinueSetupSection(profile);
     if (nextSection) {
       navigation.navigate('SellerSetupSection', { section: nextSection });
       return;
     }
     navigation.navigate('SellerSetup');
-  };
+  }, [navigation, profile]);
+
+  const handleOrderPress = useCallback(
+    (order: SellerDashboardOrder) => {
+      if (!order._id) {
+        return;
+      }
+
+      navigation.navigate('SellerOrderDetail', {
+        orderId: order._id,
+        initialOrder: order as SellerOrderSummary,
+      });
+    },
+    [navigation],
+  );
 
   if (!isAuthorized) {
-    return <View style={styles.screen} />;
+    return <View style={[styles.screen, { paddingTop: insets.top }]} />;
   }
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl refreshing={isRefreshing} onRefresh={() => void refresh()} tintColor={colors.primary} />
-      }
-    >
-      <AppText variant="h3" style={styles.greeting}>
-        {getSellerDisplayName(profile)}
-      </AppText>
-      <AppText variant="bodySmall" color="textSecondary" style={styles.greetingSub}>
-        Seller dashboard
-      </AppText>
+    <View style={styles.screen}>
+      <SellerDashboardHeader
+        shopName={shopName}
+        alertCount={alertCount}
+        onBackPress={handleBack}
+        onAlertsPress={handleOpenOrders}
+      />
 
-      {!setupComplete ? (
-        <AppCard variant="flat">
-          <SellerSetupProgress profileSetup={profile?.profileSetup} onContinue={handleContinueSetup} />
-        </AppCard>
-      ) : null}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={() => void refresh()} tintColor={colors.primary} />
+        }
+      >
+        {!setupComplete ? <SellerDashboardSetupAlert profileSetup={profile?.profileSetup} onContinue={handleContinueSetup} /> : null}
 
-      <View style={styles.statsGrid}>
-        <SellerDashboardStatCard
-          label="Number of Orders"
-          value={formatDashboardCount(orderCounts?.pendingOrdersCount)}
+        <SellerDashboardOrderOverviewSection
+          orderCounts={orderCounts}
+          error={errors.counts}
+          onRetry={() => void refresh()}
+          onPendingPress={handleOpenOrders}
+          onDispatchedPress={handleOpenOrders}
+          onCompletedPress={handleOpenOrders}
         />
-        <SellerDashboardStatCard
-          label="Dispatch Orders"
-          value={formatDashboardCount(orderCounts?.dispatchedOrdersCount ?? 0)}
-        />
-        <SellerDashboardStatCard
-          label="Completed Orders"
-          value={formatDashboardCount(orderCounts?.completedOrdersCount)}
-        />
-        <SellerDashboardStatCard
-          label="Pending Payouts"
-          value={formatDashboardPayoutAmount(payoutSummary?.totalPendingPayoutAmount)}
-          suffix="CAD"
-          onPress={() => navigation.navigate('SellerEarnings', { payoutStatus: 'Pending' })}
-        />
-        <SellerDashboardStatCard
-          label="Completed Payouts"
-          value={formatDashboardPayoutAmount(payoutSummary?.totalPaidPayoutAmount)}
-          suffix="CAD"
-          onPress={() => navigation.navigate('SellerEarnings', { payoutStatus: 'Paid' })}
-        />
-      </View>
 
-      {errors.counts ? <ErrorState message={errors.counts} onAction={() => void refresh()} style={styles.inlineError} /> : null}
-      {errors.payouts ? (
-        <ErrorState message={errors.payouts} onAction={() => void refresh()} style={styles.inlineError} />
-      ) : null}
+        <SellerDashboardEarningsSection
+          payoutSummary={payoutSummary}
+          error={errors.payouts}
+          onRetry={() => void refresh()}
+          onPendingPress={handleOpenPendingEarnings}
+          onCompletedPress={handleOpenCompletedEarnings}
+        />
 
-      <AppCard variant="muted">
-        <AppText variant="bodyMedium" style={styles.sectionTitle}>
-          Recent Orders
-        </AppText>
+        <SellerOperationalAlertsSection
+          orderCounts={orderCounts}
+          payoutSummary={payoutSummary}
+          onPendingOrdersPress={handleOpenOrders}
+          onDispatchedOrdersPress={handleOpenOrders}
+          onPendingPayoutsPress={handleOpenPendingEarnings}
+        />
 
-        {errors.orders ? (
-          <ErrorState message={errors.orders} onAction={() => void refresh()} style={styles.inlineError} />
-        ) : latestOrders.length > 0 ? (
-          <View style={styles.ordersList}>
-            {latestOrders.map((order) => (
-              <SellerDashboardOrderRow key={order._id ?? formatDashboardOrderId(order)} order={order} />
-            ))}
-          </View>
-        ) : (
-          <EmptyState title="No orders received" style={styles.emptyState} />
-        )}
-      </AppCard>
-    </ScrollView>
+        <SellerDashboardRecentOrdersSection
+          orders={latestOrders}
+          error={errors.orders}
+          onRetry={() => void refresh()}
+          onViewAllPress={handleOpenOrders}
+          onOrderPress={handleOrderPress}
+        />
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: sellerDashboardTheme.screenBackground,
+  },
+  scroll: {
+    flex: 1,
   },
   content: {
-    padding: spacing.lg,
-    gap: spacing.lg,
-  },
-  greeting: {
-    color: colors.textPrimary,
-  },
-  greetingSub: {
-    marginTop: -spacing.sm,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-  },
-  sectionTitle: {
-    color: colors.textPrimary,
-    fontWeight: '700',
-    marginBottom: spacing.sm,
-  },
-  ordersList: {
-    gap: spacing.xs,
-  },
-  emptyState: {
-    marginHorizontal: 0,
-    alignSelf: 'stretch',
-  },
-  inlineError: {
-    alignSelf: 'stretch',
-    marginHorizontal: 0,
+    paddingHorizontal: spacing.lg,
+    gap: sellerDashboardTheme.sectionGap,
+    paddingTop: spacing.md,
   },
 });

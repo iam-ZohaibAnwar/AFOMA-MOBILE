@@ -1,8 +1,7 @@
+import { useRef } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   View,
@@ -11,7 +10,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
-import { SelectField } from '../../../../components/forms';
+import { KeyboardAwareFormScreen, SelectField, useKeyboardAwareForm } from '../../../../components/forms';
 import { AppButton } from '../../../../components/ui/AppButton';
 import { AppCard } from '../../../../components/ui/AppCard';
 import { AppInput } from '../../../../components/ui/AppInput';
@@ -34,6 +33,9 @@ const COUPON_TYPE_OPTIONS = [
 
 export function AdminCouponFormScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView>(null);
+  const formControls = useKeyboardAwareForm(scrollRef);
+  const onFieldFocus = formControls.onFieldFocus;
   const { user } = useAuth();
   const adminUserId = resolveAuthUserId(user);
   const { couponId, initialCoupon } = route.params ?? {};
@@ -130,162 +132,157 @@ export function AdminCouponFormScreen({ navigation, route }: Props) {
         : 'Enter discount';
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    <KeyboardAwareFormScreen
+      scrollRef={scrollRef}
+      formControls={formControls}
+      contentContainerStyle={styles.content}
     >
-      <ScrollView
-        style={styles.screen}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <AppCard variant="flat">
-          <AppText variant="bodyMedium" style={styles.pageTitle}>
-            {isEditMode ? 'Edit coupon' : 'Add coupon'}
+      <AppCard variant="flat">
+        <AppText variant="bodyMedium" style={styles.pageTitle}>
+          {isEditMode ? 'Edit coupon' : 'Add coupon'}
+        </AppText>
+        <AppText variant="caption" color="error">
+          Fields marked with * are required.
+        </AppText>
+
+        <View style={styles.form}>
+          <AppInput
+            label="Coupon code *"
+            value={values.couponCode}
+            onChangeText={(text) => updateField('couponCode', text)}
+            onFocus={onFieldFocus}
+            placeholder="Enter coupon code"
+            autoCapitalize="characters"
+            autoCorrect={false}
+            maxLength={COUPON_CODE_MAX_LEN}
+            editable={!isBusy}
+            error={errors.couponCode}
+          />
+
+          <SelectField
+            label="Coupon type *"
+            value={values.couponType}
+            options={COUPON_TYPE_OPTIONS}
+            onChange={(value) => updateField('couponType', value as typeof values.couponType)}
+            placeholder="Select type"
+            error={errors.couponType}
+            modalTitle="Coupon type"
+            disabled={isBusy}
+          />
+
+          <AppInput
+            label="Discount *"
+            value={values.discountAmount}
+            onChangeText={(text) => updateField('discountAmount', text)}
+            onFocus={onFieldFocus}
+            placeholder={discountHint}
+            keyboardType="number-pad"
+            editable={!isBusy}
+            error={errors.discountAmount}
+          />
+
+          <AppInput
+            label="Description"
+            value={values.description}
+            onChangeText={(text) => updateField('description', text)}
+            onFocus={onFieldFocus}
+            placeholder="Describe the coupon"
+            multiline
+            numberOfLines={4}
+            editable={!isBusy}
+            style={styles.textArea}
+          />
+
+          <AppInput
+            label="Minimum cart amount *"
+            value={values.minimumCartAmount}
+            onChangeText={(text) => updateField('minimumCartAmount', text)}
+            onFocus={onFieldFocus}
+            placeholder="Enter minimum cart amount"
+            keyboardType="number-pad"
+            editable={!isBusy}
+            error={errors.minimumCartAmount}
+          />
+
+          <AppInput
+            label="Expiration date *"
+            value={values.expirationDate}
+            onChangeText={(text) => updateField('expirationDate', text)}
+            onFocus={onFieldFocus}
+            placeholder="YYYY-MM-DD"
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!isBusy}
+            error={errors.expirationDate}
+          />
+
+          <AppInput
+            label="Usage limit per coupon *"
+            value={values.usageLimitPerCoupon}
+            onChangeText={(text) => updateField('usageLimitPerCoupon', text)}
+            onFocus={onFieldFocus}
+            keyboardType="number-pad"
+            editable={!isBusy}
+            error={errors.usageLimitPerCoupon}
+          />
+
+          <AppInput
+            label="Usage limit per customer *"
+            value={values.usageLimitPerCustomer}
+            onChangeText={(text) => updateField('usageLimitPerCustomer', text)}
+            onFocus={onFieldFocus}
+            keyboardType="number-pad"
+            editable={!isBusy}
+            error={errors.usageLimitPerCustomer}
+          />
+        </View>
+      </AppCard>
+
+      <View style={styles.actions}>
+        {saveError ? (
+          <AppText variant="bodySmall" color="error">
+            {saveError}
           </AppText>
-          <AppText variant="caption" color="error">
-            Fields marked with * are required.
-          </AppText>
+        ) : null}
+        {deleteError ? (
+          <ErrorState message={deleteError} onAction={() => void deleteCoupon()} style={styles.inlineError} />
+        ) : null}
 
-          <View style={styles.form}>
-            <AppInput
-              label="Coupon code *"
-              value={values.couponCode}
-              onChangeText={(text) => updateField('couponCode', text)}
-              placeholder="Enter coupon code"
-              autoCapitalize="characters"
-              autoCorrect={false}
-              maxLength={COUPON_CODE_MAX_LEN}
-              editable={!isBusy}
-              error={errors.couponCode}
-            />
-
-            <SelectField
-              label="Coupon type *"
-              value={values.couponType}
-              options={COUPON_TYPE_OPTIONS}
-              onChange={(value) => updateField('couponType', value as typeof values.couponType)}
-              placeholder="Select type"
-              error={errors.couponType}
-              modalTitle="Coupon type"
-              disabled={isBusy}
-            />
-
-            <AppInput
-              label="Discount *"
-              value={values.discountAmount}
-              onChangeText={(text) => updateField('discountAmount', text)}
-              placeholder={discountHint}
-              keyboardType="number-pad"
-              editable={!isBusy}
-              error={errors.discountAmount}
-            />
-
-            <AppInput
-              label="Description"
-              value={values.description}
-              onChangeText={(text) => updateField('description', text)}
-              placeholder="Describe the coupon"
-              multiline
-              numberOfLines={4}
-              editable={!isBusy}
-              style={styles.textArea}
-            />
-
-            <AppInput
-              label="Minimum cart amount *"
-              value={values.minimumCartAmount}
-              onChangeText={(text) => updateField('minimumCartAmount', text)}
-              placeholder="Enter minimum cart amount"
-              keyboardType="number-pad"
-              editable={!isBusy}
-              error={errors.minimumCartAmount}
-            />
-
-            <AppInput
-              label="Expiration date *"
-              value={values.expirationDate}
-              onChangeText={(text) => updateField('expirationDate', text)}
-              placeholder="YYYY-MM-DD"
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!isBusy}
-              error={errors.expirationDate}
-            />
-
-            <AppInput
-              label="Usage limit per coupon *"
-              value={values.usageLimitPerCoupon}
-              onChangeText={(text) => updateField('usageLimitPerCoupon', text)}
-              keyboardType="number-pad"
-              editable={!isBusy}
-              error={errors.usageLimitPerCoupon}
-            />
-
-            <AppInput
-              label="Usage limit per customer *"
-              value={values.usageLimitPerCustomer}
-              onChangeText={(text) => updateField('usageLimitPerCustomer', text)}
-              keyboardType="number-pad"
-              editable={!isBusy}
-              error={errors.usageLimitPerCustomer}
-            />
-          </View>
-
-          {saveError ? (
-            <AppText variant="bodySmall" color="error">
-              {saveError}
-            </AppText>
-          ) : null}
-          {deleteError ? (
-            <ErrorState message={deleteError} onAction={() => void deleteCoupon()} style={styles.inlineError} />
-          ) : null}
-
-          <View style={styles.actions}>
-            <AppButton
-              label={isEditMode ? 'Update coupon' : 'Create coupon'}
-              onPress={() => void handleSubmit()}
-              loading={isSaving}
-              disabled={isBusy}
-              fullWidth
-            />
-            <AppButton
-              label="Cancel"
-              variant="secondary"
-              onPress={() => navigation.goBack()}
-              disabled={isBusy}
-              fullWidth
-            />
-            {isEditMode ? (
-              <AppButton
-                label={isDeleting ? 'Deleting…' : 'Delete coupon'}
-                variant="outline"
-                onPress={handleDeletePress}
-                loading={isDeleting}
-                disabled={isBusy}
-                fullWidth
-                labelStyle={styles.deleteLabel}
-              />
-            ) : null}
-          </View>
-        </AppCard>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        <AppButton
+          label={isEditMode ? 'Update coupon' : 'Create coupon'}
+          onPress={() => void handleSubmit()}
+          loading={isSaving}
+          disabled={isBusy}
+          fullWidth
+        />
+        <AppButton
+          label="Cancel"
+          variant="secondary"
+          onPress={() => navigation.goBack()}
+          disabled={isBusy}
+          fullWidth
+        />
+        {isEditMode ? (
+          <AppButton
+            label={isDeleting ? 'Deleting…' : 'Delete coupon'}
+            variant="outline"
+            onPress={handleDeletePress}
+            loading={isDeleting}
+            disabled={isBusy}
+            fullWidth
+            labelStyle={styles.deleteLabel}
+          />
+        ) : null}
+      </View>
+    </KeyboardAwareFormScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: {
-    flex: 1,
-  },
-  screen: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   content: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
+    gap: spacing.lg,
   },
   centeredState: {
     flex: 1,
@@ -304,19 +301,18 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
     marginTop: spacing.lg,
   },
+  actions: {
+    gap: spacing.md,
+  },
   textArea: {
     minHeight: 96,
     textAlignVertical: 'top',
-  },
-  actions: {
-    gap: spacing.md,
-    marginTop: spacing.xl,
   },
   deleteLabel: {
     color: colors.error,
   },
   inlineError: {
-    marginTop: spacing.md,
+    marginTop: 0,
     marginBottom: 0,
   },
 });

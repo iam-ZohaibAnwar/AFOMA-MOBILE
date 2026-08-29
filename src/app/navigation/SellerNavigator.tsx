@@ -8,6 +8,7 @@ import { SellerAccountScreen } from '../../features/seller/screens/SellerAccount
 import { SellerDashboardScreen } from '../../features/seller/screens/SellerDashboardScreen';
 import { SellerProductsScreen } from '../../features/seller/screens/SellerProductsScreen';
 import { SellerProductTypeScreen } from '../../features/seller/screens/SellerProductTypeScreen';
+import { SellerProductSubtypeScreen } from '../../features/seller/screens/SellerProductSubtypeScreen';
 import { SellerStandardProductScreen } from '../../features/seller/screens/SellerStandardProductScreen';
 import { SellerDownloadableProductScreen } from '../../features/seller/screens/SellerDownloadableProductScreen';
 import { SellerCustomizableProductScreen } from '../../features/seller/screens/SellerCustomizableProductScreen';
@@ -16,8 +17,10 @@ import { SellerOrdersScreen } from '../../features/seller/orders/screens/SellerO
 import { SellerOrderDetailScreen } from '../../features/seller/orders/screens/SellerOrderDetailScreen';
 import { SellerShippingConfigScreen } from '../../features/seller/shipping/screens/SellerShippingConfigScreen';
 import { SellerCouponsScreen } from '../../features/seller/coupons/screens/SellerCouponsScreen';
+import { SellerCouponDetailScreen } from '../../features/seller/coupons/screens/SellerCouponDetailScreen';
 import { SellerCouponFormScreen } from '../../features/seller/coupons/screens/SellerCouponFormScreen';
 import { SellerAttributesScreen } from '../../features/seller/attributes/screens/SellerAttributesScreen';
+import { SellerEarningDetailScreen } from '../../features/seller/earnings/screens/SellerEarningDetailScreen';
 import { SellerEarningsScreen } from '../../features/seller/earnings/screens/SellerEarningsScreen';
 import { SellerReviewsScreen } from '../../features/seller/reviews/screens/SellerReviewsScreen';
 import { SellerReviewDetailScreen } from '../../features/seller/reviews/screens/SellerReviewDetailScreen';
@@ -51,38 +54,76 @@ export function SellerNavigator() {
         component={SellerAccountScreen}
         options={{ title: 'Dashboard', headerShown: false }}
       />
-      <Stack.Screen name="SellerDashboard" component={SellerDashboardScreen} options={{ title: 'Dashboard' }} />
-      <Stack.Screen name="SellerProducts" component={SellerProductsScreen} options={{ title: 'Products' }} />
+      <Stack.Screen
+        name="SellerDashboard"
+        component={SellerDashboardScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="SellerProducts"
+        component={SellerProductsScreen}
+        options={{
+          title: 'Product Management',
+          headerBackTitle: 'Product Management',
+        }}
+      />
       <Stack.Screen
         name="SellerProductType"
         component={SellerProductTypeScreen}
-        options={{ title: 'Add product' }}
+        options={{ title: 'Add Listing' }}
+      />
+      <Stack.Screen
+        name="SellerProductSubtype"
+        component={SellerProductSubtypeScreen}
+        options={{ title: 'Product Format' }}
       />
       <Stack.Screen
         name="SellerStandardProduct"
         component={SellerStandardProductScreen}
-        options={{ title: 'Standard product' }}
+        options={({ route }) => ({
+          title: route.params?.productId ? 'Edit Standard Product' : 'Create Standard Product',
+        })}
       />
       <Stack.Screen
         name="SellerCustomizableProduct"
         component={SellerCustomizableProductScreen}
-        options={{ title: 'Customizable product' }}
+        options={({ route }) => ({
+          title: route.params?.productId ? 'Edit Customizable Product' : 'Create Customizable Product',
+        })}
       />
       <Stack.Screen
         name="SellerDownloadableProduct"
         component={SellerDownloadableProductScreen}
-        options={{ title: 'Downloadable product' }}
+        options={({ route }) => ({
+          title: route.params?.productId ? 'Edit Downloadable Product' : 'Create Downloadable Product',
+        })}
       />
       <Stack.Screen
         name="SellerProductVariations"
         component={SellerProductVariationsScreen}
-        options={{ title: 'Product variations' }}
+        options={{ title: 'Product Variations' }}
       />
-      <Stack.Screen name="SellerOrders" component={SellerOrdersScreen} options={{ title: 'Orders' }} />
+      <Stack.Screen
+        name="SellerOrders"
+        component={SellerOrdersScreen}
+        options={{
+          title: 'Order Management',
+          headerBackTitle: 'Order Management',
+        }}
+      />
       <Stack.Screen
         name="SellerOrderDetail"
         component={SellerOrderDetailScreen}
-        options={{ title: 'Order detail' }}
+        options={{
+          title: '',
+          headerLeft: (props) => (
+            <StackHeaderBackButton
+              canGoBack={props.canGoBack}
+              tintColor={props.tintColor}
+              title="Order Details"
+            />
+          ),
+        }}
       />
       <Stack.Screen
         name="SellerShippingConfig"
@@ -91,10 +132,15 @@ export function SellerNavigator() {
       />
       <Stack.Screen name="SellerCoupons" component={SellerCouponsScreen} options={{ title: 'Coupons' }} />
       <Stack.Screen
+        name="SellerCouponDetail"
+        component={SellerCouponDetailScreen}
+        options={{ title: 'Coupon Detail' }}
+      />
+      <Stack.Screen
         name="SellerCouponForm"
         component={SellerCouponFormScreen}
         options={({ route }) => ({
-          title: route.params?.couponId ? 'Edit coupon' : 'Add coupon',
+          title: route.params?.couponId ? 'Edit Coupon' : 'Add Coupon',
         })}
       />
       <Stack.Screen
@@ -107,26 +153,49 @@ export function SellerNavigator() {
         component={SellerEarningsScreen}
         options={{ title: 'Seller Earnings' }}
       />
+      <Stack.Screen
+        name="SellerEarningDetail"
+        component={SellerEarningDetailScreen}
+        options={{
+          title: '',
+          headerLeft: (props) => (
+            <StackHeaderBackButton
+              canGoBack={props.canGoBack}
+              tintColor={props.tintColor}
+              title="Earning Details"
+            />
+          ),
+        }}
+      />
       <Stack.Screen name="SellerReviews" component={SellerReviewsScreen} options={{ title: 'Reviews' }} />
       <Stack.Screen
         name="SellerReviewDetail"
         component={SellerReviewDetailScreen}
-        options={{ title: 'Review detail' }}
+        options={{
+          title: '',
+          headerLeft: (props) => (
+            <StackHeaderBackButton
+              canGoBack={props.canGoBack}
+              tintColor={props.tintColor}
+              title="Review Details"
+            />
+          ),
+        }}
       />
       <Stack.Screen
         name="SellerPersonalInformation"
         component={SellerPersonalInformationScreen}
-        options={{ title: 'Personal information' }}
+        options={{ title: 'Personal Information' }}
       />
       <Stack.Screen
         name="SellerShopProfile"
         component={SellerShopProfileScreen}
-        options={{ title: 'Shop profile' }}
+        options={{ title: 'Shop Profile' }}
       />
       <Stack.Screen
         name="SellerShopSettings"
         component={SellerShopSettingsScreen}
-        options={{ title: 'Shop settings' }}
+        options={{ title: 'Shop Settings' }}
       />
       <Stack.Screen name="SellerSetup" component={SellerSetupScreen} options={{ title: 'Seller Setup' }} />
       <Stack.Screen

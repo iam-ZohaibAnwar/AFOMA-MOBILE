@@ -16,7 +16,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.zohaibanwarsorganization.afoma",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       }
     },
     "android": {
@@ -25,10 +28,11 @@
         "backgroundColor": "#FFF7ED"
       },
       "edgeToEdgeEnabled": true,
-      "softwareKeyboardLayoutMode": "resize",
+      "softwareKeyboardLayoutMode": "pan",
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS"
       ],
       "package": "com.zohaibanwarsorganization.afoma"
     },
@@ -49,6 +53,14 @@
         {
           "merchantIdentifier": "merchant.com.afoma",
           "enableGooglePay": false
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#EA580C",
+          "defaultChannel": "chat-messages"
         }
       ],
       "@react-native-community/datetimepicker"

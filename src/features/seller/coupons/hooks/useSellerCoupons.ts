@@ -1,139 +1,377 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { NavigationProp, ParamListBase } from '@react-navigation/native';
+import { Alert } from 'react-native';
 
 import { getErrorMessage } from '../../../../services/api/errors';
-import { deleteSellerCoupon, getSellerCouponsPage } from '../api/sellerCouponsApi';
-import type { SellerCoupon } from '../types/sellerCoupon';
+import type { AdminProductCardActionId } from '../../../admin/product-management/components/AdminProductCardActionsMenu';
+import type { SellerStackParamList } from '../../../../app/navigation/sellerTypes';
+import { deleteSellerCoupon, getAllSellerCoupons, getSellerCoupon } from '../api/sellerCouponsApi';
+import {
+  navigateToSellerCouponDetail,
+  navigateToSellerCouponForm,
+} from '../navigation/sellerCouponsNavigation';
+import type { SellerCoupon, SellerCouponStatusFilter } from '../types/sellerCoupon';
+import { buildSellerCouponCardActions } from '../utils/sellerCouponCardActions';
+import {
+  filterSellerCouponsBySearch,
+  filterSellerCouponsByStatus,
+  getSellerCouponMenuTitle,
+  removeSellerCouponFromList,
+} from '../utils/sellerCouponListDisplay';
+import { SELLER_COUPON_LIST_PAGE_SIZE } from '../utils/sellerCouponListTabs';
+import { mapSellerCouponToFormValues } from '../utils/sellerCouponValidation';
 
-const ITEMS_PER_PAGE = 10;
+const SEARCH_DEBOUNCE_MS = 300;
 
-export function useSellerCoupons(userId?: string) {
-  const [coupons, setCoupons] = useState<SellerCoupon[]>([]);
+type SellerNavigation = NavigationProp<SellerStackParamList & ParamListBase>;
+
+interface UseSellerCouponListOptions {
+  userId?: string;
+  enabled: boolean;
+}
+
+export function useSellerCouponList({ userId, enabled }: UseSellerCouponListOptions) {
+  const [allCoupons, setAllCoupons] = useState<SellerCoupon[]>([]);
+  const [statusFilter, setStatusFilter] = useState<SellerCouponStatusFilter>('');
+  const [searchInput, setSearchInput] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalCoupons, setTotalCoupons] = useState(0);
-  const [isLoading, setIsLoading] = useState(Boolean(userId));
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isLoading, setIsLoading] = useState(enabled);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deletingCouponId, setDeletingCouponId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const loadingMoreRef = useRef(false);
   const requestVersionRef = useRef(0);
+  const allCouponsRef = useRef<SellerCoupon[]>([]);
 
-  const loadPage = useCallback(
-    async (page: number, mode: 'initial' | 'more' | 'refresh') => {
-      if (!userId) {
-        setCoupons([]);
-        setError(null);
+  allCouponsRef.current = allCoupons;
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchTerm(searchInput.trim());
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, searchTerm]);
+
+  const filteredCoupons = useMemo(() => {
+    const byStatus = filterSellerCouponsByStatus(allCoupons, statusFilter);
+    return filterSellerCouponsBySearch(byStatus, searchTerm);
+  }, [allCoupons, searchTerm, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredCoupons.length / SELLER_COUPON_LIST_PAGE_SIZE));
+
+  const paginatedCoupons = useMemo(() => {
+    const start = (currentPage - 1) * SELLER_COUPON_LIST_PAGE_SIZE;
+    return filteredCoupons.slice(start, start + SELLER_COUPON_LIST_PAGE_SIZE);
+  }, [currentPage, filteredCoupons]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const hasActiveFilters = Boolean(searchTerm || statusFilter);
+
+  const load = useCallback(
+    async (mode: 'initial' | 'refresh') => {
+      if (!enabled || !userId) {
         setIsLoading(false);
+        setIsRefreshing(false);
         return;
       }
 
-      const requestVersion = requestVersionRef.current + 1;
-      requestVersionRef.current = requestVersion;
+      const requestVersion = ++requestVersionRef.current;
+      const hasCachedCoupons = allCouponsRef.current.length > 0;
 
-      if (mode === 'more') {
-        if (loadingMoreRef.current) {
-          return;
-        }
-        loadingMoreRef.current = true;
-        setIsLoadingMore(true);
+      if (mode === 'initial' && !hasCachedCoupons) {
+        setIsLoading(true);
       } else if (mode === 'refresh') {
         setIsRefreshing(true);
-      } else {
-        setIsLoading(true);
       }
 
       setError(null);
 
       try {
-        const response = await getSellerCouponsPage(userId, {
-          page,
-          limit: ITEMS_PER_PAGE,
-        });
+        const nextCoupons = await getAllSellerCoupons(userId);
 
         if (requestVersion !== requestVersionRef.current) {
           return;
         }
 
-        const nextCoupons = Array.isArray(response.coupons) ? response.coupons : [];
-
-        setCoupons((current) => (mode === 'more' ? [...current, ...nextCoupons] : nextCoupons));
-        setCurrentPage(response.currentPage ?? page);
-        setTotalPages(response.totalPages ?? 1);
-        setTotalCoupons(response.totalCoupons ?? nextCoupons.length);
-      } catch (err) {
+        setAllCoupons(nextCoupons);
+      } catch (loadError) {
         if (requestVersion !== requestVersionRef.current) {
           return;
         }
 
-        if (mode !== 'more') {
-          setCoupons([]);
+        if (!allCouponsRef.current.length) {
+          setAllCoupons([]);
+          setError(getErrorMessage(loadError, 'Failed to load coupons'));
+        } else {
+          setError(getErrorMessage(loadError, 'Unable to refresh coupons'));
         }
-        setError(getErrorMessage(err, 'Failed to load coupons'));
       } finally {
         if (requestVersion === requestVersionRef.current) {
           setIsLoading(false);
-          setIsLoadingMore(false);
           setIsRefreshing(false);
-          loadingMoreRef.current = false;
         }
       }
     },
-    [userId],
+    [enabled, userId],
   );
 
   useEffect(() => {
-    void loadPage(1, 'initial');
-  }, [loadPage]);
-
-  const hasMore = currentPage < totalPages;
+    void load('initial');
+  }, [load]);
 
   const refresh = useCallback(async () => {
-    await loadPage(1, 'refresh');
-  }, [loadPage]);
+    await load('refresh');
+  }, [load]);
 
-  const loadMore = useCallback(() => {
-    if (!hasMore || isLoading || isLoadingMore || isRefreshing) {
+  const clearActionError = useCallback(() => {
+    setActionError(null);
+  }, []);
+
+  const goToPreviousPage = useCallback(() => {
+    setCurrentPage((page) => Math.max(1, page - 1));
+  }, []);
+
+  const goToNextPage = useCallback(() => {
+    setCurrentPage((page) => Math.min(totalPages, page + 1));
+  }, [totalPages]);
+
+  const deleteCoupon = useCallback(
+    async (couponId: string): Promise<boolean> => {
+      if (!couponId || deletingCouponId) {
+        return false;
+      }
+
+      setDeletingCouponId(couponId);
+      setActionError(null);
+
+      try {
+        await deleteSellerCoupon(couponId);
+        setAllCoupons((current) => removeSellerCouponFromList(current, couponId));
+        return true;
+      } catch (err) {
+        setActionError(getErrorMessage(err, 'Failed to delete coupon'));
+        return false;
+      } finally {
+        setDeletingCouponId(null);
+      }
+    },
+    [deletingCouponId],
+  );
+
+  return {
+    coupons: paginatedCoupons,
+    filteredCount: filteredCoupons.length,
+    statusFilter,
+    setStatusFilter,
+    searchInput,
+    setSearchInput,
+    currentPage,
+    totalPages,
+    hasActiveFilters,
+    isLoading,
+    isRefreshing,
+    deletingCouponId,
+    error,
+    actionError,
+    refresh,
+    clearActionError,
+    goToPreviousPage,
+    goToNextPage,
+    canGoPrevious: currentPage > 1,
+    canGoNext: currentPage < totalPages,
+    deleteCoupon,
+  };
+}
+
+interface UseSellerCouponCardActionsOptions {
+  deletingCouponId: string | null;
+  onDeleteCoupon: (couponId: string) => Promise<boolean>;
+}
+
+export function useSellerCouponCardActions(
+  navigation: SellerNavigation,
+  { deletingCouponId, onDeleteCoupon }: UseSellerCouponCardActionsOptions,
+) {
+  const [menuCoupon, setMenuCoupon] = useState<SellerCoupon | null>(null);
+
+  const menuActions = useMemo(() => buildSellerCouponCardActions(), []);
+
+  const openMenu = useCallback((coupon: SellerCoupon) => {
+    setMenuCoupon(coupon);
+  }, []);
+
+  const closeMenu = useCallback(() => {
+    setMenuCoupon(null);
+  }, []);
+
+  const handleView = useCallback(
+    (coupon: SellerCoupon) => {
+      if (!coupon._id) {
+        return;
+      }
+
+      navigateToSellerCouponDetail(navigation, coupon._id, coupon);
+    },
+    [navigation],
+  );
+
+  const handleEdit = useCallback(
+    (coupon: SellerCoupon) => {
+      if (!coupon._id) {
+        return;
+      }
+
+      navigateToSellerCouponForm(navigation, {
+        couponId: coupon._id,
+        initialCoupon: coupon,
+      });
+    },
+    [navigation],
+  );
+
+  const handleDelete = useCallback(
+    (coupon: SellerCoupon) => {
+      const couponId = coupon._id;
+      if (!couponId) {
+        return;
+      }
+
+      Alert.alert(
+        'Delete coupon?',
+        `This will permanently remove ${getSellerCouponMenuTitle(coupon)}.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: () => {
+              void onDeleteCoupon(couponId);
+            },
+          },
+        ],
+      );
+    },
+    [onDeleteCoupon],
+  );
+
+  const handleMenuAction = useCallback(
+    (actionId: AdminProductCardActionId) => {
+      const coupon = menuCoupon;
+      closeMenu();
+
+      if (!coupon) {
+        return;
+      }
+
+      switch (actionId) {
+        case 'view':
+          handleView(coupon);
+          break;
+        case 'edit':
+          handleEdit(coupon);
+          break;
+        case 'delete':
+          handleDelete(coupon);
+          break;
+        default:
+          break;
+      }
+    },
+    [closeMenu, handleDelete, handleEdit, handleView, menuCoupon],
+  );
+
+  return {
+    menuCoupon,
+    menuActions,
+    menuTitle: menuCoupon ? getSellerCouponMenuTitle(menuCoupon) : undefined,
+    openMenu,
+    closeMenu,
+    handleView,
+    handleMenuAction,
+    busyCouponId: deletingCouponId,
+  };
+}
+
+interface UseSellerCouponDetailOptions {
+  couponId?: string;
+  initialCoupon?: SellerCoupon;
+  enabled: boolean;
+}
+
+export function useSellerCouponDetail({
+  couponId,
+  initialCoupon,
+  enabled,
+}: UseSellerCouponDetailOptions) {
+  const [remoteCoupon, setRemoteCoupon] = useState<SellerCoupon | null>(initialCoupon ?? null);
+  const [isRefreshing, setIsRefreshing] = useState(Boolean(couponId && !initialCoupon));
+  const [error, setError] = useState<string | null>(null);
+  const remoteCouponRef = useRef<SellerCoupon | null>(remoteCoupon);
+
+  remoteCouponRef.current = remoteCoupon;
+
+  const coupon = remoteCoupon ?? initialCoupon ?? null;
+
+  useEffect(() => {
+    setRemoteCoupon(initialCoupon ?? null);
+  }, [initialCoupon, couponId]);
+
+  const reload = useCallback(async () => {
+    if (!enabled || !couponId) {
+      setRemoteCoupon(null);
+      setError(null);
+      setIsRefreshing(false);
       return;
     }
 
-    void loadPage(currentPage + 1, 'more');
-  }, [currentPage, hasMore, isLoading, isLoadingMore, isRefreshing, loadPage]);
+    const hasExistingCoupon = Boolean(initialCoupon ?? remoteCouponRef.current);
+    if (!hasExistingCoupon) {
+      setIsRefreshing(true);
+    }
 
-  const removeCoupon = useCallback(async (couponId: string): Promise<boolean> => {
-    setDeletingCouponId(couponId);
-    setDeleteError(null);
+    setError(null);
 
     try {
-      await deleteSellerCoupon(couponId);
-      setCoupons((current) => current.filter((coupon) => coupon._id !== couponId));
-      setTotalCoupons((count) => Math.max(0, count - 1));
-      return true;
+      const response = await getSellerCoupon(couponId);
+      setRemoteCoupon(response);
     } catch (err) {
-      setDeleteError(getErrorMessage(err, 'Failed to delete coupon'));
-      return false;
+      if (!hasExistingCoupon) {
+        setRemoteCoupon(null);
+        setError(getErrorMessage(err, 'Failed to load coupon'));
+      } else {
+        setError(getErrorMessage(err, 'Unable to refresh coupon'));
+      }
     } finally {
-      setDeletingCouponId(null);
+      setIsRefreshing(false);
     }
-  }, []);
+  }, [couponId, enabled, initialCoupon]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
 
   return {
-    coupons,
-    totalCoupons,
-    currentPage,
-    totalPages,
-    hasMore,
-    isLoading,
-    isLoadingMore,
+    coupon,
+    isLoading: isRefreshing && !coupon,
     isRefreshing,
     error,
-    deleteError,
-    deletingCouponId,
-    refresh,
-    loadMore,
-    removeCoupon,
-    clearDeleteError: () => setDeleteError(null),
+    reload,
   };
+}
+
+/** @deprecated Use useSellerCouponList instead. */
+export function useSellerCoupons(userId?: string) {
+  return useSellerCouponList({ userId, enabled: Boolean(userId) });
 }

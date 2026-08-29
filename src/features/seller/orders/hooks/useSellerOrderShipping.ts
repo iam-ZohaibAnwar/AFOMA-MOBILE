@@ -24,27 +24,34 @@ import {
   getFreightcomLabelUrl,
   getSellerOrderLineItems,
   getSellerShipmentContext,
-  pickupFormToDetails,
   validatePickupForm,
+  pickupFormToDetails,
 } from '../utils/sellerOrderShippingMappers';
+import { getSellerShippingActionFlags } from '../utils/sellerOrderShippingActions';
 
 export function useSellerOrderShipping(
   order: SellerOrderDetail | null,
   onRefresh: () => Promise<void>,
 ) {
-  const [isDownloadingLabel, setIsDownloadingLabel] = useState(false);
-  const [isDownloadingInvoice, setIsDownloadingInvoice] = useState(false);
+  const [isOpeningLabel, setIsOpeningLabel] = useState(false);
+  const [isOpeningInvoice, setIsOpeningInvoice] = useState(false);
+  const [isGeneratingLabel, setIsGeneratingLabel] = useState(false);
   const [isSchedulingPickup, setIsSchedulingPickup] = useState(false);
   const [pickupSheetVisible, setPickupSheetVisible] = useState(false);
   const [pickupForm, setPickupForm] = useState<SellerPickupFormValues>(() =>
     emptyPickupFormValues(order),
   );
-  const [labelError, setLabelError] = useState<string | null>(null);
+  const [shippingError, setShippingError] = useState<string | null>(null);
   const [pickupError, setPickupError] = useState<string | null>(null);
   const [pickupSuccessMessage, setPickupSuccessMessage] = useState<string | null>(null);
 
   const shipmentContext = useMemo(
     () => (order ? getSellerShipmentContext(order) : null),
+    [order],
+  );
+
+  const actionFlags = useMemo(
+    () => (order ? getSellerShippingActionFlags(order) : null),
     [order],
   );
 
@@ -63,17 +70,17 @@ export function useSellerOrderShipping(
     setPickupSheetVisible(false);
   }, [isSchedulingPickup]);
 
-  const downloadLabel = useCallback(
+  const openShippingDocument = useCallback(
     async (documentKind: SellerShippingDocumentKind = 'label') => {
       if (!order || !shipmentContext) {
         return false;
       }
 
       const setLoading =
-        documentKind === 'invoice' ? setIsDownloadingInvoice : setIsDownloadingLabel;
+        documentKind === 'invoice' ? setIsOpeningInvoice : setIsOpeningLabel;
 
       setLoading(true);
-      setLabelError(null);
+      setShippingError(null);
 
       try {
         if (shipmentContext.kind === 'freightcom') {
@@ -113,6 +120,7 @@ export function useSellerOrderShipping(
         }
 
         if (shipmentContext.kind === 'ngshipping') {
+          setIsGeneratingLabel(true);
           const html = await generateShippingLabel({
             order_id: order._id ?? '',
             shipment: getSellerOrderLineItems(order),
@@ -125,10 +133,11 @@ export function useSellerOrderShipping(
 
         throw new Error('Unsupported shipment type.');
       } catch (err) {
-        setLabelError(getErrorMessage(err, 'Failed to download shipping label'));
+        setShippingError(getErrorMessage(err, 'Failed to open shipping document'));
         return false;
       } finally {
         setLoading(false);
+        setIsGeneratingLabel(false);
       }
     },
     [order, shipmentContext],
@@ -176,25 +185,29 @@ export function useSellerOrderShipping(
     }
   }, [onRefresh, order, pickupForm, shipmentContext]);
 
-  const clearLabelError = useCallback(() => setLabelError(null), []);
+  const clearShippingError = useCallback(() => setShippingError(null), []);
   const clearPickupError = useCallback(() => setPickupError(null), []);
 
   return {
     shipmentContext: shipmentContext as SellerShipmentContext | null,
-    isDownloadingLabel,
-    isDownloadingInvoice,
+    canDownloadLabel: actionFlags?.canDownloadLabel ?? false,
+    canPrintPackingSlip: actionFlags?.canPrintPackingSlip ?? false,
+    canSchedulePickup: actionFlags?.canSchedulePickup ?? false,
+    isOpeningLabel,
+    isOpeningInvoice,
+    isGeneratingLabel,
     isSchedulingPickup,
     pickupSheetVisible,
     pickupForm,
     setPickupForm,
-    labelError,
+    shippingError,
     pickupError,
     pickupSuccessMessage,
     openPickupSheet,
     closePickupSheet,
-    downloadLabel,
+    openShippingDocument,
     schedulePickup,
-    clearLabelError,
+    clearShippingError,
     clearPickupError,
   };
 }

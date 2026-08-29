@@ -98,7 +98,7 @@ export function SellerDownloadableProductScreen({ navigation, route }: Props) {
 
   const renderCategories = () => (
     <View style={styles.stepContent}>
-      <SelectField
+      <SelectField tone="surface"
         label="Parent category *"
         value={wizard.values.categoryId}
         options={categories.parentOptions}
@@ -112,7 +112,7 @@ export function SellerDownloadableProductScreen({ navigation, route }: Props) {
         modalTitle="Parent category"
       />
       {wizard.values.categoryId ? (
-        <SelectField
+        <SelectField tone="surface"
           label="Subcategory *"
           value={wizard.values.subCategoryId}
           options={categories.subCategoryOptions}
@@ -126,7 +126,7 @@ export function SellerDownloadableProductScreen({ navigation, route }: Props) {
         />
       ) : null}
       {wizard.values.subCategoryId && categories.childCategoryOptions.length > 0 ? (
-        <SelectField
+        <SelectField tone="surface"
           label="Child category"
           value={wizard.values.childCategoryId}
           options={categories.childCategoryOptions}
@@ -143,14 +143,14 @@ export function SellerDownloadableProductScreen({ navigation, route }: Props) {
       case 'basic':
         return (
           <View style={styles.stepContent}>
-            <AppInput
+            <AppInput tone="surface"
               label="Product name *"
               value={wizard.values.productName}
               onChangeText={(text) => wizard.updateField('productName', text)}
               maxLength={120}
               error={wizard.fieldErrors.productName}
             />
-            <AppInput
+            <AppInput tone="surface"
               label="Description *"
               value={wizard.values.description}
               onChangeText={(text) => wizard.updateField('description', text)}
@@ -182,7 +182,7 @@ export function SellerDownloadableProductScreen({ navigation, route }: Props) {
       case 'pricing':
         return (
           <View style={styles.stepContent}>
-            <SelectField
+            <SelectField tone="surface"
               label="Inventory *"
               value={wizard.values.inventory}
               options={SELLER_INVENTORY_OPTIONS.map((option) => ({
@@ -195,7 +195,7 @@ export function SellerDownloadableProductScreen({ navigation, route }: Props) {
               error={wizard.fieldErrors.inventory}
               modalTitle="Inventory"
             />
-            <SelectField
+            <SelectField tone="surface"
               label="Currency"
               value={wizard.values.currency}
               options={wizard.currencyOptions}
@@ -203,7 +203,7 @@ export function SellerDownloadableProductScreen({ navigation, route }: Props) {
               modalTitle="Currency"
             />
             {wizard.values.currency !== 'cad' ? (
-              <AppInput
+              <AppInput tone="surface"
                 label={`Price in ${wizard.values.currency.toUpperCase()}`}
                 value={wizard.values.currencyPrice}
                 onChangeText={(text) => wizard.updateField('currencyPrice', text)}
@@ -211,7 +211,7 @@ export function SellerDownloadableProductScreen({ navigation, route }: Props) {
                 error={wizard.fieldErrors.currencyPrice}
               />
             ) : null}
-            <AppInput
+            <AppInput tone="surface"
               label="Price (CAD) *"
               value={wizard.values.price}
               onChangeText={(text) => wizard.updateField('price', text)}
@@ -259,17 +259,17 @@ export function SellerDownloadableProductScreen({ navigation, route }: Props) {
       case 'additional':
         return (
           <View style={styles.stepContent}>
-            <AppInput
+            <AppInput tone="surface"
               label="Meta title"
               value={wizard.values.metaTitle}
               onChangeText={(text) => wizard.updateField('metaTitle', text)}
             />
-            <AppInput
+            <AppInput tone="surface"
               label="Meta keywords"
               value={wizard.values.metaKeywords}
               onChangeText={(text) => wizard.updateField('metaKeywords', text)}
             />
-            <AppInput
+            <AppInput tone="surface"
               label="Meta description"
               value={wizard.values.metaDesc}
               onChangeText={(text) => wizard.updateField('metaDesc', text)}
@@ -277,7 +277,7 @@ export function SellerDownloadableProductScreen({ navigation, route }: Props) {
               numberOfLines={4}
               style={styles.textArea}
             />
-            <AppInput
+            <AppInput tone="surface"
               label="Discount (%)"
               value={wizard.values.discountCode}
               onChangeText={(text) => wizard.updateField('discountCode', text)}

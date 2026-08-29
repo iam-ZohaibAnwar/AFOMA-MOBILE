@@ -1,42 +1,38 @@
-import { useCallback } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorState } from '../../../components/ecommerce/ErrorState';
-import { AppCard } from '../../../components/ui/AppCard';
+import { AppButton } from '../../../components/ui/AppButton';
 import { AppText } from '../../../components/ui/AppText';
 import { colors, spacing } from '../../../design-system';
 import type { SellerStackParamList } from '../../../app/navigation/sellerTypes';
+import { AdminListingOptionCard } from '../../admin/product-management/components/AdminListingOptionCard';
+import type { AdminProductListingCategory } from '../../admin/product-management/types/adminProductCreate';
 import { authReturnTo } from '../../auth/utils/authNavigation';
-import { SellerProductTypeOption } from '../products/components/SellerProductTypeOption';
-import type { SellerProductType } from '../products/types/sellerProductType';
-import { navigateToIncompleteSellerSetup } from '../products/utils/sellerProductCreationNavigation';
 import { useRequireSeller } from '../hooks/useRequireSeller';
 import { useSellerProfile } from '../hooks/useSellerProfile';
+import {
+  navigateToIncompleteSellerSetup,
+} from '../products/utils/sellerProductCreationNavigation';
+import {
+  navigateToSellerProductSubtypePicker,
+  navigateToSellerProductWizard,
+} from '../products/utils/sellerProductCreateNavigation';
 import { canSellerCreateProducts } from '../utils/sellerProductGate';
 
 type Props = NativeStackScreenProps<SellerStackParamList, 'SellerProductType'>;
 
 const PRODUCT_TYPE_RETURN_TO = authReturnTo.sellerProductType();
 
-const PRODUCT_TYPE_DESTINATIONS: Record<
-  SellerProductType,
-  keyof Pick<
-    SellerStackParamList,
-    'SellerStandardProduct' | 'SellerCustomizableProduct' | 'SellerDownloadableProduct'
-  >
-> = {
-  Standard: 'SellerStandardProduct',
-  Customizable: 'SellerCustomizableProduct',
-  Downloadable: 'SellerDownloadableProduct',
-};
-
 export function SellerProductTypeScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { isAuthorized, sellerId } = useRequireSeller(PRODUCT_TYPE_RETURN_TO);
   const { profile, isLoading, error, reload } = useSellerProfile(isAuthorized ? sellerId : undefined);
+  const [category, setCategory] = useState<AdminProductListingCategory | null>(null);
 
   const canCreate = canSellerCreateProducts(profile?.profileSetup);
 
@@ -52,8 +48,17 @@ export function SellerProductTypeScreen({ navigation }: Props) {
     }, [canCreate, isAuthorized, isLoading, navigation, profile]),
   );
 
-  const handleSelectType = (productType: SellerProductType) => {
-    navigation.navigate(PRODUCT_TYPE_DESTINATIONS[productType]);
+  const handleContinue = () => {
+    if (!category) {
+      return;
+    }
+
+    if (category === 'physical') {
+      navigateToSellerProductSubtypePicker(navigation);
+      return;
+    }
+
+    navigateToSellerProductWizard(navigation, 'Downloadable');
   };
 
   if (!isAuthorized) {
@@ -89,59 +94,41 @@ export function SellerProductTypeScreen({ navigation }: Props) {
   }
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={styles.intro}>
-        <AppText variant="h3" style={styles.introTitle}>
-          What are you listing?
-        </AppText>
-        <AppText variant="bodySmall" color="textSecondary">
-          Choose the product type that matches how you sell and deliver your item.
-        </AppText>
+    <View style={styles.screen}>
+      <View style={styles.body}>
+        <View style={styles.intro}>
+          <AppText variant="h2" style={styles.introTitle}>
+            What are you listing?
+          </AppText>
+          <AppText variant="bodySmall" color="textSecondary">
+            Choose the type of product you want to list.
+          </AppText>
+        </View>
+
+        <View style={styles.options}>
+          <AdminListingOptionCard
+            title="Physical product"
+            description="Items that require shipping or local pickup."
+            selected={category === 'physical'}
+            onPress={() => setCategory('physical')}
+            icon={<Ionicons name="cube-outline" size={24} color={colors.textInverse} />}
+          />
+
+          <AdminListingOptionCard
+            title="Digital product"
+            description="Files, services, or downloadable content."
+            selected={category === 'digital'}
+            onPress={() => setCategory('digital')}
+            iconBackgroundColor={colors.secondary}
+            icon={<Ionicons name="cloud-download-outline" size={24} color={colors.textInverse} />}
+          />
+        </View>
       </View>
 
-      <AppCard variant="flat">
-        <AppText variant="bodyMedium" style={styles.groupTitle}>
-          Physical product
-        </AppText>
-        <AppText variant="bodySmall" color="textSecondary" style={styles.groupDescription}>
-          Products that require physical delivery.
-        </AppText>
-
-        <View style={styles.options}>
-          <SellerProductTypeOption
-            title="Standard"
-            description="A single item with one price and inventory."
-            onPress={() => handleSelectType('Standard')}
-          />
-          <SellerProductTypeOption
-            title="Customizable"
-            description="Options or attributes such as size, color, or material."
-            onPress={() => handleSelectType('Customizable')}
-          />
-        </View>
-      </AppCard>
-
-      <AppCard variant="flat">
-        <AppText variant="bodyMedium" style={styles.groupTitle}>
-          Digital product
-        </AppText>
-        <AppText variant="bodySmall" color="textSecondary" style={styles.groupDescription}>
-          Products delivered digitally.
-        </AppText>
-
-        <View style={styles.options}>
-          <SellerProductTypeOption
-            title="Downloadable"
-            description="A digital file customers download after purchase."
-            onPress={() => handleSelectType('Downloadable')}
-          />
-        </View>
-      </AppCard>
-    </ScrollView>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.lg }]}>
+        <AppButton label="Continue →" onPress={handleContinue} disabled={!category} fullWidth />
+      </View>
+    </View>
   );
 }
 
@@ -150,27 +137,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  content: {
+  body: {
+    flex: 1,
     padding: spacing.lg,
-    gap: spacing.lg,
-  },
-  intro: {
-    gap: spacing.sm,
-  },
-  introTitle: {
-    color: colors.textPrimary,
-  },
-  groupTitle: {
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  groupDescription: {
-    marginBottom: spacing.md,
-    lineHeight: 20,
-  },
-  options: {
-    gap: spacing.md,
+    gap: spacing.xl,
   },
   centeredState: {
     flex: 1,
@@ -178,6 +148,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.md,
     padding: spacing.xl,
+    backgroundColor: colors.background,
+  },
+  intro: {
+    gap: spacing.sm,
+    paddingTop: spacing.sm,
+  },
+  introTitle: {
+    color: colors.textPrimary,
+  },
+  options: {
+    gap: spacing.md,
+  },
+  footer: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.borderStrong,
     backgroundColor: colors.background,
   },
 });

@@ -14,6 +14,15 @@ export type SellerProfileUpdatePayload = Record<string, unknown> & {
   profileSetup?: Partial<SellerProfile['profileSetup']>;
 };
 
+/** GET /sellers/user/{userId} — restore seller session fields after profile sync. */
+export async function getSellerByUserId(userId: string): Promise<SellerProfile> {
+  return apiGet<SellerProfile>(
+    `/sellers/user/${encodeURIComponent(userId)}`,
+    undefined,
+    'Failed to load seller profile',
+  );
+}
+
 /** GET /sellers/{sellerId} */
 export async function getSellerProfile(sellerId: string): Promise<SellerProfile> {
   return apiGet<SellerProfile>(

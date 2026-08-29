@@ -10,6 +10,7 @@ import { StripeAppProvider } from './src/app/providers/StripeAppProvider';
 import { preparePayPalAuthSession } from './src/features/checkout/utils/openPayPalAuthSession';
 import { RootNavigator } from './src/app/navigation/RootNavigator';
 import { prefetchCategoryTree } from './src/services/cache/categoryTreeCache';
+import { PushNotificationBootstrap } from './src/services/push/PushNotificationBootstrap';
 
 export default function App() {
   preparePayPalAuthSession();
@@ -22,6 +23,7 @@ export default function App() {
     <SafeAreaProvider>
       <StripeAppProvider>
         <AuthProvider>
+          <PushNotificationBootstrap />
           <PricingProvider>
             <CartProvider>
               <MarketplaceChromeShell>

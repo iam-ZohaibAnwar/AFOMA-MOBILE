@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import {
-  KeyboardAvoidingView,
+  Keyboard,
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Switch,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -25,8 +25,6 @@ export interface HandDeliverySheetProps {
   onSave: (value: HandDeliveryOptionsForm, enabled: boolean) => void;
 }
 
-const SHEET_HEIGHT_RATIO = 0.62;
-
 export function HandDeliverySheet({
   visible,
   currency,
@@ -35,8 +33,7 @@ export function HandDeliverySheet({
   onSave,
 }: HandDeliverySheetProps) {
   const insets = useSafeAreaInsets();
-  const { height: windowHeight } = useWindowDimensions();
-  const sheetMaxHeight = Math.round(windowHeight * SHEET_HEIGHT_RATIO);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [draft, setDraft] = useState(value);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,6 +43,29 @@ export function HandDeliverySheet({
       setError(null);
     }
   }, [value, visible]);
+
+  useEffect(() => {
+    if (!visible) {
+      setKeyboardHeight(0);
+      return;
+    }
+
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (event) => {
+      setKeyboardHeight(event.endCoordinates.height);
+    });
+
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [visible]);
 
   const handleSave = () => {
     if (draft.free_delivery) {
@@ -72,16 +92,17 @@ export function HandDeliverySheet({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.keyboardWrap}
-      >
+      <View style={styles.overlay}>
+        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close hand delivery" />
+
         <View
           style={[
             styles.sheet,
             shadows.modal,
-            { maxHeight: sheetMaxHeight, paddingBottom: insets.bottom + spacing.lg },
+            {
+              marginBottom: keyboardHeight,
+              paddingBottom: insets.bottom + spacing.lg,
+            },
           ]}
         >
           <View style={styles.handle} />
@@ -92,60 +113,68 @@ export function HandDeliverySheet({
             Configure local hand delivery for buyers in your area.
           </AppText>
 
-          <View style={styles.optionCard}>
-            <View style={styles.optionHeader}>
-              <AppText variant="bodyMedium" style={styles.optionTitle}>
-                Free delivery
-              </AppText>
-              <Switch
-                value={draft.free_delivery}
-                onValueChange={(enabled) =>
-                  setDraft((current) => ({
-                    ...current,
-                    free_delivery: enabled,
-                    fee_rate: enabled ? '' : current.fee_rate,
-                  }))
-                }
-                trackColor={{ false: colors.border, true: colors.primary }}
-                thumbColor={colors.surface}
-              />
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+            contentContainerStyle={styles.scrollContent}
+          >
+            <View style={styles.optionCard}>
+              <View style={styles.optionHeader}>
+                <AppText variant="bodyMedium" style={styles.optionTitle}>
+                  Free delivery
+                </AppText>
+                <Switch
+                  value={draft.free_delivery}
+                  onValueChange={(enabled) =>
+                    setDraft((current) => ({
+                      ...current,
+                      free_delivery: enabled,
+                      fee_rate: enabled ? '' : current.fee_rate,
+                    }))
+                  }
+                  trackColor={{ false: colors.border, true: colors.primary }}
+                  thumbColor={colors.surface}
+                />
+              </View>
             </View>
-          </View>
 
-          {!draft.free_delivery ? (
-            <AppInput
-              tone="surface"
-              label={`Delivery fee (${currencyCode})`}
-              value={draft.fee_rate}
-              onChangeText={(text) => setDraft((current) => ({ ...current, fee_rate: text }))}
-              keyboardType="decimal-pad"
-            />
-          ) : null}
+            {!draft.free_delivery ? (
+              <AppInput
+                tone="surface"
+                label={`Delivery fee (${currencyCode})`}
+                value={draft.fee_rate}
+                onChangeText={(text) => setDraft((current) => ({ ...current, fee_rate: text }))}
+                keyboardType="decimal-pad"
+              />
+            ) : null}
 
-          {error ? (
-            <AppText variant="caption" color="error">
-              {error}
-            </AppText>
-          ) : null}
+            {error ? (
+              <AppText variant="caption" color="error">
+                {error}
+              </AppText>
+            ) : null}
 
-          <View style={styles.actions}>
-            <AppButton label="Save hand delivery" onPress={handleSave} />
-            <AppButton label="Disable hand delivery" variant="secondary" onPress={handleDisable} />
-          </View>
+            <View style={styles.actions}>
+              <AppButton label="Save hand delivery" onPress={handleSave} />
+              <AppButton label="Disable hand delivery" variant="secondary" onPress={handleDisable} />
+            </View>
+          </ScrollView>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.45)',
-  },
-  keyboardWrap: {
-    flex: 1,
-    justifyContent: 'flex-end',
   },
   sheet: {
     backgroundColor: colors.surface,
@@ -153,7 +182,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: radius.xl,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
-    gap: spacing.md,
+    maxHeight: '88%',
   },
   handle: {
     alignSelf: 'center',
@@ -167,7 +196,11 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   copy: {
-    marginBottom: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  scrollContent: {
+    gap: spacing.md,
+    paddingBottom: spacing.sm,
   },
   optionCard: {
     borderWidth: StyleSheet.hairlineWidth,

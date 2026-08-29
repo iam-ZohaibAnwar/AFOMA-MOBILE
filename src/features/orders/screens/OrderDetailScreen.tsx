@@ -1,12 +1,11 @@
-import { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 
 import { ErrorState } from '../../../components/ecommerce/ErrorState';
-import { AppButton } from '../../../components/ui/AppButton';
 import { AppDivider } from '../../../components/ui/AppDivider';
 import { AppText } from '../../../components/ui/AppText';
 import { colors, radius, spacing } from '../../../design-system';
@@ -15,26 +14,24 @@ import {
   marketplaceScrollProps,
   useMarketplaceScrollHandler,
 } from '../../../app/navigation/marketplaceChrome';
+import { AdminOrderBuyerInfoSection } from '../../admin/order-management/components/AdminOrderBuyerInfoSection';
+import { AdminOrderPaymentSummaryCard } from '../../admin/order-management/components/AdminOrderPaymentSummaryCard';
+import type { AdminOrderDetail } from '../../admin/order-management/types/adminOrderManagement';
 import { useRequireAuth } from '../../auth/hooks/useRequireAuth';
 import { authReturnTo } from '../../auth/utils/authNavigation';
+import { CustomerOrderActionsSection } from '../components/CustomerOrderActionsSection';
+import { CustomerOrderDetailHero } from '../components/CustomerOrderDetailHero';
+import { CustomerOrderDetailLineRow } from '../components/CustomerOrderDetailLineRow';
 import { OrderDetailInfoRow } from '../components/OrderDetailInfoRow';
 import { OrderDetailSection } from '../components/OrderDetailSection';
-import { OrderLineItemRow } from '../components/OrderLineItemRow';
 import { useCancelOrder } from '../hooks/useCancelOrder';
 import { useOrderDetail } from '../hooks/useOrderDetail';
 import {
   canCancelCustomerOrder,
-  formatOrderDateShort,
-  formatOrderDisplayId,
-  formatShippingAddressLines,
   getCustomerOrderCancelDisabledReason,
 } from '../utils/orderDisplay';
 import {
-  getOrderPaymentMethodLabel,
   getOrderShippingMethodLabel,
-  getOrderStatusColor,
-  getOrderStatusIconName,
-  getOrderStatusLabel,
   getOrderTrackingNumber,
 } from '../utils/orderDetailDisplay';
 import {
@@ -42,55 +39,57 @@ import {
   calculateOrderItemsSubTotal,
   calculateOrderServiceFees,
   calculateOrderShippingTotal,
-  formatOrderMoney,
 } from '../utils/orderPricing';
+import type { CartLineItem } from '../../../services/types/cart';
 
 type Props = NativeStackScreenProps<ShoppingStackParamList, 'OrderDetail'>;
 
-function SummaryRow({
-  label,
-  value,
-  emphasized = false,
-}: {
-  label: string;
-  value: string;
-  emphasized?: boolean;
-}) {
-  return (
-    <View style={styles.summaryRow}>
-      <AppText
-        variant={emphasized ? 'bodyMedium' : 'bodySmall'}
-        color={emphasized ? 'textPrimary' : 'textSecondary'}
-        style={emphasized ? styles.summaryLabelEmphasis : undefined}
-      >
-        {label}
-      </AppText>
-      <AppText
-        variant={emphasized ? 'h3' : 'bodySmall'}
-        style={emphasized ? styles.summaryTotal : styles.summaryValue}
-      >
-        {value}
-      </AppText>
-    </View>
-  );
-}
-
 export function OrderDetailScreen({ route, navigation }: Props) {
-  const { orderId } = route.params;
+  const { orderId, initialOrder } = route.params;
   const insets = useSafeAreaInsets();
   const onMarketplaceScroll = useMarketplaceScrollHandler();
-  const returnTo = useMemo(() => authReturnTo.orderDetail(orderId), [orderId]);
+  const returnTo = useMemo(
+    () => authReturnTo.orderDetail(orderId, initialOrder),
+    [initialOrder, orderId],
+  );
   const { isAuthorized } = useRequireAuth(returnTo);
-  const { order, isLoading, error, isNotFound, retry } = useOrderDetail(orderId);
+  const {
+    order,
+    isLoading,
+    isRefreshing,
+    error,
+    isNotFound,
+    refresh,
+    syncSessionPatch,
+    applyOrderUpdate,
+  } = useOrderDetail(isAuthorized ? orderId : '', initialOrder);
   const [cancelSuccessMessage, setCancelSuccessMessage] = useState<string | null>(null);
 
-  const { cancelOrder, isCancelling, cancelError, clearCancelError } = useCancelOrder(orderId, () => {
+  const handleCancelSuccess = useCallback(() => {
     setCancelSuccessMessage('Order cancelled successfully.');
-    void retry();
-  });
+    applyOrderUpdate({
+      ...(order ?? initialOrder ?? {}),
+      _id: orderId,
+      status: 'Cancelled',
+    });
+    void refresh();
+  }, [applyOrderUpdate, initialOrder, order, orderId, refresh]);
 
-  const handleCancelPress = () => {
-    if (!order || !canCancelCustomerOrder(order) || isCancelling) {
+  const { cancelOrder, isCancelling, cancelError, clearCancelError } = useCancelOrder(
+    orderId,
+    handleCancelSuccess,
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      syncSessionPatch();
+    }, [syncSessionPatch]),
+  );
+
+  const displayOrder = (order ?? initialOrder) as AdminOrderDetail | undefined;
+
+  const handleCancelPress = useCallback(() => {
+    if (!displayOrder || !canCancelCustomerOrder(displayOrder) || isCancelling) {
       return;
     }
 
@@ -109,90 +108,84 @@ export function OrderDetailScreen({ route, navigation }: Props) {
         },
       ],
     );
-  };
+  }, [cancelOrder, clearCancelError, displayOrder, isCancelling]);
 
-  const handleCopyTracking = async (trackingNumber: string) => {
+  const handleCopyTracking = useCallback(async (trackingNumber: string) => {
     await Clipboard.setStringAsync(trackingNumber);
     Alert.alert('Copied', 'Tracking number copied to clipboard.');
-  };
+  }, []);
+
+  const handleContactSeller = useCallback(() => {
+    navigation.navigate('ChatList');
+  }, [navigation]);
 
   if (!isAuthorized) {
-    return (
-      <View style={[styles.centeredState, { paddingBottom: insets.bottom }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <View style={[styles.screen, { paddingTop: insets.top }]} />;
   }
 
-  if (isLoading) {
-    return (
-      <View style={[styles.centeredState, { paddingBottom: insets.bottom }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <AppText variant="bodySmall" color="textMuted">
-          Loading order...
-        </AppText>
-      </View>
-    );
-  }
-
-  if (error || !order) {
+  if (error && !displayOrder) {
     return (
       <View style={[styles.centeredState, { paddingBottom: insets.bottom }]}>
         <ErrorState
-          message={isNotFound ? 'Order not found.' : (error ?? 'Failed to load order.')}
-          onAction={() => void retry()}
+          message={isNotFound ? 'Order not found.' : error}
+          onAction={() => void refresh()}
           style={styles.errorState}
         />
       </View>
     );
   }
 
-  const subtotal = calculateOrderItemsSubTotal(order);
-  const serviceFees = calculateOrderServiceFees(order);
-  const shipping = calculateOrderShippingTotal(order);
-  const total = calculateOrderGrandTotal(order);
-  const shippingLines = formatShippingAddressLines(order.userInfo);
-  const shippingMethod = getOrderShippingMethodLabel(order);
-  const trackingNumber = getOrderTrackingNumber(order);
-  const paymentMethod = getOrderPaymentMethodLabel(order);
-  const statusLabel = getOrderStatusLabel(order.status);
-  const statusColor = getOrderStatusColor(order.status);
-  const statusIcon = getOrderStatusIconName(order.status);
-  const handleDownloadInvoicePress = () => {
-    Alert.alert(
-      'Download Invoice',
-      'Invoice download is not available yet. You can view your order summary on this screen.',
+  if (!displayOrder) {
+    return (
+      <View style={[styles.centeredState, { paddingBottom: insets.bottom }]}>
+        <ActivityIndicator size="small" color={colors.primary} />
+        <AppText variant="bodySmall" color="textSecondary">
+          Loading order...
+        </AppText>
+      </View>
     );
-  };
+  }
 
-  const cancellable = canCancelCustomerOrder(order);
-  const cancelDisabledReason = getCustomerOrderCancelDisabledReason(order);
+  const subtotal = calculateOrderItemsSubTotal(displayOrder);
+  const serviceFees = calculateOrderServiceFees(displayOrder);
+  const shipping = calculateOrderShippingTotal(displayOrder);
+  const total = calculateOrderGrandTotal(displayOrder);
+  const lineItems = displayOrder.cart ?? [];
+  const itemCount = lineItems.reduce((sum, line) => sum + (line.orderQuantiy ?? 0), 0);
+  const shippingMethod = getOrderShippingMethodLabel(displayOrder);
+  const trackingNumber = getOrderTrackingNumber(displayOrder);
+  const cancellable = canCancelCustomerOrder(displayOrder);
+  const cancelDisabledReason = getCustomerOrderCancelDisabledReason(displayOrder);
 
   return (
     <ScrollView
       style={styles.screen}
-      contentContainerStyle={[
-        styles.content,
-        { paddingBottom: insets.bottom + spacing['3xl'] },
-      ]}
+      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
       showsVerticalScrollIndicator={false}
       onScroll={onMarketplaceScroll}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={() => void refresh()}
+          tintColor={colors.primary}
+        />
+      }
       {...marketplaceScrollProps}
     >
-      <View style={styles.hero}>
-        <AppText variant="h3" style={styles.heroTitle}>
-          Order #{formatOrderDisplayId(order._id ?? orderId)}
-        </AppText>
-        <AppText variant="bodySmall" color="textSecondary">
-          Placed on {formatOrderDateShort(order.createdAt)}
-        </AppText>
-        <View style={styles.statusRow}>
-          <Ionicons name={statusIcon} size={16} color={statusColor} />
-          <AppText variant="bodyMedium" style={[styles.statusLabel, { color: statusColor }]}>
-            {statusLabel}
+      <CustomerOrderDetailHero order={displayOrder} orderId={orderId} />
+
+      {isLoading ? (
+        <View style={styles.inlineLoading}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <AppText variant="caption" color="textSecondary">
+            Refreshing order details...
           </AppText>
         </View>
-      </View>
+      ) : null}
+
+      {error ? (
+        <ErrorState message={error} onAction={() => void refresh()} style={styles.inlineError} />
+      ) : null}
 
       {cancelSuccessMessage ? (
         <View style={styles.successBanner}>
@@ -211,12 +204,15 @@ export function OrderDetailScreen({ route, navigation }: Props) {
         />
       ) : null}
 
-      <OrderDetailSection title="Order Information" icon="information-circle-outline">
-        <View style={styles.infoRows}>
+      <AdminOrderBuyerInfoSection order={displayOrder} />
+
+      {(shippingMethod || trackingNumber) && (
+        <OrderDetailSection title="Shipping Info" icon="navigate-outline">
           {shippingMethod ? (
-            <OrderDetailInfoRow label="Shipping Method" value={shippingMethod} />
+            <AppText variant="bodySmall" color="textSecondary">
+              Method: {shippingMethod}
+            </AppText>
           ) : null}
-          <OrderDetailInfoRow label="Order Status" value={statusLabel} valueColor={statusColor} />
           {trackingNumber ? (
             <OrderDetailInfoRow
               label="Tracking Number"
@@ -225,16 +221,16 @@ export function OrderDetailScreen({ route, navigation }: Props) {
               onCopy={() => void handleCopyTracking(trackingNumber)}
             />
           ) : null}
-        </View>
-      </OrderDetailSection>
+        </OrderDetailSection>
+      )}
 
-      <OrderDetailSection title="Items in Order" icon="cube-outline">
-        {order.cart?.length ? (
+      <OrderDetailSection title={`Order Items (${lineItems.length})`} icon="cube-outline">
+        {lineItems.length ? (
           <View style={styles.productList}>
-            {order.cart.map((line, index) => (
+            {lineItems.map((line: CartLineItem, index: number) => (
               <View key={`${line.productData?._id ?? 'line'}-${index}`}>
-                <OrderLineItemRow line={line} order={order} />
-                {index < order.cart!.length - 1 ? <AppDivider style={styles.itemDivider} /> : null}
+                <CustomerOrderDetailLineRow order={displayOrder} line={line} />
+                {index < lineItems.length - 1 ? <AppDivider style={styles.itemDivider} /> : null}
               </View>
             ))}
           </View>
@@ -245,55 +241,22 @@ export function OrderDetailScreen({ route, navigation }: Props) {
         )}
       </OrderDetailSection>
 
-      <OrderDetailSection title="Shipping Address" icon="location-outline">
-        {shippingLines.map((line, index) => (
-          <AppText key={`${line}-${index}`} variant="bodySmall" style={styles.addressLine}>
-            {line}
-          </AppText>
-        ))}
-      </OrderDetailSection>
+      <AdminOrderPaymentSummaryCard
+        order={displayOrder}
+        itemCount={itemCount}
+        subtotal={subtotal}
+        shipping={shipping}
+        serviceFees={serviceFees}
+        total={total}
+      />
 
-      <OrderDetailSection title="Payment Summary" icon="receipt-outline">
-        <SummaryRow label="Subtotal" value={formatOrderMoney(order, subtotal)} />
-        <SummaryRow label="Shipping" value={formatOrderMoney(order, shipping)} />
-        <SummaryRow
-          label="Service fees"
-          value={serviceFees > 0 ? formatOrderMoney(order, serviceFees) : '—'}
-        />
-        <AppDivider style={styles.summaryDivider} />
-        <SummaryRow label="Total" value={formatOrderMoney(order, total)} emphasized />
-        {paymentMethod ? (
-          <View style={styles.paymentMethodRow}>
-            <Ionicons name="card-outline" size={16} color={colors.textSecondary} />
-            <AppText variant="bodySmall" color="textSecondary">
-              {paymentMethod}
-            </AppText>
-          </View>
-        ) : null}
-      </OrderDetailSection>
-
-      <View style={styles.actions}>
-        <AppButton
-          label="Contact Seller"
-          variant="outline"
-          onPress={() => navigation.navigate('ChatList')}
-        />
-        <AppButton label="Download Invoice" onPress={handleDownloadInvoicePress} />
-        <AppButton
-          label="Cancel Order"
-          variant="outline"
-          disabled={!cancellable || isCancelling}
-          loading={isCancelling}
-          onPress={handleCancelPress}
-          style={styles.cancelButton}
-          labelStyle={styles.cancelButtonLabel}
-        />
-        {!cancellable && cancelDisabledReason ? (
-          <AppText variant="caption" color="textMuted" style={styles.cancelHint}>
-            {cancelDisabledReason}
-          </AppText>
-        ) : null}
-      </View>
+      <CustomerOrderActionsSection
+        canCancel={cancellable}
+        cancelDisabledReason={cancelDisabledReason ?? undefined}
+        isCancelling={isCancelling}
+        onContactSeller={handleContactSeller}
+        onCancelOrder={handleCancelPress}
+      />
     </ScrollView>
   );
 }
@@ -311,33 +274,22 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.xl,
+    gap: spacing.sm,
     backgroundColor: colors.background,
-    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
   },
   errorState: {
     alignSelf: 'stretch',
     marginHorizontal: 0,
   },
+  inlineLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   inlineError: {
     alignSelf: 'stretch',
     marginHorizontal: 0,
-  },
-  hero: {
-    gap: spacing.xs,
-  },
-  heroTitle: {
-    color: colors.textPrimary,
-    fontWeight: '800',
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.xs,
-  },
-  statusLabel: {
-    fontWeight: '700',
   },
   successBanner: {
     backgroundColor: colors.successBg,
@@ -346,57 +298,10 @@ const styles = StyleSheet.create({
     borderColor: colors.successSoft,
     padding: spacing.md,
   },
-  infoRows: {
-    gap: spacing.md,
-  },
   productList: {
     gap: spacing.xs,
   },
   itemDivider: {
-    marginVertical: spacing.sm,
-  },
-  addressLine: {
-    color: colors.textPrimary,
-    lineHeight: 22,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  summaryValue: {
-    color: colors.textPrimary,
-    fontWeight: '600',
-  },
-  summaryLabelEmphasis: {
-    fontWeight: '700',
-  },
-  summaryTotal: {
-    color: colors.primary,
-    fontWeight: '800',
-  },
-  summaryDivider: {
-    marginVertical: spacing.sm,
-  },
-  paymentMethodRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  actions: {
-    gap: spacing.sm,
-    paddingTop: spacing.xs,
-  },
-  cancelButton: {
-    borderColor: colors.error,
-  },
-  cancelButtonLabel: {
-    color: colors.error,
-  },
-  cancelHint: {
-    textAlign: 'center',
-    lineHeight: 18,
+    marginVertical: spacing.xs,
   },
 });

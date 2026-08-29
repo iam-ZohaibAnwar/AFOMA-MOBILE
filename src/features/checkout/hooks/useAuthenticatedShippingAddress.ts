@@ -67,6 +67,8 @@ export function useAuthenticatedShippingAddress(user: AuthUser | null, authUserI
         phone: profile.phone ?? profile.moNumber,
         moNumber: profile.moNumber ?? profile.phone,
         company: profile.company,
+        sellerId: user.sellerId,
+        userRole: user.userRole ?? profile.userRole,
       });
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to load saved address'));

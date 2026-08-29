@@ -6,7 +6,7 @@ import type { SellerReviewDetail, SellerReviewListItem } from '../types/sellerRe
 
 export function useSellerReviewDetail(reviewId?: string, initialReview?: SellerReviewListItem) {
   const [review, setReview] = useState<SellerReviewDetail | null>(initialReview ?? null);
-  const [isRefreshing, setIsRefreshing] = useState(Boolean(reviewId));
+  const [isRefreshing, setIsRefreshing] = useState(Boolean(reviewId && !initialReview));
   const [error, setError] = useState<string | null>(null);
   const reviewRef = useRef(review);
 

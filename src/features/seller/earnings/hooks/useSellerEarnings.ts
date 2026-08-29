@@ -112,6 +112,8 @@ export function useSellerEarnings(
     [commissions, searchTerm],
   );
 
+  const hasActiveFilters = Boolean(statusFilter);
+
   const setStatusFilter = useCallback((next: SellerEarningsPayoutStatusFilter) => {
     setStatusFilterState(next);
     setCurrentPage(1);
@@ -137,6 +139,10 @@ export function useSellerEarnings(
     await Promise.all([loadSummary(), loadCommissions(currentPage, 'refresh')]);
   }, [currentPage, loadCommissions, loadSummary]);
 
+  const retrySummary = useCallback(async () => {
+    await loadSummary();
+  }, [loadSummary]);
+
   return {
     commissions: filteredCommissions,
     payoutSummary,
@@ -144,6 +150,7 @@ export function useSellerEarnings(
     totalPages,
     statusFilter,
     searchTerm,
+    hasActiveFilters,
     isLoading,
     isRefreshing,
     error,
@@ -151,6 +158,7 @@ export function useSellerEarnings(
     setStatusFilter,
     setSearchTerm,
     refresh,
+    retrySummary,
     goToPreviousPage,
     goToNextPage,
     canGoPrevious: currentPage > 1 && !isLoading,

@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
 import { UserAvatarCircle } from '../../../components/ui/UserAvatarCircle';
 import { AppText } from '../../../components/ui/AppText';
@@ -17,6 +18,7 @@ export interface MarketplaceHeaderProps {
   onProfilePress: () => void;
   onSearchPress: () => void;
   onNotificationsPress?: () => void;
+  notificationUnreadCount?: number;
 }
 
 function getGreetingName(firstName?: string, email?: string): string {
@@ -32,6 +34,7 @@ export function MarketplaceHeader({
   onProfilePress,
   onSearchPress,
   onNotificationsPress,
+  notificationUnreadCount = 0,
 }: MarketplaceHeaderProps) {
   const insets = useSafeAreaInsets();
   const { user, isAuthenticated } = useAuth();
@@ -72,13 +75,28 @@ export function MarketplaceHeader({
           {onNotificationsPress ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Notifications"
+              accessibilityLabel={
+                notificationUnreadCount > 0
+                  ? `Notifications, ${notificationUnreadCount} unread`
+                  : 'Notifications'
+              }
               onPress={onNotificationsPress}
               style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
             >
-              <AppText variant="bodyMedium" color="textSecondary">
-                🔔
-              </AppText>
+              <View style={styles.bellWrap}>
+                <Ionicons
+                  name={notificationUnreadCount > 0 ? 'notifications' : 'notifications-outline'}
+                  size={22}
+                  color={colors.textSecondary}
+                />
+                {notificationUnreadCount > 0 ? (
+                  <View style={styles.badge}>
+                    <AppText variant="caption" style={styles.badgeText}>
+                      {notificationUnreadCount > 9 ? '9+' : String(notificationUnreadCount)}
+                    </AppText>
+                  </View>
+                ) : null}
+              </View>
             </Pressable>
           ) : null}
         </View>
@@ -132,5 +150,28 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.88,
+  },
+  bellWrap: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    color: colors.surface,
+    fontSize: 10,
+    fontWeight: '700',
+    lineHeight: 12,
   },
 });

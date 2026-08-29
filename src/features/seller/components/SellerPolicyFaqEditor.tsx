@@ -12,6 +12,7 @@ export interface SellerPolicyFaqEditorProps {
   draftAnswer: string;
   onDraftQuestionChange: (value: string) => void;
   onDraftAnswerChange: (value: string) => void;
+  onDraftFieldFocus?: () => void;
   onAdd: () => void;
   onRemove: (index: number) => void;
   error?: string | null;
@@ -24,6 +25,7 @@ export function SellerPolicyFaqEditor({
   draftAnswer,
   onDraftQuestionChange,
   onDraftAnswerChange,
+  onDraftFieldFocus,
   onAdd,
   onRemove,
   error,
@@ -43,6 +45,7 @@ export function SellerPolicyFaqEditor({
         label="Question"
         value={draftQuestion}
         onChangeText={onDraftQuestionChange}
+        onFocus={onDraftFieldFocus}
         placeholder="Enter a question"
       />
       <AppInput
@@ -50,6 +53,7 @@ export function SellerPolicyFaqEditor({
         label="Answer"
         value={draftAnswer}
         onChangeText={onDraftAnswerChange}
+        onFocus={onDraftFieldFocus}
         placeholder="Enter an answer"
         multiline
         numberOfLines={3}
