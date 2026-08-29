@@ -12,11 +12,12 @@ import { colors, spacing } from '../../../../design-system';
 import type { AdminStackParamList } from '../../navigation/adminTypes';
 import { useRequireAdmin } from '../../hooks/useRequireAdmin';
 import { authReturnTo } from '../../../auth/utils/authNavigation';
-import { OrderDetailSection } from '../../../orders/components/OrderDetailSection';
+import { OrderDetailCollapsibleSection } from '../../../orders/components/OrderDetailCollapsibleSection';
 import {
   getOrderShippingMethodLabel,
   getOrderTrackingNumber,
 } from '../../../orders/utils/orderDetailDisplay';
+import { formatOrderMoney } from '../../../orders/utils/orderPricing';
 import {
   calculateOrderGrandTotal,
   calculateOrderItemsSubTotal,
@@ -237,7 +238,21 @@ export function AdminOrderDetailScreen({ route, navigation }: Props) {
       <AdminOrderBuyerInfoSection order={displayOrder} onContactBuyer={handleContactBuyer} />
 
       {(shippingMethod || trackingNumber || (carrier && carrier !== '—')) && (
-        <OrderDetailSection title="Shipping Info" icon="navigate-outline">
+        <OrderDetailCollapsibleSection
+          title="Shipping Info"
+          icon="navigate-outline"
+          collapsedPreview={
+            trackingNumber ? (
+              <AppText variant="caption" color="textSecondary" numberOfLines={1}>
+                {trackingNumber}
+              </AppText>
+            ) : (
+              <AppText variant="caption" color="textSecondary" numberOfLines={1}>
+                {shippingMethod ?? carrier}
+              </AppText>
+            )
+          }
+        >
           {shippingMethod ? (
             <AppText variant="bodySmall" color="textSecondary">
               Method: {shippingMethod}
@@ -263,10 +278,18 @@ export function AdminOrderDetailScreen({ route, navigation }: Props) {
               Consignment ID: {shippingSummary.consignment.shipmentId}
             </AppText>
           ) : null}
-        </OrderDetailSection>
+        </OrderDetailCollapsibleSection>
       )}
 
-      <OrderDetailSection title={`Order Items (${lineItems.length})`} icon="cube-outline">
+      <OrderDetailCollapsibleSection
+        title={`Order Items (${lineItems.length})`}
+        icon="cube-outline"
+        collapsedPreview={
+          <AppText variant="caption" color="textSecondary" numberOfLines={1}>
+            {formatOrderMoney(displayOrder, subtotal)}
+          </AppText>
+        }
+      >
         {lineItems.length ? (
           <View style={styles.productList}>
             {lineItems.map((line: CartLineItem, index: number) => (
@@ -281,7 +304,7 @@ export function AdminOrderDetailScreen({ route, navigation }: Props) {
             No products found for this order.
           </AppText>
         )}
-      </OrderDetailSection>
+      </OrderDetailCollapsibleSection>
 
       <AdminOrderLineFulfillmentSection
         order={displayOrder}
@@ -290,31 +313,6 @@ export function AdminOrderDetailScreen({ route, navigation }: Props) {
         onFulfillmentStatusChange={handleLineFulfillmentChange}
       />
 
-      {hasShippingOps ? (
-        <AdminOrderQuickActionsSection
-          shippingDisabled={displayOrder.status === 'Cancelled'}
-          canDownloadLabel={canDownloadLabel}
-          canPrintPackingSlip={canPrintPackingSlip}
-          canPayShipment={canPayShipment}
-          isOpeningLabel={isOpeningLabel}
-          isOpeningInvoice={isOpeningInvoice}
-          isGeneratingLabel={isGeneratingLabel}
-          isPayingShipment={isPayingShipment}
-          onDownloadLabel={() => {
-            clearShippingError();
-            void openShippingDocument('label');
-          }}
-          onPrintPackingSlip={() => {
-            clearShippingError();
-            void openShippingDocument('invoice');
-          }}
-          onPayShipment={() => {
-            clearPayError();
-            void payShipment();
-          }}
-        />
-      ) : null}
-
       <AdminOrderPaymentSummaryCard
         order={displayOrder}
         itemCount={itemCount}
@@ -322,6 +320,33 @@ export function AdminOrderDetailScreen({ route, navigation }: Props) {
         shipping={shipping}
         serviceFees={serviceFees}
         total={total}
+        footer={
+          hasShippingOps ? (
+            <AdminOrderQuickActionsSection
+              embedded
+              shippingDisabled={displayOrder.status === 'Cancelled'}
+              canDownloadLabel={canDownloadLabel}
+              canPrintPackingSlip={canPrintPackingSlip}
+              canPayShipment={canPayShipment}
+              isOpeningLabel={isOpeningLabel}
+              isOpeningInvoice={isOpeningInvoice}
+              isGeneratingLabel={isGeneratingLabel}
+              isPayingShipment={isPayingShipment}
+              onDownloadLabel={() => {
+                clearShippingError();
+                void openShippingDocument('label');
+              }}
+              onPrintPackingSlip={() => {
+                clearShippingError();
+                void openShippingDocument('invoice');
+              }}
+              onPayShipment={() => {
+                clearPayError();
+                void payShipment();
+              }}
+            />
+          ) : null
+        }
       />
     </ScrollView>
   );
@@ -334,7 +359,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   centeredState: {
     flex: 1,

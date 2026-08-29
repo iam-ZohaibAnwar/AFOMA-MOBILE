@@ -2,7 +2,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppText } from '../../../components/ui/AppText';
-import { colors, radius, spacing } from '../../../design-system';
+import { colors, spacing } from '../../../design-system';
 
 interface CustomerOrderActionsSectionProps {
   canCancel: boolean;
@@ -20,22 +20,17 @@ export function CustomerOrderActionsSection({
   onCancelOrder,
 }: CustomerOrderActionsSectionProps) {
   return (
-    <View style={styles.card}>
-      <AppText variant="bodyMedium" style={styles.title}>
-        Actions
-      </AppText>
-
-      <AppButton label="Contact Seller" variant="outline" onPress={onContactSeller} fullWidth />
+    <View style={styles.actions}>
+      <AppButton label="Contact seller" variant="primary" onPress={onContactSeller} fullWidth />
 
       <AppButton
-        label="Cancel Order"
+        label={isCancelling ? 'Cancelling…' : 'Cancel order'}
         variant="outline"
         disabled={!canCancel || isCancelling}
         loading={isCancelling}
         onPress={onCancelOrder}
         fullWidth
-        style={styles.cancelButton}
-        labelStyle={styles.cancelButtonLabel}
+        labelStyle={styles.cancelLabel}
       />
 
       {!canCancel && cancelDisabledReason ? (
@@ -48,23 +43,11 @@ export function CustomerOrderActionsSection({
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.large,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
-    gap: spacing.sm,
+  actions: {
+    gap: spacing.md,
+    paddingTop: spacing.xs,
   },
-  title: {
-    color: colors.textPrimary,
-    fontWeight: '700',
-    marginBottom: spacing.xs,
-  },
-  cancelButton: {
-    borderColor: colors.error,
-  },
-  cancelButtonLabel: {
+  cancelLabel: {
     color: colors.error,
   },
   cancelHint: {

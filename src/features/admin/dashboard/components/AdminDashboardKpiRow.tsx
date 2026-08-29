@@ -23,11 +23,11 @@ export function AdminDashboardKpiRow({
   onRetry,
 }: AdminDashboardKpiRowProps) {
   const salesValue = fullAccess
-    ? formatAdminCurrency(totalSales?.totalOrderPrice, 'CA$ 0.00')
+    ? formatAdminCurrency(totalSales?.totalOrderPrice, 'CAD 0.00')
     : '—';
   const ordersValue = fullAccess ? formatAdminCount(totalSales?.totalOrders) : '—';
   const avgValue = fullAccess
-    ? formatAdminCurrency(totalSales?.averageOrderPrice, 'CA$ 0.00')
+    ? formatAdminCurrency(totalSales?.averageOrderPrice, 'CAD 0.00')
     : '—';
 
   return (

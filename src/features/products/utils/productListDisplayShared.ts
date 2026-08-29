@@ -1,20 +1,15 @@
 import { colors } from '../../../design-system';
 import type { Product } from '../../../services/types/product';
+import { formatCadAmount } from '../../../utils/currencyFormat';
 
 export function formatProductListPrice(product: Product): string {
   if (product.productType === 'Customizable') {
     const price = product.variations?.[0]?.price;
-    if (price == null) {
-      return '—';
-    }
-
-    const value = Number(price);
-    return Number.isFinite(value) ? `CA$${value.toFixed(2)}` : '—';
+    return formatCadAmount(price);
   }
 
   if (product.finalPrice != null) {
-    const value = Number(product.finalPrice);
-    return Number.isFinite(value) ? `CA$${value.toFixed(2)}` : '—';
+    return formatCadAmount(product.finalPrice);
   }
 
   return '—';

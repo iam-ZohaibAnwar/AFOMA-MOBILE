@@ -1,31 +1,14 @@
 import type { AffiliateCommissionRecord } from '../../../services/types/commission';
+import { formatCadAmount } from '../../../utils/currencyFormat';
 import { formatCustomerName, formatOrderDate, formatOrderDisplayId } from '../../orders/utils/orderDisplay';
 import type { AppBadgeProps } from '../../../components/ui/AppBadge';
 
 export function formatReferralSummaryAmount(amount?: number | string | null): string {
-  if (amount == null || amount === '') {
-    return 'CA$0.00';
-  }
-
-  const value = Number(amount);
-  if (!Number.isFinite(value)) {
-    return 'CA$0.00';
-  }
-
-  return `CA$${value.toFixed(2)}`;
+  return formatCadAmount(amount, 'CAD 0.00');
 }
 
 export function formatReferralAmount(amount?: number | string): string {
-  if (amount == null || amount === '') {
-    return '—';
-  }
-
-  const value = Number(amount);
-  if (!Number.isFinite(value)) {
-    return '—';
-  }
-
-  return `CA$${value.toFixed(2)}`;
+  return formatCadAmount(amount);
 }
 
 export function formatCommissionOrderId(record: AffiliateCommissionRecord): string {

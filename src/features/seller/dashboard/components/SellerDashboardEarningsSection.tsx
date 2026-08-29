@@ -4,8 +4,8 @@ import { ErrorState } from '../../../../components/ecommerce/ErrorState';
 import { AdminDashboardKpiCard } from '../../../admin/dashboard/components/AdminDashboardKpiCard';
 import { AdminSectionTitle } from '../../../admin/dashboard/components/AdminSectionTitle';
 import { spacing } from '../../../../design-system';
+import { formatCadAmount } from '../../../../utils/currencyFormat';
 import type { SellerDashboardPayoutSummary } from '../types';
-import { formatDashboardPayoutAmount } from '../../utils/sellerDashboardDisplay';
 
 export interface SellerDashboardEarningsSectionProps {
   payoutSummary: SellerDashboardPayoutSummary | null;
@@ -44,8 +44,8 @@ export function SellerDashboardEarningsSection({
   onPendingPress,
   onCompletedPress,
 }: SellerDashboardEarningsSectionProps) {
-  const pendingValue = `CA$${formatDashboardPayoutAmount(payoutSummary?.totalPendingPayoutAmount)}`;
-  const completedValue = `CA$${formatDashboardPayoutAmount(payoutSummary?.totalPaidPayoutAmount)}`;
+  const pendingValue = formatCadAmount(payoutSummary?.totalPendingPayoutAmount, 'CAD 0.00');
+  const completedValue = formatCadAmount(payoutSummary?.totalPaidPayoutAmount, 'CAD 0.00');
 
   return (
     <View style={styles.section}>

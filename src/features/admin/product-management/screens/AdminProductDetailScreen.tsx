@@ -6,7 +6,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
-import { AppText } from '../../../../components/ui/AppText';
 import { colors, spacing } from '../../../../design-system';
 import type { AdminStackParamList } from '../../navigation/adminTypes';
 import { useRequireAdmin } from '../../hooks/useRequireAdmin';
@@ -48,7 +47,6 @@ export function AdminProductDetailScreen({ navigation, route }: Props) {
   const { productId, initialProduct } = route.params;
   const returnTo = authReturnTo.adminProductDetail(productId, initialProduct);
   const { isAuthorized } = useRequireAdmin(returnTo);
-  const [showMoreDetails, setShowMoreDetails] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
 
   const {
@@ -318,30 +316,11 @@ export function AdminProductDetailScreen({ navigation, route }: Props) {
             />
           ) : null}
 
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setShowMoreDetails((current) => !current)}
-            style={({ pressed }) => [styles.moreToggle, pressed && styles.moreTogglePressed]}
-          >
-            <AppText variant="bodySmall" color="textSecondary" style={styles.moreToggleLabel}>
-              {showMoreDetails ? 'Hide additional details' : 'Show additional details'}
-            </AppText>
-            <Ionicons
-              name={showMoreDetails ? 'chevron-up' : 'chevron-down'}
-              size={16}
-              color={colors.textMuted}
-            />
-          </Pressable>
-
-          {showMoreDetails ? (
-            <View style={styles.moreDetails}>
-              <AdminProductMediaSection product={displayProduct} />
-              {sections.shipping ? <AdminProductShippingSection product={displayProduct} /> : null}
-              {sections.download ? <AdminProductDownloadSection product={displayProduct} /> : null}
-              <AdminProductSeoSection product={displayProduct} />
-              {sections.variations ? <AdminProductVariationsSection product={displayProduct} /> : null}
-            </View>
-          ) : null}
+          <AdminProductMediaSection product={displayProduct} />
+          {sections.shipping ? <AdminProductShippingSection product={displayProduct} /> : null}
+          {sections.download ? <AdminProductDownloadSection product={displayProduct} /> : null}
+          <AdminProductSeoSection product={displayProduct} />
+          {sections.variations ? <AdminProductVariationsSection product={displayProduct} /> : null}
         </View>
       </ScrollView>
 
@@ -387,21 +366,5 @@ const styles = StyleSheet.create({
   headerAction: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-  },
-  moreToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-  },
-  moreTogglePressed: {
-    opacity: 0.85,
-  },
-  moreToggleLabel: {
-    fontWeight: '600',
-  },
-  moreDetails: {
-    gap: spacing.md,
   },
 });

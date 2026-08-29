@@ -1,5 +1,6 @@
-import { env } from '../../../../app/config/env';
 import type { Product } from '../../../../services/types/product';
+import { formatMoneyAmount, normalizeCurrencyCode } from '../../../../utils/currencyFormat';
+import { buildStorefrontPreviewUrl } from '../../../../utils/storefrontUrl';
 import { getProductDescription } from '../../../products/utils/productDisplay';
 import { getProductShareUrl } from '../../../products/utils/productShare';
 import {
@@ -68,20 +69,11 @@ export function getAdminProductCategoryPath(product: Product): string {
 }
 
 export function formatAdminProductCurrencyLabel(currency?: string): string {
-  if (!currency?.trim()) {
-    return 'CAD';
-  }
-
-  return currency.trim().toUpperCase();
+  return normalizeCurrencyCode(currency);
 }
 
 export function formatAdminProductMoney(value: unknown, currency = 'CAD'): string {
-  if (value == null || value === '') {
-    return '—';
-  }
-
-  const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value));
-  return Number.isFinite(parsed) ? `${currency} ${parsed.toFixed(2)}` : '—';
+  return formatMoneyAmount(value, currency);
 }
 
 export function formatAdminProductDiscount(product: Product): string {
@@ -241,6 +233,25 @@ export function formatAdminProductDimension(value: unknown, unit: string): strin
   return Number.isFinite(parsed) ? `${parsed} ${unit}` : String(value);
 }
 
+function formatAdminProductShippingDimensions(product: Product): string {
+  const parts = [product.length, product.width, product.height]
+    .map((value) => {
+      if (value == null || value === '') {
+        return null;
+      }
+
+      const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value));
+      return Number.isFinite(parsed) ? String(parsed) : null;
+    })
+    .filter(Boolean);
+
+  if (parts.length === 0) {
+    return '—';
+  }
+
+  return `${parts.join(' × ')} cm`;
+}
+
 export function formatAdminProductQuantity(value: unknown): string {
   if (value == null || value === '') {
     return '—';
@@ -251,17 +262,7 @@ export function formatAdminProductQuantity(value: unknown): string {
 }
 
 export function getAdminProductPreviewUrl(slug?: string): string | undefined {
-  const trimmed = slug?.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-
-  const base =
-    env.webUrl?.replace(/\/$/, '') ||
-    env.apiUrl?.replace(/\/$/, '') ||
-    'https://afomamarketplace.com';
-
-  return `${base}/preview/${encodeURIComponent(trimmed)}`;
+  return buildStorefrontPreviewUrl(slug);
 }
 
 export function getAdminProductLiveUrl(slug?: string, productId?: string): string | undefined {
@@ -407,12 +408,10 @@ export function getAdminProductShippingFields(product: Product): Array<{ label: 
   return [
     { label: 'Harmonized code', value: product.commodityCode?.trim() || '—' },
     { label: 'Weight', value: formatAdminProductDimension(product.weight, 'kg') },
-    { label: 'Length', value: formatAdminProductDimension(product.length, 'cm') },
-    { label: 'Width', value: formatAdminProductDimension(product.width, 'cm') },
-    { label: 'Height', value: formatAdminProductDimension(product.height, 'cm') },
+    { label: 'Dimensions', value: formatAdminProductShippingDimensions(product) },
     { label: 'Dispatch time', value: formatAdminProductDimension(product.dispatchDays, 'days') },
     { label: 'Custom shipping', value: formatAdminProductBoolean(customShipping) },
-    { label: 'Free domestic shipping', value: formatAdminProductBoolean(product.freeDelivery) },
+    { label: 'Free domestic', value: formatAdminProductBoolean(product.freeDelivery) },
     {
       label: 'Handling fee',
       value: product.handlingFee != null ? formatAdminProductMoney(product.handlingFee, 'CAD') : '—',
@@ -428,7 +427,7 @@ export function getAdminProductShippingFields(product: Product): Array<{ label: 
 export function getAdminProductSeoFields(product: Product): Array<{ label: string; value: string }> {
   return [
     {
-      label: 'Live URL',
+      label: 'Product URL',
       value: getAdminProductLiveUrl(product.slug, product._id) ?? '—',
     },
     {

@@ -42,3 +42,18 @@ export function formatDateInputDisplay(value?: string): string {
 
   return formatDateInputValue(parsed);
 }
+
+/** Local calendar date at start of today — useful as a date picker minimum. */
+export function getTodayStartDate(): Date {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+}
+
+/** Local calendar date N years from now — useful as a far-future picker maximum. */
+export function getDateYearsFromNow(years: number): Date {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() + years);
+  date.setHours(23, 59, 59, 999);
+  return date;
+}

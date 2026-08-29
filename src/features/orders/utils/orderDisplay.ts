@@ -1,6 +1,10 @@
 import type { CartLineItem } from '../../../services/types/cart';
 import type { OrderDetail, OrderSummary, OrderUserInfo, OrderBillingAddress } from '../../../services/types/order';
 import { ApiError } from '../../../services/api/errors';
+import {
+  calculateOrderGrandTotal,
+  formatOrderMoney,
+} from './orderPricing';
 
 export function formatOrderDisplayId(orderId?: string): string {
   if (!orderId) {
@@ -81,14 +85,33 @@ export function getOrderTotal(order: OrderSummary): number | undefined {
   return undefined;
 }
 
+function getOrderConversionRate(order: OrderSummary): number {
+  const rate = Number(order.conversionRate);
+  return Number.isFinite(rate) && rate > 0 ? rate : 1;
+}
+
+/** Buyer-facing total in the order's checkout currency — matches order detail pricing. */
+export function getOrderDisplayTotal(order: OrderSummary): number | undefined {
+  if (order.cart?.length) {
+    return calculateOrderGrandTotal(order as OrderDetail, true);
+  }
+
+  const baseTotal = getOrderTotal(order);
+  if (baseTotal === undefined) {
+    return undefined;
+  }
+
+  const rate = getOrderConversionRate(order);
+  return rate === 1 ? baseTotal : baseTotal * rate;
+}
+
 export function formatOrderTotal(order: OrderSummary): string {
-  const total = getOrderTotal(order);
+  const total = getOrderDisplayTotal(order);
   if (total === undefined) {
     return '—';
   }
 
-  const currency = order.currency?.trim() || 'CAD';
-  return `${currency} ${total.toFixed(2)}`;
+  return formatOrderMoney(order as OrderDetail, total);
 }
 
 export function formatOrderStatus(status?: string): string {

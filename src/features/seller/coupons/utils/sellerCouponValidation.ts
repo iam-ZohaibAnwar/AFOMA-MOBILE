@@ -42,7 +42,7 @@ function validateExpirationDate(value: string): string | null {
   }
 
   if (!EXPIRATION_DATE_REGEX.test(trimmed)) {
-    return 'Enter expiration date as YYYY-MM-DD';
+    return 'Select a valid expiration date';
   }
 
   const [yearText, monthText, dayText] = trimmed.split('-');

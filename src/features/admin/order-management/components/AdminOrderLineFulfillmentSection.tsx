@@ -5,7 +5,7 @@ import { AppText } from '../../../../components/ui/AppText';
 import { spacing } from '../../../../design-system';
 import type { CartLineItem } from '../../../../services/types/cart';
 import { getProductDisplayName } from '../../../products/utils/productDisplay';
-import { OrderDetailSection } from '../../../orders/components/OrderDetailSection';
+import { OrderDetailCollapsibleSection } from '../../../orders/components/OrderDetailCollapsibleSection';
 import type { AdminOrderDetail } from '../types/adminOrderManagement';
 import { formatAdminLineFulfillmentStatus } from '../utils/adminOrderDetailDisplay';
 import {
@@ -34,7 +34,15 @@ export function AdminOrderLineFulfillmentSection({
   }
 
   return (
-    <OrderDetailSection title="Line Fulfillment" icon="git-branch-outline">
+    <OrderDetailCollapsibleSection
+      title="Line Fulfillment"
+      icon="git-branch-outline"
+      collapsedPreview={
+        <AppText variant="caption" color="textSecondary" numberOfLines={1}>
+          {editableLines.length} item{editableLines.length === 1 ? '' : 's'}
+        </AppText>
+      }
+    >
       <View style={styles.list}>
         {editableLines.map((line, index) => {
           const product = line.productData;
@@ -90,7 +98,7 @@ export function AdminOrderLineFulfillmentSection({
           );
         })}
       </View>
-    </OrderDetailSection>
+    </OrderDetailCollapsibleSection>
   );
 }
 

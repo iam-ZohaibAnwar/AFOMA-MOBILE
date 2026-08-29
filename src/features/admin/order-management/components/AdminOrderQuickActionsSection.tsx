@@ -3,7 +3,6 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { AppText } from '../../../../components/ui/AppText';
 import { colors, radius, spacing } from '../../../../design-system';
-import { OrderDetailSection } from '../../../orders/components/OrderDetailSection';
 
 interface AdminOrderQuickActionsSectionProps {
   shippingDisabled?: boolean;
@@ -17,18 +16,21 @@ interface AdminOrderQuickActionsSectionProps {
   onDownloadLabel: () => void;
   onPrintPackingSlip: () => void;
   onPayShipment: () => void;
+  embedded?: boolean;
 }
 
-function QuickActionTile({
+function QuickActionButton({
   label,
   icon,
   onPress,
   disabled,
+  embedded = false,
 }: {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
   disabled?: boolean;
+  embedded?: boolean;
 }) {
   return (
     <Pressable
@@ -36,26 +38,20 @@ function QuickActionTile({
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
-        styles.tile,
-        disabled && styles.tileDisabled,
-        pressed && !disabled && styles.tilePressed,
+        styles.button,
+        embedded && styles.buttonEmbedded,
+        disabled && styles.buttonDisabled,
+        pressed && !disabled && styles.buttonPressed,
       ]}
     >
-      <View
-        style={[
-          styles.iconWrap,
-          disabled ? styles.iconWrapDisabled : null,
-        ]}
-      >
-        <Ionicons
-          name={icon}
-          size={20}
-          color={disabled ? colors.textMuted : colors.textInverse}
-        />
-      </View>
+      <Ionicons
+        name={icon}
+        size={18}
+        color={embedded ? colors.textInverse : disabled ? colors.textMuted : colors.textInverse}
+      />
       <AppText
         variant="bodySmall"
-        style={[styles.tileLabel, disabled && styles.tileLabelDisabled]}
+        style={[styles.buttonLabel, embedded && styles.buttonLabelEmbedded, disabled && styles.buttonLabelDisabled]}
         numberOfLines={2}
       >
         {label}
@@ -76,6 +72,7 @@ export function AdminOrderQuickActionsSection({
   onDownloadLabel,
   onPrintPackingSlip,
   onPayShipment,
+  embedded = false,
 }: AdminOrderQuickActionsSectionProps) {
   const hasActions = canDownloadLabel || canPrintPackingSlip || canPayShipment;
 
@@ -84,78 +81,74 @@ export function AdminOrderQuickActionsSection({
   }
 
   return (
-    <OrderDetailSection title="Quick Actions" icon="flash-outline">
-      <View style={styles.grid}>
-        {canDownloadLabel ? (
-          <QuickActionTile
-            label={isOpeningLabel || isGeneratingLabel ? 'Opening label...' : 'Download Shipping Label'}
-            icon="car-outline"
-            onPress={onDownloadLabel}
-            disabled={shippingDisabled || isOpeningLabel || isGeneratingLabel || isOpeningInvoice}
-          />
-        ) : null}
+    <View style={styles.list}>
+      {canDownloadLabel ? (
+        <QuickActionButton
+          label={isOpeningLabel || isGeneratingLabel ? 'Opening label...' : 'Download Label'}
+          icon="car-outline"
+          onPress={onDownloadLabel}
+          disabled={shippingDisabled || isOpeningLabel || isGeneratingLabel || isOpeningInvoice}
+          embedded={embedded}
+        />
+      ) : null}
 
-        {canPrintPackingSlip ? (
-          <QuickActionTile
-            label={isOpeningInvoice ? 'Opening slip...' : 'Print Packing Slip'}
-            icon="print-outline"
-            onPress={onPrintPackingSlip}
-            disabled={shippingDisabled || isOpeningInvoice || isOpeningLabel || isGeneratingLabel}
-          />
-        ) : null}
+      {canPrintPackingSlip ? (
+        <QuickActionButton
+          label={isOpeningInvoice ? 'Opening slip...' : 'Print Slip'}
+          icon="print-outline"
+          onPress={onPrintPackingSlip}
+          disabled={shippingDisabled || isOpeningInvoice || isOpeningLabel || isGeneratingLabel}
+          embedded={embedded}
+        />
+      ) : null}
 
-        {canPayShipment ? (
-          <QuickActionTile
-            label={isPayingShipment ? 'Paying shipment...' : 'Pay Shipment'}
-            icon="card-outline"
-            onPress={onPayShipment}
-            disabled={shippingDisabled || isPayingShipment}
-          />
-        ) : null}
-      </View>
-    </OrderDetailSection>
+      {canPayShipment ? (
+        <QuickActionButton
+          label={isPayingShipment ? 'Paying shipment...' : 'Pay Shipment'}
+          icon="card-outline"
+          onPress={onPayShipment}
+          disabled={shippingDisabled || isPayingShipment}
+          embedded={embedded}
+        />
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  grid: {
+  list: {
     gap: spacing.sm,
   },
-  tile: {
+  button: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: radius.large,
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.primary,
+    borderRadius: radius.medium,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.medium,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
+  buttonEmbedded: {
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderColor: 'rgba(255,255,255,0.18)',
   },
-  iconWrapDisabled: {
-    backgroundColor: colors.surfaceMuted,
+  buttonPressed: {
+    opacity: 0.92,
   },
-  tilePressed: {
-    opacity: 0.9,
-  },
-  tileDisabled: {
+  buttonDisabled: {
     opacity: 0.55,
   },
-  tileLabel: {
-    flex: 1,
+  buttonLabel: {
     color: colors.textPrimary,
     fontWeight: '700',
   },
-  tileLabelDisabled: {
+  buttonLabelEmbedded: {
+    color: colors.textInverse,
+  },
+  buttonLabelDisabled: {
     color: colors.textMuted,
   },
 });

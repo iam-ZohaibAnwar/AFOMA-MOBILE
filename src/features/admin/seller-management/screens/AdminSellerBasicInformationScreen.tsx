@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   RefreshControl,
@@ -13,6 +13,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
 import { colors, spacing } from '../../../../design-system';
+import {
+  AdminProductCardActionsMenu,
+  type AdminProductCardActionId,
+} from '../../product-management/components/AdminProductCardActionsMenu';
 import { AdminProductDetailCardShell } from '../../product-management/components/detail/AdminProductDetailCardShell';
 import type { AdminStackParamList } from '../../navigation/adminTypes';
 import { useRequireAdmin } from '../../hooks/useRequireAdmin';
@@ -22,14 +26,18 @@ import { AdminSellerBasicInfoReadOnly } from '../components/AdminSellerBasicInfo
 import { useAdminSellerApproval } from '../hooks/useAdminSellerApproval';
 import { useAdminSellerDetail } from '../hooks/useAdminSellerDetail';
 import type { AdminSellerApprovalChoice } from '../types/adminSellerManagement';
+import { getAdminSellerDisplayName } from '../utils/adminSellerDisplay';
 
 type Props = NativeStackScreenProps<AdminStackParamList, 'AdminSellerBasicInformation'>;
+
+const MENU_ACTIONS = [{ id: 'edit' as const, label: 'Edit basic info' }];
 
 export function AdminSellerBasicInformationScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const { sellerId, initialSeller } = route.params;
   const returnTo = authReturnTo.adminSellerBasicInformation(sellerId, initialSeller);
   const { isAuthorized } = useRequireAdmin(returnTo);
+  const [menuVisible, setMenuVisible] = useState(false);
 
   const { seller, isRefreshing, error, refresh, syncSessionPatch, applySellerUpdate } =
     useAdminSellerDetail(isAuthorized ? sellerId : undefined, initialSeller);
@@ -48,6 +56,10 @@ export function AdminSellerBasicInformationScreen({ navigation, route }: Props) 
   );
 
   const displaySeller = seller ?? initialSeller;
+  const menuTitle = useMemo(
+    () => (displaySeller ? getAdminSellerDisplayName(displaySeller) : undefined),
+    [displaySeller],
+  );
 
   const handleApprovalChange = useCallback(
     async (nextStatus: AdminSellerApprovalChoice) => {
@@ -71,65 +83,86 @@ export function AdminSellerBasicInformationScreen({ navigation, route }: Props) 
     });
   }, [displaySeller, navigation, sellerId]);
 
+  const handleMenuSelect = useCallback(
+    (actionId: AdminProductCardActionId) => {
+      setMenuVisible(false);
+
+      if (actionId === 'edit') {
+        handleEditPress();
+      }
+    },
+    [handleEditPress],
+  );
+
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Edit basic information"
-          onPress={handleEditPress}
+          accessibilityLabel="Basic information actions"
+          onPress={() => setMenuVisible(true)}
           hitSlop={8}
           style={styles.headerAction}
         >
-          <Ionicons name="create-outline" size={22} color={colors.primary} />
+          <Ionicons name="ellipsis-vertical" size={20} color={colors.textPrimary} />
         </Pressable>
       ),
     });
-  }, [handleEditPress, navigation]);
+  }, [navigation]);
 
   if (!isAuthorized) {
     return <View style={[styles.screen, { paddingTop: insets.top }]} />;
   }
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
-      refreshControl={
-        <RefreshControl
-          refreshing={isRefreshing}
-          onRefresh={() => void refresh()}
-          tintColor={colors.primary}
-        />
-      }
-    >
-      {error && !displaySeller ? (
-        <ErrorState message={error} onAction={() => void refresh()} />
-      ) : null}
+    <>
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => void refresh()}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        {error && !displaySeller ? (
+          <ErrorState message={error} onAction={() => void refresh()} />
+        ) : null}
 
-      {displaySeller ? (
-        <View style={styles.cards}>
-          <AdminProductDetailCardShell title="Approval Status" icon="shield-checkmark-outline" accent iconVariant="solid">
-            <AdminSellerApprovalControl
-              value={displaySeller.status}
-              isUpdating={isApprovalUpdating}
-              error={approvalError}
-              onChange={(nextStatus) => {
-                void handleApprovalChange(nextStatus);
-              }}
-            />
-          </AdminProductDetailCardShell>
+        {displaySeller ? (
+          <View style={styles.cards}>
+            <AdminProductDetailCardShell title="Approval Status" icon="shield-checkmark-outline" accent iconVariant="solid">
+              <AdminSellerApprovalControl
+                value={displaySeller.status}
+                isUpdating={isApprovalUpdating}
+                error={approvalError}
+                onChange={(nextStatus) => {
+                  void handleApprovalChange(nextStatus);
+                }}
+              />
+            </AdminProductDetailCardShell>
 
-          <AdminProductDetailCardShell title="Basic Information" icon="person-outline" iconVariant="solid">
-            <AdminSellerBasicInfoReadOnly seller={displaySeller} />
-          </AdminProductDetailCardShell>
+            <AdminProductDetailCardShell title="Basic Information" icon="person-outline" iconVariant="solid">
+              <AdminSellerBasicInfoReadOnly seller={displaySeller} />
+            </AdminProductDetailCardShell>
 
-          {error ? (
-            <ErrorState message={error} onAction={() => void refresh()} style={styles.inlineError} />
-          ) : null}
-        </View>
-      ) : null}
-    </ScrollView>
+            {error ? (
+              <ErrorState message={error} onAction={() => void refresh()} style={styles.inlineError} />
+            ) : null}
+          </View>
+        ) : null}
+      </ScrollView>
+
+      <AdminProductCardActionsMenu
+        visible={menuVisible}
+        productName={menuTitle}
+        actions={MENU_ACTIONS}
+        onClose={() => setMenuVisible(false)}
+        onSelect={handleMenuSelect}
+      />
+    </>
   );
 }
 

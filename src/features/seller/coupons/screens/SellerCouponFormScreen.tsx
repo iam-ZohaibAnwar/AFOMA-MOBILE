@@ -11,7 +11,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
-import { KeyboardAwareFormScreen, SelectField, useKeyboardAwareForm } from '../../../../components/forms';
+import { DateField, KeyboardAwareFormScreen, SelectField, useKeyboardAwareForm } from '../../../../components/forms';
 import { AppButton } from '../../../../components/ui/AppButton';
 import { AppCard } from '../../../../components/ui/AppCard';
 import { AppInput } from '../../../../components/ui/AppInput';
@@ -24,6 +24,7 @@ import { resolveAuthUserId } from '../../../auth/utils/resolveAuthUserId';
 import { useRequireSeller } from '../../hooks/useRequireSeller';
 import { useSellerCouponForm } from '../hooks/useSellerCouponForm';
 import { COUPON_CODE_MAX_LEN } from '../../../../utils/couponCodeRules';
+import { getDateYearsFromNow, getTodayStartDate } from '../../../../utils/dateInput';
 
 type Props = NativeStackScreenProps<SellerStackParamList, 'SellerCouponForm'>;
 
@@ -211,17 +212,16 @@ export function SellerCouponFormScreen({ navigation, route }: Props) {
             error={errors.minimumCartAmount}
           />
 
-          <AppInput
+          <DateField
             tone="surface"
             label="Expiration date *"
             value={values.expirationDate}
-            onChangeText={(text) => updateField('expirationDate', text)}
-            onFocus={onFieldFocus}
-            placeholder="YYYY-MM-DD"
-            autoCapitalize="none"
-            autoCorrect={false}
-            editable={!isBusy}
+            onChange={(text) => updateField('expirationDate', text)}
+            placeholder="Select expiration date"
             error={errors.expirationDate}
+            disabled={isBusy}
+            minimumDate={getTodayStartDate()}
+            maximumDate={getDateYearsFromNow(10)}
           />
 
           <AppInput

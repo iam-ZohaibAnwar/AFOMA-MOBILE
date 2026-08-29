@@ -1,4 +1,5 @@
 import type { AdminLatestProduct, AdminLatestSeller } from '../types/adminDashboard';
+import { formatCadAmount } from '../../../../utils/currencyFormat';
 
 export function formatAdminCount(value: unknown, fallback = '0'): string {
   if (value == null || value === '') {
@@ -23,7 +24,7 @@ export function formatAdminCurrency(value: unknown, fallback = '—'): string {
     return fallback;
   }
 
-  return `CA$ ${parsed.toFixed(2)}`;
+  return formatCadAmount(parsed, fallback);
 }
 
 export function formatAdminOptionalCount(value: unknown): string {
@@ -44,11 +45,11 @@ export function formatAdminProductPrice(product: AdminLatestProduct): string {
     const variation = product.variations?.[0];
     const raw = variation?.finalPrice ?? variation?.price ?? 0;
     const parsed = Number.parseFloat(String(raw));
-    return Number.isFinite(parsed) ? `CA$ ${parsed.toFixed(2)}` : '—';
+    return formatCadAmount(parsed);
   }
 
   const parsed = Number.parseFloat(String(product.finalPrice ?? ''));
-  return Number.isFinite(parsed) ? `CA$ ${parsed.toFixed(2)}` : '—';
+  return formatCadAmount(parsed);
 }
 
 export function formatAdminSearchKeyword(term: { _id?: string }): string {

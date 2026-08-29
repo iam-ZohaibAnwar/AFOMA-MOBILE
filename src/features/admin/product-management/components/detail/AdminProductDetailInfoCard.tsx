@@ -12,20 +12,28 @@ import {
   getAdminProductDescriptionSnippet,
   getAdminProductMaterialsLabel,
 } from '../../utils/adminProductDetailDisplay';
-import {
-  AdminProductDetailCardShell,
-  AdminProductDetailMetricRow,
-} from './AdminProductDetailCardShell';
+import { AdminProductCollapsibleSection } from './AdminProductCollapsibleSection';
+import { AdminProductDetailMetricRow } from './AdminProductDetailCardShell';
 
 export function AdminProductDetailInfoCard({ product }: { product: Product }) {
   const [showFullDescription, setShowFullDescription] = useState(false);
   const fullDescription = formatAdminProductDescription(product);
   const snippet = getAdminProductDescriptionSnippet(product);
   const canExpand = fullDescription.trim().length > snippet.replace('…', '').length;
+  const categoryPath = getAdminProductCategoryPath(product);
 
   return (
-    <AdminProductDetailCardShell title="Product Information" icon="document-text-outline">
-      <AdminProductDetailMetricRow label="Category" value={getAdminProductCategoryPath(product)} />
+    <AdminProductCollapsibleSection
+      title="Product Information"
+      icon="document-text-outline"
+      initiallyExpanded
+      collapsedPreview={
+        <AppText variant="caption" color="textMuted" numberOfLines={1} style={styles.previewText}>
+          {categoryPath}
+        </AppText>
+      }
+    >
+      <AdminProductDetailMetricRow label="Category" value={categoryPath} />
       <AdminProductDetailMetricRow label="Materials" value={getAdminProductMaterialsLabel(product)} />
       <AdminProductDetailMetricRow
         label="Dimensions"
@@ -52,17 +60,22 @@ export function AdminProductDetailInfoCard({ product }: { product: Product }) {
           </Pressable>
         ) : null}
       </View>
-    </AdminProductDetailCardShell>
+    </AdminProductCollapsibleSection>
   );
 }
 
 const styles = StyleSheet.create({
+  previewText: {
+    textAlign: 'right',
+  },
   descriptionBlock: {
     marginTop: spacing.xs,
     gap: spacing.xs,
   },
   descriptionLabel: {
     fontWeight: '600',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
   },
   descriptionText: {
     lineHeight: 20,

@@ -10,13 +10,14 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
-import { KeyboardAwareFormScreen, SelectField, useKeyboardAwareForm } from '../../../../components/forms';
+import { DateField, KeyboardAwareFormScreen, SelectField, useKeyboardAwareForm } from '../../../../components/forms';
 import { AppButton } from '../../../../components/ui/AppButton';
 import { AppCard } from '../../../../components/ui/AppCard';
 import { AppInput } from '../../../../components/ui/AppInput';
 import { AppText } from '../../../../components/ui/AppText';
 import { colors, spacing } from '../../../../design-system';
 import { COUPON_CODE_MAX_LEN } from '../../../../utils/couponCodeRules';
+import { getDateYearsFromNow, getTodayStartDate } from '../../../../utils/dateInput';
 import { useAuth } from '../../../auth/hooks/useAuth';
 import { authReturnTo } from '../../../auth/utils/authNavigation';
 import { resolveAuthUserId } from '../../../auth/utils/resolveAuthUserId';
@@ -147,6 +148,7 @@ export function AdminCouponFormScreen({ navigation, route }: Props) {
 
         <View style={styles.form}>
           <AppInput
+            tone="surface"
             label="Coupon code *"
             value={values.couponCode}
             onChangeText={(text) => updateField('couponCode', text)}
@@ -160,6 +162,7 @@ export function AdminCouponFormScreen({ navigation, route }: Props) {
           />
 
           <SelectField
+            tone="surface"
             label="Coupon type *"
             value={values.couponType}
             options={COUPON_TYPE_OPTIONS}
@@ -171,6 +174,7 @@ export function AdminCouponFormScreen({ navigation, route }: Props) {
           />
 
           <AppInput
+            tone="surface"
             label="Discount *"
             value={values.discountAmount}
             onChangeText={(text) => updateField('discountAmount', text)}
@@ -182,6 +186,7 @@ export function AdminCouponFormScreen({ navigation, route }: Props) {
           />
 
           <AppInput
+            tone="surface"
             label="Description"
             value={values.description}
             onChangeText={(text) => updateField('description', text)}
@@ -194,6 +199,7 @@ export function AdminCouponFormScreen({ navigation, route }: Props) {
           />
 
           <AppInput
+            tone="surface"
             label="Minimum cart amount *"
             value={values.minimumCartAmount}
             onChangeText={(text) => updateField('minimumCartAmount', text)}
@@ -204,19 +210,20 @@ export function AdminCouponFormScreen({ navigation, route }: Props) {
             error={errors.minimumCartAmount}
           />
 
-          <AppInput
+          <DateField
+            tone="surface"
             label="Expiration date *"
             value={values.expirationDate}
-            onChangeText={(text) => updateField('expirationDate', text)}
-            onFocus={onFieldFocus}
-            placeholder="YYYY-MM-DD"
-            autoCapitalize="none"
-            autoCorrect={false}
-            editable={!isBusy}
+            onChange={(text) => updateField('expirationDate', text)}
+            placeholder="Select expiration date"
             error={errors.expirationDate}
+            disabled={isBusy}
+            minimumDate={getTodayStartDate()}
+            maximumDate={getDateYearsFromNow(10)}
           />
 
           <AppInput
+            tone="surface"
             label="Usage limit per coupon *"
             value={values.usageLimitPerCoupon}
             onChangeText={(text) => updateField('usageLimitPerCoupon', text)}
@@ -227,6 +234,7 @@ export function AdminCouponFormScreen({ navigation, route }: Props) {
           />
 
           <AppInput
+            tone="surface"
             label="Usage limit per customer *"
             value={values.usageLimitPerCustomer}
             onChangeText={(text) => updateField('usageLimitPerCustomer', text)}

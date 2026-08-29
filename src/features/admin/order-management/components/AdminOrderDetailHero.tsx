@@ -15,6 +15,7 @@ import {
   getOrderStatusIconName,
   getOrderStatusLabel,
 } from '../../../orders/utils/orderDetailDisplay';
+import { OrderDetailCollapsibleSection } from '../../../orders/components/OrderDetailCollapsibleSection';
 import type { AdminOrderDetail } from '../types/adminOrderManagement';
 import { formatAdminOrderStatus } from '../utils/adminOrderDisplay';
 import {
@@ -31,6 +32,17 @@ interface AdminOrderDetailHeroProps {
   isCancellingShipment: boolean;
   onOrderStatusChange: (status: string) => void;
   onCancelShipment: () => void;
+}
+
+function StatusPreview({ label, color }: { label: string; color: string }) {
+  return (
+    <View style={[styles.statusPreview, { backgroundColor: `${color}18` }]}>
+      <View style={[styles.statusDot, { backgroundColor: color }]} />
+      <AppText variant="caption" style={[styles.statusPreviewText, { color }]} numberOfLines={1}>
+        {label}
+      </AppText>
+    </View>
+  );
 }
 
 export function AdminOrderDetailHero({
@@ -91,21 +103,23 @@ export function AdminOrderDetailHero({
   };
 
   return (
-    <View style={styles.card}>
-      <AppText variant="h3" style={styles.orderNumber}>
-        Order #{formatOrderDisplayId(order._id ?? orderId)}
+    <OrderDetailCollapsibleSection
+      title="Order Status"
+      icon="information-circle-outline"
+      initiallyExpanded
+      collapsedPreview={<StatusPreview label={statusLabel} color={statusColor} />}
+    >
+      <AppText variant="caption" color="textMuted" style={styles.orderId}>
+        ORDER #{formatOrderDisplayId(order._id ?? orderId)}
       </AppText>
 
       <View style={styles.statusRow}>
         <Ionicons name={statusIcon} size={14} color={statusColor} />
-        <AppText variant="caption" style={[styles.statusText, { color: statusColor }]}>
+        <AppText variant="bodySmall" style={[styles.statusText, { color: statusColor }]}>
           {statusLabel}
         </AppText>
       </View>
 
-      <AppText variant="h2" style={styles.title}>
-        Order Details
-      </AppText>
       <AppText variant="bodySmall" color="textSecondary">
         Placed on {formatOrderPlacedDateTime(order.createdAt)}
       </AppText>
@@ -149,23 +163,14 @@ export function AdminOrderDetailHero({
           Shipment cancellation is unavailable for Shipped or Cancelled orders.
         </AppText>
       ) : null}
-    </View>
+    </OrderDetailCollapsibleSection>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.large,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  orderNumber: {
-    color: colors.textPrimary,
-    fontWeight: '800',
-    letterSpacing: 0.2,
+  orderId: {
+    letterSpacing: 0.6,
+    fontWeight: '600',
   },
   statusRow: {
     flexDirection: 'row',
@@ -175,12 +180,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontWeight: '700',
   },
-  title: {
-    color: colors.textPrimary,
-    marginTop: spacing.xs,
-  },
   editorBlock: {
-    marginTop: spacing.sm,
     gap: spacing.xs,
   },
   cancelButton: {
@@ -188,5 +188,21 @@ const styles = StyleSheet.create({
   },
   cancelButtonLabel: {
     color: colors.error,
+  },
+  statusPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: radius.pill,
+  },
+  statusPreviewText: {
+    fontWeight: '700',
   },
 });

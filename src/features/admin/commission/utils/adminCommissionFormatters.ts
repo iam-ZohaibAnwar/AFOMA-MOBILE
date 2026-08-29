@@ -1,21 +1,14 @@
 import type { AppBadgeProps } from '../../../../components/ui/AppBadge';
+import { formatCadAmount } from '../../../../utils/currencyFormat';
 import { formatOrderDate, formatOrderDisplayId } from '../../../orders/utils/orderDisplay';
 import type { AdminCommissionDisplayRow, AdminCommissionDisplayType } from '../types/adminCommission';
 
 export function formatAdminCommissionAmount(amount?: number | null): string {
-  if (amount == null || !Number.isFinite(amount)) {
-    return '—';
-  }
-
-  return `CA$${amount.toFixed(2)}`;
+  return formatCadAmount(amount);
 }
 
 export function formatAdminCommissionSummaryAmount(amount?: number | null): string {
-  if (amount == null || !Number.isFinite(amount)) {
-    return 'CA$0.00';
-  }
-
-  return `CA$${amount.toFixed(2)}`;
+  return formatCadAmount(amount, 'CAD 0.00');
 }
 
 export function formatAdminCommissionRecipientType(type: AdminCommissionDisplayType): string {

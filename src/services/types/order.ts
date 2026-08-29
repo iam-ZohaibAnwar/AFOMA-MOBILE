@@ -12,6 +12,8 @@ export interface OrderSummary {
   subTotal?: number | string;
   totalShippingRate?: number | string;
   currency?: string;
+  conversionRate?: number | string;
+  serviceFees?: number | string;
   /** Present on GET /orders/getOrders/ByUserId/{userId} list responses. */
   cart?: CartLineItem[];
 }

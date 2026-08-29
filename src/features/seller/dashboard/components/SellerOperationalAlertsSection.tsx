@@ -3,11 +3,11 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { AppText } from '../../../../components/ui/AppText';
 import { colors, radius, shadows, spacing } from '../../../../design-system';
+import { formatCadAmount } from '../../../../utils/currencyFormat';
 import { AdminSectionTitle } from '../../../admin/dashboard/components/AdminSectionTitle';
 import type { SellerDashboardOrderCounts, SellerDashboardPayoutSummary } from '../types';
 import {
   formatDashboardCount,
-  formatDashboardPayoutAmount,
   hasPendingPayoutAmount,
 } from '../../utils/sellerDashboardDisplay';
 import { sellerDashboardTheme } from '../utils/sellerDashboardTheme';
@@ -141,7 +141,7 @@ export function SellerOperationalAlertsSection({
                 Awaiting platform payout
               </AppText>
               <AppText variant="bodyMedium" style={styles.pendingValue}>
-                CA${formatDashboardPayoutAmount(payoutSummary?.totalPendingPayoutAmount)}
+                {formatCadAmount(payoutSummary?.totalPendingPayoutAmount, 'CAD 0.00')}
               </AppText>
             </Pressable>
           </View>

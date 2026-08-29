@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { AppDivider } from '../../../../../components/ui/AppDivider';
 import { AppText } from '../../../../../components/ui/AppText';
 import { spacing } from '../../../../../design-system';
+import { formatCadAmount } from '../../../../../utils/currencyFormat';
 import {
   AdminProductDetailCardShell,
   AdminProductDetailMetricRow,
@@ -28,7 +29,7 @@ export function SellerEarningDetailLineItemsCard({ record }: SellerEarningDetail
               </AppText>
               <AdminProductDetailMetricRow label="SKU" value={item.sku} />
               <AdminProductDetailMetricRow label="Quantity" value={item.quantity} />
-              <AdminProductDetailMetricRow label="Line total" value={`CA$${item.lineTotal}`} />
+              <AdminProductDetailMetricRow label="Line total" value={formatCadAmount(item.lineTotal)} />
               {index < lineItems.length - 1 ? <AppDivider style={styles.divider} /> : null}
             </View>
           ))}
