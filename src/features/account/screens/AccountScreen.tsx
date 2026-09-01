@@ -15,6 +15,7 @@ import type { SellerStackParamList } from '../../../app/navigation/sellerTypes';
 import { navigateToAdminScreen } from '../../../features/admin/navigation/adminNavigation';
 import { ADMIN_ACCOUNT_MENU_ITEMS } from '../../../features/admin/navigation/adminAccountMenuItems';
 import { colors, spacing } from '../../../design-system';
+import { ImageUploadSourceSheet } from '../../../components/ui/ImageUploadSourceSheet';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { useRequireAuth } from '../../auth/hooks/useRequireAuth';
 import { authReturnTo } from '../../auth/utils/authNavigation';
@@ -63,7 +64,7 @@ export function AccountScreen(_props: Props) {
 
   const authUserId = resolveAuthUserId(user);
   const memberSince = useAccountMemberSince(isAuthenticated ? authUserId : undefined);
-  const { isUploading: isPhotoUploading, openPhotoActions } = useAccountProfilePhoto(
+  const { isUploading: isPhotoUploading, openPhotoActions, imageUploadSheetProps } = useAccountProfilePhoto(
     isAuthenticated ? authUserId : undefined,
   );
 
@@ -250,6 +251,7 @@ export function AccountScreen(_props: Props) {
   }
 
   return (
+    <>
     <ScrollView
       style={styles.screen}
       contentContainerStyle={[
@@ -300,6 +302,9 @@ export function AccountScreen(_props: Props) {
         </View>
       </View>
     </ScrollView>
+
+    <ImageUploadSourceSheet {...imageUploadSheetProps} />
+    </>
   );
 }
 

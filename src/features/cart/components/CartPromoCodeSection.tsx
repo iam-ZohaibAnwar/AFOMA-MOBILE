@@ -124,7 +124,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: layout.minTouchTarget,
     borderRadius: radius.pill,
-    backgroundColor: colors.surfaceGrey,
+    backgroundColor: colors.surfaceWhite,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.borderStrong,
     paddingHorizontal: spacing.md,
   },
   input: {

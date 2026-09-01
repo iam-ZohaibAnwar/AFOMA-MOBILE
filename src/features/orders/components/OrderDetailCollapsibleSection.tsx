@@ -1,15 +1,11 @@
 import type { ReactNode } from 'react';
 import { useState } from 'react';
-import { LayoutAnimation, Platform, Pressable, StyleSheet, UIManager, View } from 'react-native';
+import { LayoutAnimation, Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ChevronExpandIcon } from '../../../components/ui/ChevronExpandIcon';
 import { AppText } from '../../../components/ui/AppText';
 import { colors, radius, shadows, spacing } from '../../../design-system';
-
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 interface OrderDetailCollapsibleSectionProps {
   title: string;

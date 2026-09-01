@@ -8,6 +8,7 @@ import {
   isStripeCardCheckoutSupported,
   isStripePlatformPaySupported,
 } from '../../../app/utils/isStripeNativeSupported';
+import { colors } from '../../../design-system';
 
 import { getErrorMessage } from '../../../services/api/errors';
 import {
@@ -24,8 +25,9 @@ import {
 } from '../../../services/storage/paypalPendingSessionStorage';
 import type { CreateCheckoutOrderRequest } from '../../../services/types/order';
 import { buildCheckoutOrderPayload, type CheckoutOrderParams } from '../utils/buildCheckoutOrderPayload';
+import { resolveKorapayAuthRedirectUrl } from '../utils/resolveKorapayMobileRedirectUrl';
 import { buildStripeBillingDetails } from '../utils/buildStripeBillingDetails';
-import { extractPaymentIntentId } from '../utils/extractPaymentIntentId';
+import { formatStripeCheckoutError } from '../utils/formatStripeCheckoutError';
 import { openPayPalAuthSession } from '../utils/openPayPalAuthSession';
 import {
   isPayPalApprovalCompleteUrl,
@@ -57,6 +59,16 @@ export interface PaymentRoutePayPalParams {
   cancel?: string;
 }
 
+export function isPayPalReturnRouteParams(params?: PaymentRoutePayPalParams): boolean {
+  if (!params || params.cancel === 'true') {
+    return false;
+  }
+
+  const token = params.token?.trim();
+  const payerId = params.PayerID?.trim() || params.payerID?.trim();
+  return Boolean(token || payerId);
+}
+
 function buildReturnUrlFromRouteParams(params: PaymentRoutePayPalParams): string | null {
   if (params.cancel === 'true') {
     return 'afoma://checkout/paypal?cancel=true';
@@ -80,6 +92,57 @@ function buildReturnUrlFromRouteParams(params: PaymentRoutePayPalParams): string
   return `afoma://checkout/paypal?${query.toString()}`;
 }
 
+interface StripePreparedCheckout {
+  fingerprint: string;
+  clientSecret: string;
+}
+
+function buildStripePrepareFingerprint(
+  displayAmount: number,
+  currency: string,
+  params: CheckoutOrderParams,
+): string {
+  const address = params.shippingAddress;
+
+  return [
+    displayAmount.toFixed(2),
+    currency.toUpperCase(),
+    address.email.trim(),
+    address.zip.trim(),
+  ].join('|');
+}
+
+function buildStripePaymentSheetOptions(clientSecret: string, params: CheckoutOrderParams) {
+  return {
+    merchantDisplayName: 'AFOMA Marketplace',
+    paymentIntentClientSecret: clientSecret,
+    defaultBillingDetails: buildStripeBillingDetails(params),
+    allowsDelayedPaymentMethods: false,
+    link: {
+      display: 'never' as const,
+    },
+    returnURL: resolveStripeReturnUrl(),
+    appearance: {
+      colors: {
+        primary: colors.primary,
+        background: colors.surfaceWhite,
+        componentBackground: colors.surfaceWhite,
+        componentBorder: colors.borderStrong,
+        componentDivider: colors.border,
+        primaryText: colors.textPrimary,
+        secondaryText: colors.textSecondary,
+        componentText: colors.textPrimary,
+        placeholderText: colors.textSubtle,
+        icon: colors.primary,
+        error: colors.error,
+      },
+      shapes: {
+        borderRadius: 12,
+      },
+    },
+  };
+}
+
 export function useCheckoutPayment() {
   const {
     isPlacingOrder,
@@ -100,15 +163,20 @@ export function useCheckoutPayment() {
 
   const [korapaySession, setKorapaySession] = useState<KorapayCheckoutSession | null>(null);
   const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
-  const [isStripeInitializing, setIsStripeInitializing] = useState(false);
+  const stripePreparedRef = useRef<StripePreparedCheckout | null>(null);
+  const stripePrefetchPromiseRef = useRef<Promise<boolean> | null>(null);
+  const stripeCheckoutInFlightRef = useRef(false);
   const [isKorapayInitializing, setIsKorapayInitializing] = useState(false);
+  const [isStripeConfirming, setIsStripeConfirming] = useState(false);
   const [applePaySupported, setApplePaySupported] = useState(Platform.OS === 'ios');
   const [isPayPalBrowserPending, setIsPayPalBrowserPending] = useState(false);
   const [isPayPalCapturing, setIsPayPalCapturing] = useState(false);
+  const [isPayPalResuming, setIsPayPalResuming] = useState(false);
   const isPayPalFlowActiveRef = useRef(false);
   const isPayPalBrowserPendingRef = useRef(false);
   const resumePayPalInFlightRef = useRef(false);
   const memoryPendingSessionRef = useRef<PayPalPendingSession | null>(null);
+  const pendingPayPalApprovalUrlRef = useRef<string | null>(null);
   const captureResultRef = useRef(captureResult);
 
   useEffect(() => {
@@ -118,13 +186,30 @@ export function useCheckoutPayment() {
   const resetCheckoutPayment = useCallback(() => {
     resetOrderState();
     memoryPendingSessionRef.current = null;
+    pendingPayPalApprovalUrlRef.current = null;
     void clearPayPalPendingSession();
     setKorapaySession(null);
     setCheckoutNotice(null);
     setIsPayPalBrowserPending(false);
+    setIsPayPalCapturing(false);
+    setIsStripeConfirming(false);
     isPayPalBrowserPendingRef.current = false;
     isPayPalFlowActiveRef.current = false;
   }, [resetOrderState]);
+
+  const clearPayPalPendingFlow = useCallback((message?: string) => {
+    memoryPendingSessionRef.current = null;
+    pendingPayPalApprovalUrlRef.current = null;
+    isPayPalFlowActiveRef.current = false;
+    isPayPalBrowserPendingRef.current = false;
+    setIsPayPalBrowserPending(false);
+    setIsPayPalCapturing(false);
+    if (message) {
+      setCheckoutNotice(message);
+    }
+    void clearPayPalPendingSession();
+    void WebBrowser.dismissBrowser();
+  }, []);
 
   const resolvePendingPayPalSession = useCallback(async (): Promise<PayPalPendingSession | null> => {
     if (memoryPendingSessionRef.current) {
@@ -222,10 +307,15 @@ export function useCheckoutPayment() {
       return false;
     }
 
+    const approvalReturnUrl = pendingPayPalApprovalUrlRef.current;
+    if (!approvalReturnUrl || !isPayPalApprovalCompleteUrl(approvalReturnUrl)) {
+      return false;
+    }
+
     resumePayPalInFlightRef.current = true;
 
     try {
-      const success = await captureApprovedPayPalReturn(undefined, session, { quiet: true });
+      const success = await captureApprovedPayPalReturn(approvalReturnUrl, session, { quiet: true });
       if (success) {
         isPayPalFlowActiveRef.current = false;
         isPayPalBrowserPendingRef.current = false;
@@ -262,25 +352,18 @@ export function useCheckoutPayment() {
       isPayPalFlowActiveRef.current = true;
       isPayPalBrowserPendingRef.current = true;
       setIsPayPalBrowserPending(true);
-      setCheckoutNotice(
-        'PayPal opens in your browser so you can paste credentials and use saved passwords. Return here after approving payment.',
-      );
 
       try {
         const authResult = await openPayPalAuthSession(approvalUrl);
 
         if (authResult.status === 'cancelled') {
-          setCheckoutNotice('PayPal checkout was cancelled.');
-          memoryPendingSessionRef.current = null;
-          await clearPayPalPendingSession();
+          clearPayPalPendingFlow('PayPal checkout was cancelled.');
           return false;
         }
 
         if (authResult.status === 'approved') {
           if (isPayPalCheckoutCancelledUrl(authResult.returnUrl)) {
-            setCheckoutNotice('PayPal checkout was cancelled.');
-            memoryPendingSessionRef.current = null;
-            await clearPayPalPendingSession();
+            clearPayPalPendingFlow('PayPal checkout was cancelled.');
             return false;
           }
 
@@ -289,10 +372,12 @@ export function useCheckoutPayment() {
             return false;
           }
 
+          pendingPayPalApprovalUrlRef.current = authResult.returnUrl;
           return captureApprovedPayPalReturn(authResult.returnUrl, pendingSession);
         }
 
-        return captureApprovedPayPalReturn(undefined, pendingSession);
+        clearPayPalPendingFlow('PayPal checkout was cancelled.');
+        return false;
       } catch (err) {
         setCheckoutNotice(getErrorMessage(err, 'Failed to complete PayPal payment'));
         return false;
@@ -303,7 +388,7 @@ export function useCheckoutPayment() {
         void WebBrowser.dismissBrowser();
       }
     },
-    [captureApprovedPayPalReturn],
+    [captureApprovedPayPalReturn, clearPayPalPendingFlow],
   );
 
   const resumePayPalFromReturnUrl = useCallback(
@@ -313,9 +398,7 @@ export function useCheckoutPayment() {
       }
 
       if (isPayPalCheckoutCancelledUrl(returnUrl)) {
-        setCheckoutNotice('PayPal checkout was cancelled.');
-        memoryPendingSessionRef.current = null;
-        await clearPayPalPendingSession();
+        clearPayPalPendingFlow('PayPal checkout was cancelled.');
         return false;
       }
 
@@ -323,16 +406,20 @@ export function useCheckoutPayment() {
         return false;
       }
 
+      pendingPayPalApprovalUrlRef.current = returnUrl;
+
       resumePayPalInFlightRef.current = true;
+      setIsPayPalResuming(true);
 
       try {
         const pendingSession = await resolvePendingPayPalSession();
         return captureApprovedPayPalReturn(returnUrl, pendingSession);
       } finally {
         resumePayPalInFlightRef.current = false;
+        setIsPayPalResuming(false);
       }
     },
-    [captureApprovedPayPalReturn, captureResult, resolvePendingPayPalSession],
+    [captureApprovedPayPalReturn, captureResult, clearPayPalPendingFlow, resolvePendingPayPalSession],
   );
 
   const resumePayPalFromRouteParams = useCallback(
@@ -428,7 +515,10 @@ export function useCheckoutPayment() {
     setCheckoutNotice(null);
 
     try {
-      const payload = buildCheckoutOrderPayload(params);
+      const payload = {
+        ...buildCheckoutOrderPayload(params),
+        redirect_url: resolveKorapayAuthRedirectUrl(),
+      };
       const response = await initializeKorapayCheckout(payload);
 
       if (!response.success || !response.checkout_url || !response.reference) {
@@ -456,11 +546,14 @@ export function useCheckoutPayment() {
 
     const { reference, params } = korapaySession;
     setKorapaySession(null);
+    setIsStripeConfirming(true);
 
     try {
       await captureCheckoutPayment(reference, params, 'korapay');
     } catch (err) {
       setCheckoutNotice(getErrorMessage(err, 'Failed to complete Korapay payment'));
+    } finally {
+      setIsStripeConfirming(false);
     }
   }, [captureCheckoutPayment, korapaySession]);
 
@@ -484,6 +577,89 @@ export function useCheckoutPayment() {
     return clientSecret;
   }, []);
 
+  const initializeStripePaymentSheet = useCallback(
+    async (clientSecret: string, params: CheckoutOrderParams) => {
+      if (!stripeActions) {
+        throw new Error('Stripe payment could not be initialized');
+      }
+
+      const { error: initError } = await stripeActions.initPaymentSheet(
+        buildStripePaymentSheetOptions(clientSecret, params),
+      );
+
+      if (initError) {
+        throw new Error(
+          formatStripeCheckoutError(
+            initError.message,
+            'Could not open secure card checkout',
+          ),
+        );
+      }
+    },
+    [stripeActions],
+  );
+
+  const prepareStripeCardCheckout = useCallback(
+    async (params: CheckoutOrderParams, displayAmount: number, currency: string) => {
+      if (!isStripeCardCheckoutSupported() || !stripeActions) {
+        return false;
+      }
+
+      const fingerprint = buildStripePrepareFingerprint(displayAmount, currency, params);
+      if (stripePreparedRef.current?.fingerprint === fingerprint) {
+        return true;
+      }
+
+      if (stripePrefetchPromiseRef.current) {
+        return stripePrefetchPromiseRef.current;
+      }
+
+      const prepareTask = (async () => {
+        try {
+          const clientSecret = await createStripeClientSecret(displayAmount, currency);
+          await initializeStripePaymentSheet(clientSecret, params);
+          stripePreparedRef.current = { fingerprint, clientSecret };
+          return true;
+        } catch {
+          stripePreparedRef.current = null;
+          return false;
+        } finally {
+          stripePrefetchPromiseRef.current = null;
+        }
+      })();
+
+      stripePrefetchPromiseRef.current = prepareTask;
+      return prepareTask;
+    },
+    [createStripeClientSecret, initializeStripePaymentSheet, stripeActions],
+  );
+
+  const resolveStripeClientSecret = useCallback(
+    async (params: CheckoutOrderParams, displayAmount: number, currency: string) => {
+      const fingerprint = buildStripePrepareFingerprint(displayAmount, currency, params);
+      const prepared = stripePreparedRef.current;
+
+      if (prepared?.fingerprint === fingerprint) {
+        return prepared.clientSecret;
+      }
+
+      if (stripePrefetchPromiseRef.current) {
+        await stripePrefetchPromiseRef.current;
+        if (stripePreparedRef.current?.fingerprint === fingerprint) {
+          return stripePreparedRef.current.clientSecret;
+        }
+      }
+
+      const ready = await prepareStripeCardCheckout(params, displayAmount, currency);
+      if (!ready || stripePreparedRef.current?.fingerprint !== fingerprint) {
+        throw new Error('Could not open secure card checkout');
+      }
+
+      return stripePreparedRef.current.clientSecret;
+    },
+    [prepareStripeCardCheckout],
+  );
+
   const startStripeCardCheckout = useCallback(
     async (params: CheckoutOrderParams, displayAmount: number, currency: string) => {
       if (!isStripeCardCheckoutSupported() || !stripeActions) {
@@ -491,54 +667,51 @@ export function useCheckoutPayment() {
         return false;
       }
 
-      setIsStripeInitializing(true);
+      if (stripeCheckoutInFlightRef.current) {
+        return false;
+      }
+
+      stripeCheckoutInFlightRef.current = true;
       setCheckoutNotice(null);
 
       try {
-        const clientSecret = await createStripeClientSecret(displayAmount, currency);
-        const { error: initError } = await stripeActions.initPaymentSheet({
-          merchantDisplayName: 'AFOMA Marketplace',
-          paymentIntentClientSecret: clientSecret,
-          defaultBillingDetails: buildStripeBillingDetails(params),
-          allowsDelayedPaymentMethods: false,
-          returnURL: resolveStripeReturnUrl(),
-          appearance: {
-            colors: {
-              primary: '#1F628E',
-              background: '#FFFFFF',
-              componentBackground: '#FFFFFF',
-              componentBorder: '#E2E8F0',
-              componentDivider: '#FED7AA',
-              primaryText: '#172554',
-              secondaryText: '#475569',
-              placeholderText: '#94A3B8',
-              icon: '#1F628E',
-            },
-            shapes: {
-              borderRadius: 12,
-            },
-          },
-        });
-
-        if (initError) {
-          throw new Error(initError.message || 'Could not open secure card checkout');
-        }
-
-        setIsStripeInitializing(false);
-
+        const clientSecret = await resolveStripeClientSecret(params, displayAmount, currency);
         const { error: presentError } = await stripeActions.presentPaymentSheet();
 
         if (presentError) {
+          stripePreparedRef.current = null;
+
           if (presentError.code === 'Canceled') {
             setCheckoutNotice('Card payment was cancelled.');
             return false;
           }
 
-          throw new Error(presentError.message || 'Card payment failed');
+          throw new Error(
+            formatStripeCheckoutError(presentError.message, 'Card payment failed'),
+          );
         }
 
-        const paymentIntentId = extractPaymentIntentId(clientSecret);
-        const result = await captureCheckoutPayment(paymentIntentId, params, 'stripe');
+        setIsStripeConfirming(true);
+
+        const { paymentIntent, error: retrieveError } =
+          await stripeActions.retrievePaymentIntent(clientSecret);
+
+        if (retrieveError) {
+          throw new Error(
+            formatStripeCheckoutError(
+              retrieveError.message,
+              'Could not confirm card payment',
+            ),
+          );
+        }
+
+        if (paymentIntent?.status !== 'Succeeded' || !paymentIntent.id) {
+          throw new Error('Card payment did not complete. Please try again.');
+        }
+
+        stripePreparedRef.current = null;
+
+        const result = await captureCheckoutPayment(paymentIntent.id, params, 'stripe');
 
         if (!result) {
           if (!captureResultRef.current) {
@@ -555,10 +728,11 @@ export function useCheckoutPayment() {
         }
         return Boolean(captureResultRef.current);
       } finally {
-        setIsStripeInitializing(false);
+        stripeCheckoutInFlightRef.current = false;
+        setIsStripeConfirming(false);
       }
     },
-    [captureCheckoutPayment, createStripeClientSecret, stripeActions],
+    [captureCheckoutPayment, resolveStripeClientSecret, stripeActions],
   );
 
   const checkApplePaySupport = useCallback(async () => {
@@ -584,7 +758,11 @@ export function useCheckoutPayment() {
         return false;
       }
 
-      setIsStripeInitializing(true);
+      if (stripeCheckoutInFlightRef.current) {
+        return false;
+      }
+
+      stripeCheckoutInFlightRef.current = true;
       setCheckoutNotice(null);
 
       try {
@@ -594,6 +772,7 @@ export function useCheckoutPayment() {
         }
 
         const clientSecret = await createStripeClientSecret(displayAmount, currency);
+
         const { error, paymentIntent } = await stripeActions.confirmPlatformPayPayment(clientSecret, {
           applePay: {
             cartItems: [
@@ -616,13 +795,16 @@ export function useCheckoutPayment() {
           throw new Error('Apple Pay was not completed');
         }
 
+        setIsStripeConfirming(true);
+
         await captureCheckoutPayment(paymentIntent.id, params, 'stripe');
         return true;
       } catch (err) {
         setCheckoutNotice(getErrorMessage(err, 'Apple Pay failed'));
         return false;
       } finally {
-        setIsStripeInitializing(false);
+        stripeCheckoutInFlightRef.current = false;
+        setIsStripeConfirming(false);
       }
     },
     [
@@ -687,22 +869,25 @@ export function useCheckoutPayment() {
     }
   }, [capturePayPalOrderWithRetry, getLastPayPalCaptureContext, resolvePendingPayPalSession]);
 
+  const isPrePaymentProcessing = isPlacingOrder || isKorapayInitializing;
+
   const isProcessing =
-    isPlacingOrder ||
+    isPrePaymentProcessing ||
     isCapturing ||
+    isStripeConfirming ||
     isPayPalBrowserPending ||
     isPayPalCapturing ||
-    isStripeInitializing ||
-    isKorapayInitializing ||
     Boolean(korapaySession);
 
   return {
     isPlacingOrder,
     isCapturing,
+    isStripeConfirming,
     isPayPalCapturing,
     isPayPalBrowserPending,
-    isStripeInitializing,
+    isPayPalResuming,
     isKorapayInitializing,
+    isPrePaymentProcessing,
     isOpeningPayPal: isPayPalBrowserPending,
     isProcessing,
     orderError,
@@ -720,6 +905,7 @@ export function useCheckoutPayment() {
     startKorapayCheckout,
     completeKorapayCheckout,
     cancelKorapayCheckout,
+    prepareStripeCardCheckout,
     startStripeCardCheckout,
     startApplePayCheckout,
     retryCaptureForCreatedOrder,

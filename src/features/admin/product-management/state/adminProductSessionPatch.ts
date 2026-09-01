@@ -1,15 +1,40 @@
 import type { AdminProductListItem } from '../types/adminProductManagement';
+import { isPopulatedProductSellerRef } from '../../../products/utils/productDisplay';
 
 const sessionPatches = new Map<string, Partial<AdminProductListItem>>();
+
+function mergeAdminProductListPatchFields(
+  product: AdminProductListItem,
+  patch: Partial<AdminProductListItem>,
+): AdminProductListItem {
+  const merged = { ...product, ...patch };
+
+  if (patch.seller !== undefined && !isPopulatedProductSellerRef(patch.seller)) {
+    merged.seller = product.seller;
+  }
+
+  return merged;
+}
 
 export function setAdminProductSessionPatch(
   productId: string,
   patch: Partial<AdminProductListItem>,
 ): void {
-  sessionPatches.set(productId, {
-    ...sessionPatches.get(productId),
+  const existing = sessionPatches.get(productId);
+  const nextPatch: Partial<AdminProductListItem> = {
+    ...existing,
     ...patch,
-  });
+  };
+
+  if (patch.seller !== undefined && !isPopulatedProductSellerRef(patch.seller)) {
+    if (existing?.seller && isPopulatedProductSellerRef(existing.seller)) {
+      nextPatch.seller = existing.seller;
+    } else {
+      delete nextPatch.seller;
+    }
+  }
+
+  sessionPatches.set(productId, nextPatch);
 }
 
 export function applyAdminProductSessionPatch<T extends AdminProductListItem>(
@@ -24,7 +49,7 @@ export function applyAdminProductSessionPatch<T extends AdminProductListItem>(
     return product;
   }
 
-  return { ...product, ...patch };
+  return mergeAdminProductListPatchFields(product, patch) as T;
 }
 
 export function peekAdminProductSessionPatches(): Map<string, Partial<AdminProductListItem>> {

@@ -4,7 +4,6 @@ import { StyleSheet, View } from 'react-native';
 import { AppText } from '../../../components/ui/AppText';
 import { colors, spacing } from '../../../design-system';
 import { formatProductPrice } from '../../products/utils/productDisplay';
-import { SummaryValuePending } from './SummaryValuePending';
 
 export interface CartOrderSummaryProps {
   currency?: string;
@@ -74,8 +73,8 @@ export function CartOrderSummary({
 }: CartOrderSummaryProps) {
   const subtotalLabel =
     typeof itemCount === 'number'
-      ? `Sub total (${itemCount} ${itemCount === 1 ? 'item' : 'items'})`
-      : 'Sub total';
+      ? `Subtotal (${itemCount} ${itemCount === 1 ? 'item' : 'items'})`
+      : 'Subtotal';
 
   return (
     <View style={styles.section}>
@@ -89,35 +88,18 @@ export function CartOrderSummary({
       ) : null}
       <SummaryRow
         label="Shipping"
-        value={
-          shippingPending ? (
-            <SummaryValuePending delayMs={0} />
-          ) : (
-            formatSummaryAmount(shippingAmount, currency)
-          )
-        }
+        value={formatSummaryAmount(shippingPending ? null : shippingAmount, currency)}
       />
       <SummaryRow
-        label="Service charge"
-        value={
-          shippingPending ? (
-            <SummaryValuePending delayMs={120} />
-          ) : (
-            formatSummaryAmount(serviceChargeAmount, currency)
-          )
-        }
+        label="Estimated tax & fees"
+        value={formatSummaryAmount(shippingPending ? null : serviceChargeAmount, currency)}
       />
-      <View style={styles.dashedDivider} />
+      <View style={styles.divider} />
       <SummaryRow
-        label="Total amount"
-        value={
-          shippingPending ? (
-            <SummaryValuePending emphasized delayMs={240} />
-          ) : (
-            formatSummaryAmount(total, currency)
-          )
-        }
+        label="Total"
+        value={formatSummaryAmount(shippingPending ? null : total, currency)}
         emphasized
+        valueColor={colors.textPrimary}
       />
     </View>
   );
@@ -140,9 +122,8 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontWeight: '700',
   },
-  dashedDivider: {
-    borderStyle: 'dashed',
-    borderTopWidth: 1,
+  divider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.borderStrong,
     marginVertical: spacing.xs,
   },

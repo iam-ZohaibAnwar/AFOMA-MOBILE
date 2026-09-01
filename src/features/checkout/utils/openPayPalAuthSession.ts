@@ -10,8 +10,7 @@ import {
 
 export type PayPalAuthSessionResult =
   | { status: 'approved'; returnUrl: string }
-  | { status: 'cancelled' }
-  | { status: 'dismissed' };
+  | { status: 'cancelled' };
 
 /** Required on Android so auth sessions can finish cleanly. */
 export function preparePayPalAuthSession(): void {
@@ -81,14 +80,14 @@ export async function openPayPalAuthSession(approvalUrl: string): Promise<PayPal
         return deepLinkResult;
       }
 
-      return { status: 'dismissed' };
+      return { status: 'cancelled' };
     }
 
     if (deepLinkResult) {
       return deepLinkResult;
     }
 
-    return { status: 'dismissed' };
+    return { status: 'cancelled' };
   } finally {
     subscription.remove();
   }

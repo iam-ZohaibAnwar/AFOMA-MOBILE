@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type ViewStyle } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '../../../components/ui/AppButton';
@@ -10,107 +10,106 @@ import {
 } from '../../../app/navigation/marketplaceChrome';
 import { getMarketplaceFooterContentInset } from '../../../app/navigation/marketplaceChrome/marketplaceFooterLayout';
 import { formatProductPrice } from '../../products/utils/productDisplay';
-import { CartOrderSummary, type CartOrderSummaryProps } from './CartOrderSummary';
-import { CartPromoCodeSection } from './CartPromoCodeSection';
-import { SummaryValuePending } from './SummaryValuePending';
 
-export interface CartSummarySheetProps extends CartOrderSummaryProps {
-  onApplyPromo: (code: string) => Promise<void>;
-  onRemovePromo?: () => void | Promise<void>;
-  isApplyingCoupon?: boolean;
-  appliedCode?: string;
-  couponError?: string | null;
-  couponMessage?: string | null;
+export interface CartSummarySheetProps {
+  currency?: string;
+  total?: number | null;
+  shippingPending?: boolean;
   checkoutDisabled?: boolean;
   onCheckout: () => void;
+  showAuthGate?: boolean;
+  onSignIn?: () => void;
+  onContinueAsGuest?: () => void;
   style?: ViewStyle;
-  /** When true, marketplace tab bar sits below this sheet (safe area handled by footer). */
   hasFooterTabs?: boolean;
 }
 
 export function CartSummarySheet({
-  onApplyPromo,
-  onRemovePromo,
-  isApplyingCoupon,
-  appliedCode,
-  couponError,
-  couponMessage,
-  checkoutDisabled,
-  onCheckout,
-  style,
-  hasFooterTabs = false,
   currency = 'CAD',
   total = null,
   shippingPending = false,
-  ...summaryProps
+  checkoutDisabled,
+  onCheckout,
+  showAuthGate = false,
+  onSignIn,
+  onContinueAsGuest,
+  style,
+  hasFooterTabs = false,
 }: CartSummarySheetProps) {
   const insets = useSafeAreaInsets();
   const chrome = useMarketplaceChromeOptional();
   const footerInset =
     chrome?.footerContentInset ?? getMarketplaceFooterContentInset(insets.bottom);
-  const [expanded, setExpanded] = useState(true);
+  const bottomPadding = hasFooterTabs ? footerInset + spacing.md : insets.bottom + spacing.md;
 
   const totalLabel =
     shippingPending || total == null ? '—' : formatProductPrice(total, currency);
-  const bottomPadding = hasFooterTabs ? footerInset + spacing.md : insets.bottom + spacing.md;
+
+  if (showAuthGate) {
+    return (
+      <View style={[styles.sheet, { paddingBottom: bottomPadding }, style]}>
+        <AppText variant="bodySmall" color="textSecondary" style={styles.authGateCopy}>
+          Sign in or continue as guest to calculate shipping and pay.
+        </AppText>
+
+        <View style={styles.authGateActions}>
+          <AppButton
+            label="Sign in"
+            variant="outline"
+            fullWidth
+            size="lg"
+            shape="pill"
+            onPress={onSignIn}
+          />
+          <AppButton
+            label="Continue as guest"
+            fullWidth
+            size="lg"
+            shape="pill"
+            onPress={onContinueAsGuest}
+          />
+        </View>
+
+        <View style={styles.secureRow}>
+          <Ionicons name="lock-closed-outline" size={14} color={colors.textMuted} />
+          <AppText variant="caption" color="textMuted">
+            Secure checkout
+          </AppText>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.sheet, { paddingBottom: bottomPadding }, style]}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={expanded ? 'Collapse order summary' : 'Expand order summary'}
-        onPress={() => setExpanded((current) => !current)}
-        style={({ pressed }) => [styles.handleWrap, pressed && styles.pressed]}
-      >
-        <View style={styles.handle} />
-        <View style={styles.handleRow}>
-          <AppText variant="bodyMedium" style={styles.handleTitle}>
-            Order summary
-          </AppText>
-          <AppText variant="bodyMedium" color="textLink">
-            {expanded ? 'Hide' : 'Show'}
-          </AppText>
-        </View>
-        {!expanded ? (
-          <View style={styles.collapsedTotalRow}>
-            <AppText variant="body" color="textSecondary">
-              Total amount
-            </AppText>
-            {shippingPending ? (
-              <SummaryValuePending emphasized delayMs={0} />
-            ) : (
-              <AppText variant="bodyMedium" style={styles.collapsedTotalValue}>
-                {totalLabel}
-              </AppText>
-            )}
-          </View>
-        ) : null}
-      </Pressable>
-
-      {expanded ? (
-        <View style={styles.expandedContent}>
-          <CartPromoCodeSection
-            onApply={onApplyPromo}
-            onRemove={onRemovePromo}
-            isApplying={isApplyingCoupon}
-            appliedCode={appliedCode}
-            error={couponError}
-            message={couponMessage}
-          />
-
-          <CartOrderSummary currency={currency} total={total} shippingPending={shippingPending} {...summaryProps} />
-        </View>
-      ) : null}
+      <View style={styles.totalBar}>
+        <AppText variant="body" color="textSecondary">
+          Total
+        </AppText>
+        <AppText
+          variant="h2"
+          style={[styles.totalValue, shippingPending && styles.totalPending]}
+        >
+          {totalLabel}
+        </AppText>
+      </View>
 
       <AppButton
-        label="Checkout"
+        label="Continue to payment"
         fullWidth
         size="lg"
         shape="pill"
+        variant="primary"
         disabled={checkoutDisabled}
         onPress={onCheckout}
-        style={styles.checkoutButton}
       />
+
+      <View style={styles.secureRow}>
+        <Ionicons name="lock-closed-outline" size={14} color={colors.textMuted} />
+        <AppText variant="caption" color="textMuted">
+          Secure checkout
+        </AppText>
+      </View>
     </View>
   );
 }
@@ -121,46 +120,34 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    gap: spacing.sm,
+    paddingTop: spacing.md,
+    gap: spacing.md,
     ...shadows.floating,
   },
-  handleWrap: {
+  authGateCopy: {
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  authGateActions: {
     gap: spacing.sm,
-    paddingBottom: spacing.xs,
   },
-  handle: {
-    alignSelf: 'center',
-    width: 44,
-    height: 4,
-    borderRadius: radius.pill,
-    backgroundColor: colors.borderStrong,
-  },
-  handleRow: {
+  totalBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingVertical: spacing.xs,
   },
-  handleTitle: {
+  totalValue: {
     color: colors.textPrimary,
     fontWeight: '700',
   },
-  collapsedTotalRow: {
+  totalPending: {
+    color: colors.textMuted,
+  },
+  secureRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  collapsedTotalValue: {
-    color: colors.textPrimary,
-    fontWeight: '700',
-  },
-  expandedContent: {
-    gap: spacing.sm,
-  },
-  checkoutButton: {
-    marginTop: spacing.xs,
-  },
-  pressed: {
-    opacity: 0.85,
+    justifyContent: 'center',
+    gap: spacing.xs,
   },
 });

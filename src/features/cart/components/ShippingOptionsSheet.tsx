@@ -1,18 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-  useWindowDimensions,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
+import { BottomSheet } from '../../../components/ui/BottomSheet';
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppText } from '../../../components/ui/AppText';
-import { colors, radius, shadows, spacing } from '../../../design-system';
+import { colors, radius, spacing } from '../../../design-system';
 import type {
   CheckoutShippingOption,
   SellerShippingOptionsGroup,
@@ -29,9 +21,6 @@ export interface ShippingOptionsSheetProps {
   onRetry: () => void;
   onConfirm: (selections: Record<string, string>) => void;
 }
-
-const SHEET_HEIGHT_RATIO = 0.82;
-const SHEET_CHROME_HEIGHT = 132;
 
 function ShippingOptionRow({
   option,
@@ -76,13 +65,6 @@ export function ShippingOptionsSheet({
   onRetry,
   onConfirm,
 }: ShippingOptionsSheetProps) {
-  const insets = useSafeAreaInsets();
-  const { height: windowHeight } = useWindowDimensions();
-  const sheetMaxHeight = Math.round(windowHeight * SHEET_HEIGHT_RATIO);
-  const scrollMaxHeight = Math.max(
-    220,
-    sheetMaxHeight - SHEET_CHROME_HEIGHT - insets.bottom - spacing.md,
-  );
   const [draftSelections, setDraftSelections] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -105,133 +87,92 @@ export function ShippingOptionsSheet({
     onClose();
   };
 
-  if (!visible) {
-    return null;
-  }
+  const header = (
+    <View style={styles.headerRow}>
+      <View style={styles.headerSpacer} />
+      <AppText variant="h3" style={styles.title}>
+        Choose shipping
+      </AppText>
+      <Pressable accessibilityRole="button" onPress={onClose}>
+        <AppText variant="bodyMedium" color="textLink">
+          Close
+        </AppText>
+      </Pressable>
+    </View>
+  );
 
   return (
-    <Modal
+    <BottomSheet
       visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-      statusBarTranslucent
-      presentationStyle="overFullScreen"
+      onClose={onClose}
+      header={header}
+      chromeHeight={132}
+      scrollable={!isLoading && !error}
+      footer={
+        !isLoading && !error ? (
+          <AppButton
+            label="Use this shipping"
+            fullWidth
+            size="lg"
+            shape="pill"
+            disabled={!canConfirm}
+            onPress={handleConfirm}
+          />
+        ) : null
+      }
     >
-      <View style={styles.overlay}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Close" style={styles.backdrop} onPress={onClose} />
-
-        <View style={[styles.sheet, { maxHeight: sheetMaxHeight, paddingBottom: insets.bottom + spacing.md }]}>
-          <View style={styles.handle} />
-
-          <View style={styles.headerRow}>
-            <View style={styles.headerSpacer} />
-            <AppText variant="h3" style={styles.title}>
-              Choose shipping
+      {isLoading ? (
+        <View style={styles.loadingState}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <AppText variant="bodySmall" color="textSecondary">
+            Loading shipping options...
+          </AppText>
+        </View>
+      ) : error ? (
+        <View style={styles.messageBox}>
+          <AppText variant="body" color="error">
+            {error}
+          </AppText>
+          <AppButton label="Try again" variant="outline" onPress={onRetry} />
+        </View>
+      ) : (
+        <>
+          {hasMultipleSellers ? (
+            <AppText variant="bodySmall" color="textSecondary" style={styles.helperText}>
+              All items ship to one address. Choose a carrier for each seller below.
             </AppText>
-            <Pressable accessibilityRole="button" onPress={onClose}>
-              <AppText variant="bodyMedium" color="textLink">
-                Close
-              </AppText>
-            </Pressable>
-          </View>
+          ) : null}
 
-          {isLoading ? (
-            <View style={styles.loadingState}>
-              <ActivityIndicator size="small" color={colors.primary} />
-              <AppText variant="bodySmall" color="textSecondary">
-                Loading shipping options...
-              </AppText>
-            </View>
-          ) : error ? (
-            <View style={styles.messageBox}>
-              <AppText variant="body" color="error">
-                {error}
-              </AppText>
-              <AppButton label="Try again" variant="outline" onPress={onRetry} />
-            </View>
-          ) : (
-            <>
+          {groups.map((group) => (
+            <View key={group.sellerId} style={styles.groupWrap}>
               {hasMultipleSellers ? (
-                <AppText variant="bodySmall" color="textSecondary" style={styles.helperText}>
-                  All items ship to one address. Choose a carrier for each seller below.
+                <AppText variant="label" color="textSecondary" style={styles.groupTitle}>
+                  {group.sellerName}
                 </AppText>
               ) : null}
 
-              <ScrollView
-                style={[styles.scrollArea, { maxHeight: scrollMaxHeight }]}
-                contentContainerStyle={styles.listContent}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                nestedScrollEnabled
-                bounces
-              >
-                {groups.map((group) => (
-                  <View key={group.sellerId} style={styles.groupWrap}>
-                    {hasMultipleSellers ? (
-                      <AppText variant="label" color="textSecondary" style={styles.groupTitle}>
-                        {group.sellerName}
-                      </AppText>
-                    ) : null}
-
-                    {group.options.map((option) => (
-                      <ShippingOptionRow
-                        key={option.id}
-                        option={option}
-                        selected={draftSelections[group.sellerId] === option.id}
-                        onSelect={() =>
-                          setDraftSelections((current) => ({
-                            ...current,
-                            [group.sellerId]: option.id,
-                          }))
-                        }
-                      />
-                    ))}
-                  </View>
-                ))}
-              </ScrollView>
-
-              <AppButton
-                label="Use this shipping"
-                fullWidth
-                size="lg"
-                shape="pill"
-                disabled={!canConfirm}
-                onPress={handleConfirm}
-              />
-            </>
-          )}
-        </View>
-      </View>
-    </Modal>
+              {group.options.map((option) => (
+                <ShippingOptionRow
+                  key={option.id}
+                  option={option}
+                  selected={draftSelections[group.sellerId] === option.id}
+                  onSelect={() =>
+                    setDraftSelections((current) => ({
+                      ...current,
+                      [group.sellerId]: option.id,
+                    }))
+                  }
+                />
+              ))}
+            </View>
+          ))}
+        </>
+      )}
+    </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(15, 23, 42, 0.35)',
-  },
-  backdrop: {
-    flex: 1,
-  },
-  sheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    gap: spacing.md,
-    ...shadows.floating,
-  },
-  handle: {
-    alignSelf: 'center',
-    width: 44,
-    height: 4,
-    borderRadius: radius.pill,
-    backgroundColor: colors.borderStrong,
-  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -245,6 +186,7 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
     color: colors.textPrimary,
+    fontWeight: '700',
   },
   loadingState: {
     alignItems: 'center',
@@ -258,15 +200,9 @@ const styles = StyleSheet.create({
   helperText: {
     lineHeight: 20,
   },
-  scrollArea: {
-    flexGrow: 0,
-  },
-  listContent: {
-    gap: spacing.lg,
-    paddingBottom: spacing.sm,
-  },
   groupWrap: {
     gap: spacing.sm,
+    marginBottom: spacing.lg,
   },
   groupTitle: {
     textTransform: 'uppercase',
@@ -274,7 +210,7 @@ const styles = StyleSheet.create({
   optionRow: {
     flexDirection: 'row',
     gap: spacing.md,
-    alignItems: 'flex-start',
+    alignItems: 'center',
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
     borderRadius: radius.large,
@@ -294,7 +230,6 @@ const styles = StyleSheet.create({
     borderColor: colors.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 2,
   },
   radioOuterSelected: {
     borderColor: colors.primary,

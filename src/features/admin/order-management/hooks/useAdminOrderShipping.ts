@@ -193,8 +193,7 @@ export function useAdminOrderShipping(
   );
 
   const showFreightcomLabelAction = shipmentContext?.kind === 'freightcom';
-  const showConsignmentLabelAction =
-    shipmentContext?.kind === 'consignment' && hasAdminConsignmentLabel(shipmentContext.line);
+  const showConsignmentLabelAction = shipmentContext?.kind === 'consignment';
   const showConsignmentInvoiceAction =
     shipmentContext?.kind === 'consignment' && hasAdminConsignmentInvoice(shipmentContext.line);
   const showGenerateLabelAction = shipmentContext?.kind === 'ngshipping';

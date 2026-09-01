@@ -7,6 +7,7 @@ import { ErrorState } from '../../../../components/ecommerce/ErrorState';
 import { AppButton } from '../../../../components/ui/AppButton';
 import { AppCard } from '../../../../components/ui/AppCard';
 import { AppText } from '../../../../components/ui/AppText';
+import { ImageUploadSourceSheet } from '../../../../components/ui/ImageUploadSourceSheet';
 import { colors, radius, spacing } from '../../../../design-system';
 import type { AdminStackParamList } from '../../navigation/adminTypes';
 import { authReturnTo } from '../../../auth/utils/authNavigation';
@@ -50,6 +51,7 @@ export function AdminProductAiListingScreen({ navigation, route }: Props) {
   }
 
   return (
+    <>
     <ScrollView
       style={styles.screen}
       contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
@@ -140,6 +142,9 @@ export function AdminProductAiListingScreen({ navigation, route }: Props) {
         </>
       )}
     </ScrollView>
+
+    <ImageUploadSourceSheet {...aiListing.imageUploadSheetProps} />
+    </>
   );
 }
 

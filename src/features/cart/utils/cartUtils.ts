@@ -70,10 +70,10 @@ export function replaceCartLineVariations(
   itemId: string,
   selectedVariations: VariationAttributeSelection[],
   userInfo: UserPricingInfo,
-): CartMap {
+): { cart: CartMap; cartKey: string } {
   const line = cart[itemId];
   if (!line?.productData || line.productData.productType !== 'Customizable') {
-    return cart;
+    return { cart, cartKey: itemId };
   }
 
   const selectedAttributes = Object.fromEntries(
@@ -84,7 +84,7 @@ export function replaceCartLineVariations(
   const quantity = line.orderQuantiy ?? 1;
   const cartWithoutLine = removeCartLine(cart, itemId);
 
-  const { cart: nextCart } = mergeProductIntoCart(cartWithoutLine, {
+  const { cart: nextCart, prepared } = mergeProductIntoCart(cartWithoutLine, {
     product: line.productData,
     userInfo,
     quantity,
@@ -93,7 +93,7 @@ export function replaceCartLineVariations(
     mergeMode: 'set',
   });
 
-  return nextCart;
+  return { cart: nextCart, cartKey: prepared.cartKey };
 }
 
 export function updateCartLineQuantity(

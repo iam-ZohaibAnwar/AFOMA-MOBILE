@@ -121,6 +121,8 @@ export function SellerOrderDetailScreen({ route, navigation }: Props) {
   const trackingNumber = getOrderTrackingNumber(displayOrder);
   const carrier = getSellerOrderCarrierLabel(displayOrder);
   const hasShippingOps = sellerOrderHasShippingOperations(displayOrder);
+  const showShippingQuickActions =
+    hasShippingOps && displayOrder.status?.trim() !== 'Cancelled';
 
   return (
     <>
@@ -263,10 +265,9 @@ export function SellerOrderDetailScreen({ route, navigation }: Props) {
           shipping={shippingTotal}
           total={total}
           footer={
-            hasShippingOps ? (
+            showShippingQuickActions ? (
               <SellerOrderQuickActionsSection
                 embedded
-                shippingDisabled={displayOrder.status === 'Cancelled'}
                 canDownloadLabel={shipping.canDownloadLabel}
                 canPrintPackingSlip={shipping.canPrintPackingSlip}
                 canSchedulePickup={shipping.canSchedulePickup}

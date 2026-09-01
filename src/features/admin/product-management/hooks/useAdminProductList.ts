@@ -11,6 +11,7 @@ import type {
   AdminProductInventoryFilter,
   AdminProductListItem,
   AdminProductManagementParams,
+  AdminProductStockAlertFilter,
 } from '../types/adminProductManagement';
 import { consumeAdminProductListRefreshRequest } from '../state/adminProductListRefresh';
 import {
@@ -18,8 +19,10 @@ import {
   peekAdminProductSessionPatches,
   setAdminProductSessionPatch,
 } from '../state/adminProductSessionPatch';
+import { filterAdminProductsByStockAlert } from '../utils/adminProductStockAlert';
 
 const ITEMS_PER_PAGE = 10;
+const STOCK_ALERT_PAGE_LIMIT = 100;
 const SEARCH_DEBOUNCE_MS = 300;
 
 export function useAdminProductList(
@@ -41,11 +44,30 @@ export function useAdminProductList(
   const [inventoryFilter, setInventoryFilter] = useState<AdminProductInventoryFilter>(
     initialFilters?.initialInventoryFilter ?? '',
   );
+  const [stockAlertFilter, setStockAlertFilter] = useState<AdminProductStockAlertFilter>(
+    initialFilters?.initialStockAlertFilter ?? '',
+  );
   const [actionError, setActionError] = useState<string | null>(null);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const [listReloadToken, setListReloadToken] = useState(0);
 
   const requestVersionRef = useRef(0);
   const hasCachedProductsRef = useRef(false);
+  const stockAlertFilterRef = useRef(stockAlertFilter);
+
+  useEffect(() => {
+    stockAlertFilterRef.current = stockAlertFilter;
+  }, [stockAlertFilter]);
+
+  useEffect(() => {
+    const nextStockAlert = initialFilters?.initialStockAlertFilter ?? '';
+    if (nextStockAlert === stockAlertFilterRef.current) {
+      return;
+    }
+
+    setStockAlertFilter(nextStockAlert);
+    hasCachedProductsRef.current = false;
+  }, [initialFilters?.initialStockAlertFilter]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -77,12 +99,14 @@ export function useAdminProductList(
 
       try {
         let resolvedPage = page;
+        const pageLimit = stockAlertFilter ? STOCK_ALERT_PAGE_LIMIT : ITEMS_PER_PAGE;
         let response = await getAdminProductList({
           page: resolvedPage,
-          limit: ITEMS_PER_PAGE,
+          limit: pageLimit,
           search: searchTerm || undefined,
           productStatus: approvalFilter || undefined,
           inventoryStatus: inventoryFilter || undefined,
+          stockAlert: stockAlertFilter || undefined,
         });
 
         const maxPage = Math.max(1, response.totalPages ?? 1);
@@ -90,10 +114,11 @@ export function useAdminProductList(
           resolvedPage = maxPage;
           response = await getAdminProductList({
             page: resolvedPage,
-            limit: ITEMS_PER_PAGE,
+            limit: pageLimit,
             search: searchTerm || undefined,
             productStatus: approvalFilter || undefined,
             inventoryStatus: inventoryFilter || undefined,
+            stockAlert: stockAlertFilter || undefined,
           });
         }
 
@@ -101,12 +126,20 @@ export function useAdminProductList(
           return;
         }
 
-        const nextProducts = Array.isArray(response.products) ? response.products : [];
+        const nextProducts = filterAdminProductsByStockAlert(
+          Array.isArray(response.products) ? response.products : [],
+          stockAlertFilter,
+        );
         setProducts(
           nextProducts.map((product) => applyAdminProductSessionPatch(product) ?? product),
         );
-        setTotalPages(Math.max(1, response.totalPages ?? 1));
-        setTotalProducts(response.totalProducts ?? 0);
+        if (stockAlertFilter) {
+          setTotalProducts(nextProducts.length);
+          setTotalPages(1);
+        } else {
+          setTotalPages(Math.max(1, response.totalPages ?? 1));
+          setTotalProducts(response.totalProducts ?? 0);
+        }
         setCurrentPage(resolvedPage);
         hasCachedProductsRef.current = true;
       } catch (err) {
@@ -125,13 +158,13 @@ export function useAdminProductList(
         }
       }
     },
-    [approvalFilter, enabled, inventoryFilter, searchTerm],
+    [approvalFilter, enabled, inventoryFilter, searchTerm, stockAlertFilter],
   );
 
   useEffect(() => {
     setCurrentPage(1);
     void loadPage(1, hasCachedProductsRef.current ? 'refresh' : 'initial');
-  }, [loadPage]);
+  }, [loadPage, listReloadToken]);
 
   const refresh = useCallback(async () => {
     await loadPage(currentPage, 'refresh');
@@ -161,14 +194,22 @@ export function useAdminProductList(
     setInventoryFilter(nextFilter);
   }, []);
 
+  const applyStockAlertFilter = useCallback((nextFilter: AdminProductStockAlertFilter) => {
+    setStockAlertFilter(nextFilter);
+    hasCachedProductsRef.current = false;
+    setCurrentPage(1);
+    setListReloadToken((token) => token + 1);
+  }, []);
+
   const clearFilters = useCallback(() => {
     setApprovalFilter('');
     setInventoryFilter('');
+    setStockAlertFilter('');
   }, []);
 
   const hasActiveFilters = useMemo(
-    () => Boolean(approvalFilter || inventoryFilter),
-    [approvalFilter, inventoryFilter],
+    () => Boolean(approvalFilter || inventoryFilter || stockAlertFilter),
+    [approvalFilter, inventoryFilter, stockAlertFilter],
   );
 
   const updateProductsInList = useCallback(
@@ -230,7 +271,7 @@ export function useAdminProductList(
         }
 
         const patch = patches.get(productId);
-        return patch ? { ...product, ...patch } : product;
+        return patch ? applyAdminProductSessionPatch(product) ?? product : product;
       }),
     );
   }, []);
@@ -257,9 +298,11 @@ export function useAdminProductList(
     setSearchInput,
     approvalFilter,
     inventoryFilter,
+    stockAlertFilter,
     hasActiveFilters,
     applyApprovalFilter,
     applyInventoryFilter,
+    applyStockAlertFilter,
     clearFilters,
     refresh,
     goToPreviousPage,

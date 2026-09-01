@@ -28,7 +28,6 @@ export function getErrorMessage(error: unknown, fallback = 'Something went wrong
     }
     return error.message || fallback;
   }
-
   if (error instanceof Error) {
     return error.message || fallback;
   }

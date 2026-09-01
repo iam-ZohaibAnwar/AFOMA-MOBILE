@@ -165,6 +165,8 @@ export function AdminOrderDetailScreen({ route, navigation }: Props) {
   const carrier = getAdminOrderCarrierLabel(displayOrder);
   const shippingSummary = getAdminShippingSummary(displayOrder);
   const hasShippingOps = adminOrderHasShippingOperations(displayOrder);
+  const showShippingQuickActions =
+    hasShippingOps && displayOrder.status?.trim() !== 'Cancelled';
   const canDownloadLabel =
     showConsignmentLabelAction || showFreightcomLabelAction || showGenerateLabelAction;
   const canPrintPackingSlip = showConsignmentInvoiceAction;
@@ -321,10 +323,9 @@ export function AdminOrderDetailScreen({ route, navigation }: Props) {
         serviceFees={serviceFees}
         total={total}
         footer={
-          hasShippingOps ? (
+          showShippingQuickActions ? (
             <AdminOrderQuickActionsSection
               embedded
-              shippingDisabled={displayOrder.status === 'Cancelled'}
               canDownloadLabel={canDownloadLabel}
               canPrintPackingSlip={canPrintPackingSlip}
               canPayShipment={canPayShipment}

@@ -4,49 +4,75 @@ import { Ionicons } from '@expo/vector-icons';
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
 import { AppText } from '../../../../components/ui/AppText';
 import { colors, radius, spacing } from '../../../../design-system';
-import type { AdminLatestSeller, AdminPopularSearchTerm, AdminUserCounts } from '../types/adminDashboard';
+import type { AdminLatestSeller, AdminUserCounts } from '../types/adminDashboard';
 import { formatAdminCount } from '../utils/adminDashboardDisplay';
-import { buildWeeklyEngagementBars, countNewSignupsThisWeek } from '../utils/adminEngagementChart';
+import {
+  buildEngagementSegments,
+  sumEngagementSegments,
+} from '../utils/adminEngagementBreakdown';
+import { countNewSignupsThisWeek } from '../utils/adminEngagementChart';
 import { adminDashboardTheme } from '../utils/adminDashboardTheme';
 import { AdminSectionTitle } from './AdminSectionTitle';
 
 export interface AdminUserEngagementSectionProps {
   userCounts: AdminUserCounts | null;
   latestSellers: AdminLatestSeller[];
-  searchTerms: AdminPopularSearchTerm[];
   error?: string;
   onRetry?: () => void;
 }
 
-function EngagementBarChart({
-  latestSellers,
-  searchTerms,
-}: {
-  latestSellers: AdminLatestSeller[];
-  searchTerms: AdminPopularSearchTerm[];
-}) {
-  const bars = buildWeeklyEngagementBars(latestSellers, searchTerms);
-  const maxValue = Math.max(...bars.map((bar) => bar.value), 1);
+function EngagementBreakdown({ userCounts }: { userCounts: AdminUserCounts | null }) {
+  const segments = buildEngagementSegments(userCounts);
+  const total = sumEngagementSegments(segments);
+  const visibleSegments = segments.filter((segment) => segment.value > 0);
 
   return (
-    <View style={styles.chartWrap}>
-      <View style={styles.chartBars}>
-        {bars.map((bar, index) => {
-          const barHeight = Math.max(10, Math.round((bar.value / maxValue) * 112));
-          const barColor =
-            adminDashboardTheme.chartBarColors[index % adminDashboardTheme.chartBarColors.length];
+    <View style={styles.breakdown}>
+      <AppText variant="bodySmall" color="textSecondary">
+        Who is registered on the platform
+      </AppText>
 
-          return (
-            <View key={`${bar.label}-${index}`} style={styles.chartColumn}>
-              <View style={styles.chartBarTrack}>
-                <View style={[styles.chartBarFill, { height: barHeight, backgroundColor: barColor }]} />
-              </View>
-              <AppText variant="caption" color="textMuted" style={styles.chartLabel}>
-                {bar.label}
-              </AppText>
-            </View>
-          );
-        })}
+      <View
+        accessibilityRole="image"
+        accessibilityLabel={`Registration breakdown: ${segments
+          .map((segment) => `${segment.label} ${segment.value}`)
+          .join(', ')}`}
+        style={styles.stackedBarTrack}
+      >
+        {total === 0 ? (
+          <View style={styles.stackedBarEmpty} />
+        ) : (
+          visibleSegments.map((segment, index) => (
+            <View
+              key={segment.key}
+              style={[
+                styles.stackedBarSegment,
+                {
+                  flex: segment.value,
+                  backgroundColor: segment.color,
+                  borderTopLeftRadius: index === 0 ? radius.medium : 0,
+                  borderBottomLeftRadius: index === 0 ? radius.medium : 0,
+                  borderTopRightRadius: index === visibleSegments.length - 1 ? radius.medium : 0,
+                  borderBottomRightRadius: index === visibleSegments.length - 1 ? radius.medium : 0,
+                },
+              ]}
+            />
+          ))
+        )}
+      </View>
+
+      <View style={styles.legend}>
+        {segments.map((segment) => (
+          <View key={segment.key} style={styles.legendRow}>
+            <View style={[styles.legendDot, { backgroundColor: segment.color }]} />
+            <AppText variant="bodySmall" color="textSecondary" style={styles.legendLabel}>
+              {segment.label}
+            </AppText>
+            <AppText variant="bodyMedium" style={styles.legendValue}>
+              {formatAdminCount(segment.value)}
+            </AppText>
+          </View>
+        ))}
       </View>
     </View>
   );
@@ -56,19 +82,14 @@ function EngagementStat({
   label,
   value,
   icon,
-  tone = 'primary',
 }: {
   label: string;
   value: string;
   icon: keyof typeof Ionicons.glyphMap;
-  tone?: 'primary' | 'success';
 }) {
-  const iconBackground =
-    tone === 'success' ? colors.success : adminDashboardTheme.kpiIconBackground;
-
   return (
     <View style={styles.statRow}>
-      <View style={[styles.statIconWrap, { backgroundColor: iconBackground }]}>
+      <View style={[styles.statIconWrap, { backgroundColor: adminDashboardTheme.kpiIconBackground }]}>
         <Ionicons name={icon} size={18} color={adminDashboardTheme.kpiIconColor} />
       </View>
       <View style={styles.statCopy}>
@@ -86,7 +107,6 @@ function EngagementStat({
 export function AdminUserEngagementSection({
   userCounts,
   latestSellers,
-  searchTerms,
   error,
   onRetry,
 }: AdminUserEngagementSectionProps) {
@@ -98,21 +118,15 @@ export function AdminUserEngagementSection({
 
       <View style={styles.card}>
         <View style={styles.content}>
-          <EngagementBarChart latestSellers={latestSellers} searchTerms={searchTerms} />
+          <EngagementBreakdown userCounts={userCounts} />
 
-          <View style={styles.statsList}>
-            <EngagementStat
-              label="Active Users"
-              value={formatAdminCount(userCounts?.userCount)}
-              icon="people-outline"
-            />
-            <EngagementStat
-              label="New Signups (This Week)"
-              value={formatAdminCount(newSignups)}
-              icon="person-add-outline"
-              tone="success"
-            />
-          </View>
+          <View style={styles.statsDivider} />
+
+          <EngagementStat
+            label="New seller signups this week"
+            value={formatAdminCount(newSignups)}
+            icon="person-add-outline"
+          />
         </View>
 
         {error ? <ErrorState message={error} onAction={onRetry} style={styles.error} /> : null}
@@ -137,42 +151,50 @@ const styles = StyleSheet.create({
   content: {
     gap: spacing.lg,
   },
-  chartWrap: {
-    paddingTop: spacing.xs,
-  },
-  chartBars: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    gap: spacing.xs,
-    minHeight: 140,
-  },
-  chartColumn: {
-    flex: 1,
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  chartBarTrack: {
-    width: '100%',
-    maxWidth: 36,
-    height: 112,
-    borderRadius: radius.medium,
-    backgroundColor: adminDashboardTheme.chartTrackBackground,
-    overflow: 'hidden',
-    justifyContent: 'flex-end',
-  },
-  chartBarFill: {
-    width: '100%',
-    borderRadius: radius.medium,
-  },
-  chartLabel: {
-    textAlign: 'center',
-    fontWeight: '600',
-    fontSize: 11,
-  },
-  statsList: {
+  breakdown: {
     gap: spacing.md,
-    paddingTop: spacing.xs,
+  },
+  stackedBarTrack: {
+    flexDirection: 'row',
+    height: 14,
+    borderRadius: radius.medium,
+    overflow: 'hidden',
+    backgroundColor: adminDashboardTheme.chartTrackBackground,
+  },
+  stackedBarEmpty: {
+    flex: 1,
+    backgroundColor: colors.surfaceGrey,
+  },
+  stackedBarSegment: {
+    minWidth: 4,
+    height: '100%',
+  },
+  legend: {
+    gap: spacing.sm,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.borderStrong,
+    flexShrink: 0,
+  },
+  legendLabel: {
+    flex: 1,
+  },
+  legendValue: {
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  statsDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.borderStrong,
   },
   statRow: {
     flexDirection: 'row',

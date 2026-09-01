@@ -1,12 +1,8 @@
 import type { ReactNode } from 'react';
 
 import { Pressable, StyleSheet, View } from 'react-native';
-
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-
-
-import { BackChevronIcon } from '../../../components/ui/BackChevronIcon';
 
 import { MessageIcon } from '../../../components/ui/MessageIcon';
 
@@ -96,7 +92,7 @@ export function ProductGalleryHeroChrome({
     <View pointerEvents="box-none" style={[styles.topRow, { top }]}>
 
       <OverlayIconButton theme={theme} onPress={onBackPress} accessibilityLabel="Go back">
-        <BackChevronIcon color={iconColor} size={13} strokeWidth={2} />
+        <Ionicons name="chevron-back" size={20} color={iconColor} />
       </OverlayIconButton>
 
       <View style={styles.topActions}>

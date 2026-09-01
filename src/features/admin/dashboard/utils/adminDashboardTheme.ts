@@ -10,15 +10,10 @@ export const adminDashboardTheme = {
   /** Solid fill + white icon — matches admin seller management. */
   kpiIconBackground: colors.primary,
   kpiIconColor: colors.textInverse,
-  /** Mon–Sat bars: soft blue ramp with primary peak + warm accent. */
-  chartBarColors: [
-    colors.primarySoft,
-    colors.primarySoft,
-    colors.primary,
-    colors.primarySoft,
-    colors.secondaryMuted,
-    colors.secondarySoft,
-  ] as const,
+  /** User engagement doughnut — matches web ChartPieAdmin legend colors. */
+  engagementUserColor: colors.primary,
+  engagementSellerColor: colors.border,
+  engagementAffiliateColor: '#FFAB91',
   chartTrackBackground: colors.background,
   alertCriticalButton: colors.error,
   alertReviewButton: colors.secondary,

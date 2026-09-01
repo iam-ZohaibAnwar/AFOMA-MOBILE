@@ -1,4 +1,4 @@
-import { Platform, type TextStyle } from 'react-native';
+import { Platform, type TextStyle, type ViewStyle } from 'react-native';
 
 import { colors, typography } from '../../design-system';
 
@@ -21,4 +21,10 @@ export const stackHeaderTitleStyle: TextStyle = Platform.select({
   fontSize: typography.h3.fontSize,
   fontWeight: typography.h3.fontWeight,
   color: colors.textPrimary,
+};
+
+/** Keeps custom header back buttons vertically centered in native stack headers (iOS). */
+export const stackHeaderLeftContainerStyle: ViewStyle = {
+  alignItems: 'center',
+  justifyContent: 'center',
 };

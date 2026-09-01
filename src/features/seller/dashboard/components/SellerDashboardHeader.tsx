@@ -71,9 +71,9 @@ const styles = StyleSheet.create({
     borderBottomColor: sellerDashboardTheme.cardBorder,
   },
   backWrap: {
-    width: 40,
-    height: 40,
-    alignItems: 'flex-start',
+    width: 44,
+    height: 44,
+    alignItems: 'center',
     justifyContent: 'center',
   },
   titleBlock: {

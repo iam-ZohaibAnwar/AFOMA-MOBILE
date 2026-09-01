@@ -26,6 +26,10 @@ export interface CountryStateFieldsProps {
   tone?: 'default' | 'surface';
   style?: StyleProp<ViewStyle>;
   countryOptions?: SelectOption[];
+  /** Use sibling picker sheets when fields are inside another modal. */
+  hostedPickers?: boolean;
+  onOpenCountryPicker?: () => void;
+  onOpenStatePicker?: () => void;
 }
 
 export function CountryStateFields({
@@ -42,6 +46,9 @@ export function CountryStateFields({
   tone = 'default',
   style,
   countryOptions,
+  hostedPickers = false,
+  onOpenCountryPicker,
+  onOpenStatePicker,
 }: CountryStateFieldsProps) {
   const normalizedValue = useMemo(
     () => resolveCountryStateSelection(value),
@@ -84,6 +91,8 @@ export function CountryStateFields({
         disabled={disabled}
         tone={tone}
         modalTitle={countryLabel}
+        hostedPicker={hostedPickers}
+        onOpenPicker={onOpenCountryPicker}
       />
       <SelectField
         label={stateFieldLabel}
@@ -95,6 +104,8 @@ export function CountryStateFields({
         disabled={disabled || !normalizedValue.countryCode}
         tone={tone}
         modalTitle={stateLabel}
+        hostedPicker={hostedPickers}
+        onOpenPicker={onOpenStatePicker}
       />
     </View>
   );

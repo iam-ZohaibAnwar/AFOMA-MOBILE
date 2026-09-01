@@ -45,8 +45,22 @@ export function AdminDashboardScreen({ navigation }: Props) {
     }
   }, [navigation]);
 
-  const handleOpenProducts = useCallback(() => {
-    navigation.navigate('AdminProductManagement');
+  const handleOpenOutOfStockProducts = useCallback(() => {
+    navigation.navigate('AdminProductManagement', {
+      initialStockAlertFilter: 'outOfStock',
+      initialListNotice:
+        'These products are marked out of stock and cannot be purchased until inventory is updated.',
+      stockAlertRequestedAt: Date.now(),
+    });
+  }, [navigation]);
+
+  const handleOpenLowStockProducts = useCallback(() => {
+    navigation.navigate('AdminProductManagement', {
+      initialStockAlertFilter: 'lowStock',
+      initialListNotice:
+        'These in-stock products have fewer than 5 units left. Open a product to increase quantity before it sells out.',
+      stockAlertRequestedAt: Date.now(),
+    });
   }, [navigation]);
 
   const handlePendingProductsPress = useCallback(() => {
@@ -163,8 +177,8 @@ export function AdminDashboardScreen({ navigation }: Props) {
             pendingOrders: errors.pendingOrders,
           }}
           onRetry={() => void refresh()}
-          onRestockPress={handleOpenProducts}
-          onLowStockPress={handleOpenProducts}
+          onRestockPress={handleOpenOutOfStockProducts}
+          onLowStockPress={handleOpenLowStockProducts}
           onPendingProductsPress={handlePendingProductsPress}
           onPendingPayoutsPress={fullAccess ? handlePendingPayoutsPress : undefined}
           onPendingOrdersPress={handlePendingOrdersPress}
@@ -173,7 +187,6 @@ export function AdminDashboardScreen({ navigation }: Props) {
         <AdminUserEngagementSection
           userCounts={userCounts}
           latestSellers={latestSellers}
-          searchTerms={searchTerms}
           error={errors.userCounts}
           onRetry={() => void refresh()}
         />

@@ -34,7 +34,8 @@
         "android.permission.RECORD_AUDIO",
         "android.permission.POST_NOTIFICATIONS"
       ],
-      "package": "com.zohaibanwarsorganization.afoma"
+      "package": "com.zohaibanwarsorganization.afoma",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"

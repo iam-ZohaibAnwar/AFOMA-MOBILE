@@ -1,4 +1,5 @@
 import { StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { AppText } from '../../../components/ui/AppText';
 import { HeaderBackButton } from '../../../components/ui/HeaderBackButton';
@@ -12,10 +13,17 @@ export function PaymentScreenHeader({ onBack }: PaymentScreenHeaderProps) {
   return (
     <View style={styles.header}>
       <HeaderBackButton onPress={onBack} />
+
       <AppText variant="h3" style={styles.title}>
-        Payment
+        Checkout
       </AppText>
-      <View style={styles.spacer} />
+
+      <View style={styles.secureWrap}>
+        <Ionicons name="lock-closed-outline" size={14} color={colors.textMuted} />
+        <AppText variant="caption" color="textMuted" style={styles.secureText}>
+          Secure
+        </AppText>
+      </View>
     </View>
   );
 }
@@ -32,7 +40,14 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontWeight: '700',
   },
-  spacer: {
-    width: 40,
+  secureWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minWidth: 44,
+    justifyContent: 'flex-end',
+  },
+  secureText: {
+    flexShrink: 1,
   },
 });

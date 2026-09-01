@@ -16,6 +16,7 @@ import {
 } from '../utils/cartUtils';
 import { syncCartLinePrices } from '../utils/cartPricing';
 import { getCartShippingTotal, invalidateCartShipping } from '../utils/applyShippingToCart';
+import { computePersistedShippingTotals, normalizeStoredShippingRates } from '../utils/resolveCartShipping';
 import { getCartMemoryCache, setCartMemoryCache } from '../utils/cartMemoryCache';
 import { notifyCartChanged, subscribeCartRefresh } from '../utils/cartRefresh';
 
@@ -56,13 +57,19 @@ export function useCartState(userId?: string, userInfo?: UserPricingInfo) {
       try {
         const guestCart = applyPricing(await loadGuestCart());
         const lineShippingTotal = getCartShippingTotal(guestCart);
+        const normalizedShipping = normalizeStoredShippingRates(
+          guestCart,
+          lineShippingTotal,
+          lineShippingTotal,
+          userInfo?.currencyRate ?? 1,
+        );
         setCart(guestCart);
-        setTotalShippingRate(lineShippingTotal);
-        setFetchedShippingRate(lineShippingTotal);
+        setTotalShippingRate(normalizedShipping.totalShippingRate);
+        setFetchedShippingRate(normalizedShipping.fetchedShippingRate);
         setCartMemoryCache(userId, {
           cart: guestCart,
-          totalShippingRate: lineShippingTotal,
-          fetchedShippingRate: lineShippingTotal,
+          totalShippingRate: normalizedShipping.totalShippingRate,
+          fetchedShippingRate: normalizedShipping.fetchedShippingRate,
         });
       } catch (err) {
         if (!hasExistingItems) {
@@ -80,15 +87,19 @@ export function useCartState(userId?: string, userInfo?: UserPricingInfo) {
     try {
       const response = await loadUserCart(userId);
       const nextCart = applyPricing(response.cart ?? {});
-      const nextTotalShipping = response.totalShippingRate ?? 0;
-      const nextFetchedShipping = response.fetchedShippingRate ?? 0;
+      const normalizedShipping = normalizeStoredShippingRates(
+        nextCart,
+        response.totalShippingRate ?? 0,
+        response.fetchedShippingRate ?? 0,
+        userInfo?.currencyRate ?? 1,
+      );
       setCart(nextCart);
-      setTotalShippingRate(nextTotalShipping);
-      setFetchedShippingRate(nextFetchedShipping);
+      setTotalShippingRate(normalizedShipping.totalShippingRate);
+      setFetchedShippingRate(normalizedShipping.fetchedShippingRate);
       setCartMemoryCache(userId, {
         cart: nextCart,
-        totalShippingRate: nextTotalShipping,
-        fetchedShippingRate: nextFetchedShipping,
+        totalShippingRate: normalizedShipping.totalShippingRate,
+        fetchedShippingRate: normalizedShipping.fetchedShippingRate,
       });
     } catch (err) {
       if (!hasExistingItems) {
@@ -123,8 +134,17 @@ export function useCartState(userId?: string, userInfo?: UserPricingInfo) {
   }, [loadCart]);
 
   useEffect(() => subscribeCartRefresh(() => {
+    const cached = getCartMemoryCache(userId);
+    if (cached) {
+      setCart(cached.cart);
+      setTotalShippingRate(cached.totalShippingRate);
+      setFetchedShippingRate(cached.fetchedShippingRate);
+      setIsRefreshing(false);
+      return;
+    }
+
     void loadCart();
-  }), [loadCart]);
+  }), [loadCart, userId]);
 
   const removeItem = useCallback(
     async (itemId: string) => {
@@ -193,29 +213,47 @@ export function useCartState(userId?: string, userInfo?: UserPricingInfo) {
     async (itemId: string, selectedVariations: VariationAttributeSelection[]) => {
       if (!userInfo) {
         setError('Unable to update options right now.');
-        return;
+        return null;
       }
 
       setUpdatingItemId(itemId);
       setError(null);
 
+      let nextCart: CartMap | null = null;
+      let nextCartKey: string | null = null;
+
       try {
-        const nextCart = invalidateCartShipping(
-          replaceCartLineVariations(cart, itemId, selectedVariations, userInfo),
-        );
+        setCart((currentCart) => {
+          const { cart: replacedCart, cartKey } = replaceCartLineVariations(
+            currentCart,
+            itemId,
+            selectedVariations,
+            userInfo,
+          );
+          nextCartKey = cartKey;
+          nextCart = invalidateCartShipping(replacedCart);
+          return nextCart;
+        });
+
+        if (!nextCart) {
+          return null;
+        }
+
+        setTotalShippingRate(ZERO_SHIPPING_RATES.totalShippingRate);
+        setFetchedShippingRate(ZERO_SHIPPING_RATES.fetchedShippingRate);
+        setCartMemoryCache(userId, {
+          cart: nextCart,
+          ...ZERO_SHIPPING_RATES,
+        });
+
         if (userId) {
           await persistCart(userId, nextCart, ZERO_SHIPPING_RATES);
         } else {
           await saveGuestCart(nextCart);
         }
-        setCart(nextCart);
-        setTotalShippingRate(ZERO_SHIPPING_RATES.totalShippingRate);
-        setFetchedShippingRate(ZERO_SHIPPING_RATES.fetchedShippingRate);
+
         notifyCartChanged();
-        setCartMemoryCache(userId, {
-          cart: nextCart,
-          ...ZERO_SHIPPING_RATES,
-        });
+        return nextCartKey;
       } catch (err) {
         setError(getErrorMessage(err, 'Failed to update product options'));
         throw err;
@@ -223,7 +261,7 @@ export function useCartState(userId?: string, userInfo?: UserPricingInfo) {
         setUpdatingItemId(null);
       }
     },
-    [cart, userId, userInfo],
+    [userId, userInfo],
   );
 
   const replaceCart = useCallback((nextCart: CartMap) => {

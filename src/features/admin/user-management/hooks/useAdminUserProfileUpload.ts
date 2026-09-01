@@ -1,17 +1,16 @@
 import { useCallback, useRef, useState } from 'react';
-import * as ImagePicker from 'expo-image-picker';
 
 import { getErrorMessage } from '../../../../services/api/errors';
 import { uploadUserProfileImage } from '../../../../services/api/sellersApi';
-import {
-  isAllowedImageMimeType,
-  prepareListingImageForUpload,
-} from '../../../seller/products/utils/productImageUpload';
+import { useImageUploadSourceSheet } from '../../../../hooks/useImageUploadSourceSheet';
+import { SQUARE_IMAGE_CROP } from '../../../../utils/imageCropPresets';
+import { prepareListingImageForUpload } from '../../../seller/products/utils/productImageUpload';
 
 export function useAdminUserProfileUpload() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const isUploadingRef = useRef(false);
+  const imageUploadSheet = useImageUploadSourceSheet();
 
   const uploadLocalImage = useCallback(async (localUri: string): Promise<string | null> => {
     if (isUploadingRef.current) {
@@ -49,25 +48,20 @@ export function useAdminUserProfileUpload() {
 
     setUploadError(null);
 
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      setUploadError('Photo library permission is required to upload a profile photo.');
-      return null;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 1,
-      allowsMultipleSelection: false,
+    const { asset, error } = await imageUploadSheet.pickImage({
+      title: 'Profile photo',
+      subtitle: 'Choose a photo and crop it square before uploading.',
+      libraryLabel: 'Choose from library',
+      cameraLabel: 'Take photo',
+      crop: SQUARE_IMAGE_CROP,
     });
 
-    if (result.canceled || !result.assets?.[0]) {
+    if (error) {
+      setUploadError(error);
       return null;
     }
 
-    const asset = result.assets[0];
-    if (!isAllowedImageMimeType(asset.mimeType)) {
-      setUploadError('Unsupported image type. Use JPG, PNG, GIF, or WebP.');
+    if (!asset) {
       return null;
     }
 
@@ -76,7 +70,7 @@ export function useAdminUserProfileUpload() {
       localUri: asset.uri,
       imageUrl,
     };
-  }, [uploadLocalImage]);
+  }, [imageUploadSheet, uploadLocalImage]);
 
   const clearUploadError = useCallback(() => {
     setUploadError(null);
@@ -88,5 +82,6 @@ export function useAdminUserProfileUpload() {
     pickProfilePhoto,
     uploadLocalImage,
     clearUploadError,
+    imageUploadSheetProps: imageUploadSheet.sheetProps,
   };
 }

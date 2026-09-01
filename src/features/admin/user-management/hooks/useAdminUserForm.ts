@@ -429,6 +429,7 @@ export function useAdminUserForm({
     retryHydration,
     clearSubmitError,
     clearProfileUploadError: profileUpload.clearUploadError,
+    imageUploadSheetProps: profileUpload.imageUploadSheetProps,
   };
 }
 

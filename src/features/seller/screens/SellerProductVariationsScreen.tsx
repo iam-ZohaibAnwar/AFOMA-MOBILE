@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmptyState } from '../../../components/ecommerce/EmptyState';
 import { ErrorState } from '../../../components/ecommerce/ErrorState';
-import { SelectField } from '../../../components/forms';
+import { ExpandableProductNameText, SelectField } from '../../../components/forms';
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppCard } from '../../../components/ui/AppCard';
 import { AppInput } from '../../../components/ui/AppInput';
@@ -106,9 +106,13 @@ export function SellerProductVariationsScreen({ navigation, route }: Props) {
       contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
       keyboardShouldPersistTaps="handled"
     >
-      <AppText variant="bodyMedium" style={styles.title}>
-        {wizard.productName || 'Product variations'}
-      </AppText>
+      <ExpandableProductNameText
+        value={wizard.productName}
+        emptyLabel="Product variations"
+        variant="bodyMedium"
+        color="textPrimary"
+        layout="stacked"
+      />
       <AppText variant="bodySmall" color="textSecondary">
         Select attributes, then add variation rows manually. Each selected attribute is required per row.
       </AppText>

@@ -8,10 +8,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmptyState } from '../../../../components/ecommerce/EmptyState';
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
+import { AppCard } from '../../../../components/ui/AppCard';
 import { AppText } from '../../../../components/ui/AppText';
 import { colors, radius, shadows, spacing } from '../../../../design-system';
 import type { AdminStackParamList } from '../../navigation/adminTypes';
@@ -25,6 +27,7 @@ import { AdminProductFilterTabs } from '../components/AdminProductFilterTabs';
 import { useAdminProductCardActions } from '../hooks/useAdminProductCardActions';
 import { useAdminProductList } from '../hooks/useAdminProductList';
 import type { AdminProductListItem } from '../types/adminProductManagement';
+import { ADMIN_LOW_STOCK_THRESHOLD } from '../types/adminProductManagement';
 
 type Props = NativeStackScreenProps<AdminStackParamList, 'AdminProductManagement'>;
 
@@ -39,8 +42,13 @@ export function AdminProductManagementScreen({ navigation, route }: Props) {
     () => ({
       initialApprovalFilter: route.params?.initialApprovalFilter,
       initialInventoryFilter: route.params?.initialInventoryFilter,
+      initialStockAlertFilter: route.params?.initialStockAlertFilter,
     }),
-    [route.params?.initialApprovalFilter, route.params?.initialInventoryFilter],
+    [
+      route.params?.initialApprovalFilter,
+      route.params?.initialInventoryFilter,
+      route.params?.initialStockAlertFilter,
+    ],
   );
 
   const {
@@ -55,15 +63,45 @@ export function AdminProductManagementScreen({ navigation, route }: Props) {
     setSearchInput,
     approvalFilter,
     inventoryFilter,
+    stockAlertFilter,
     hasActiveFilters,
     applyApprovalFilter,
     applyInventoryFilter,
+    applyStockAlertFilter,
+    clearFilters,
     refresh,
     goToPreviousPage,
     goToNextPage,
     canGoPrevious,
     canGoNext,
   } = useAdminProductList(isAuthorized, initialFilters);
+
+  useFocusEffect(
+    useCallback(() => {
+      const nextFilter = route.params?.initialStockAlertFilter;
+      if (!nextFilter) {
+        return;
+      }
+
+      applyStockAlertFilter(nextFilter);
+      applyApprovalFilter('');
+      applyInventoryFilter('');
+    }, [
+      applyApprovalFilter,
+      applyInventoryFilter,
+      applyStockAlertFilter,
+      route.params?.initialStockAlertFilter,
+      route.params?.stockAlertRequestedAt,
+    ]),
+  );
+
+  const handleClearStockAlert = useCallback(() => {
+    applyStockAlertFilter('');
+    navigation.setParams({
+      initialStockAlertFilter: undefined,
+      initialListNotice: undefined,
+    });
+  }, [applyStockAlertFilter, navigation]);
 
   const {
     menuProduct,
@@ -81,10 +119,15 @@ export function AdminProductManagementScreen({ navigation, route }: Props) {
 
   const handleTabSelect = useCallback(
     (approval: typeof approvalFilter, inventory: typeof inventoryFilter) => {
+      applyStockAlertFilter('');
       applyApprovalFilter(approval);
       applyInventoryFilter(inventory);
+      navigation.setParams({
+        initialStockAlertFilter: undefined,
+        initialListNotice: undefined,
+      });
     },
-    [applyApprovalFilter, applyInventoryFilter],
+    [applyApprovalFilter, applyInventoryFilter, applyStockAlertFilter, navigation],
   );
 
   const renderItem = useCallback(
@@ -99,8 +142,38 @@ export function AdminProductManagementScreen({ navigation, route }: Props) {
     [busyProductId, handleView, openMenu],
   );
 
+  const listNotice = stockAlertFilter ? route.params?.initialListNotice?.trim() : undefined;
+  const stockAlertTitle =
+    stockAlertFilter === 'outOfStock'
+      ? 'Out of stock products'
+      : stockAlertFilter === 'lowStock'
+        ? `Low stock products (under ${ADMIN_LOW_STOCK_THRESHOLD} units)`
+        : null;
+
   const listHeader = (
     <View style={styles.headerContent}>
+      {stockAlertTitle && listNotice ? (
+        <AppCard variant="flat" style={styles.listNoticeCard}>
+          <View style={styles.listNoticeHeader}>
+            <AppText variant="bodyMedium" style={styles.listNoticeTitle}>
+              {stockAlertTitle}
+            </AppText>
+            <Pressable
+              accessibilityRole="button"
+              onPress={handleClearStockAlert}
+              hitSlop={8}
+            >
+              <AppText variant="caption" color="textLink" style={styles.listNoticeAction}>
+                View all
+              </AppText>
+            </Pressable>
+          </View>
+          <AppText variant="bodySmall" color="textSecondary">
+            {listNotice}
+          </AppText>
+        </AppCard>
+      ) : null}
+
       <OrderListSearchBar
         value={searchInput}
         onChangeText={setSearchInput}
@@ -222,7 +295,9 @@ export function AdminProductManagementScreen({ navigation, route }: Props) {
               title="No products found"
               message={
                 hasActiveFilters || searchInput.trim()
-                  ? 'Try adjusting your search or status tab.'
+                  ? stockAlertFilter
+                    ? 'No products match this inventory alert right now.'
+                    : 'Try adjusting your search or status tab.'
                   : 'Platform products will appear here once sellers add inventory.'
               }
             />
@@ -274,6 +349,25 @@ const styles = StyleSheet.create({
   headerContent: {
     gap: spacing.md,
     paddingBottom: spacing.xs,
+  },
+  listNoticeCard: {
+    backgroundColor: colors.surfaceMuted,
+    borderColor: colors.border,
+    gap: spacing.sm,
+  },
+  listNoticeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  listNoticeTitle: {
+    color: colors.textPrimary,
+    fontWeight: '700',
+    flex: 1,
+  },
+  listNoticeAction: {
+    fontWeight: '600',
   },
   countText: {
     fontWeight: '600',

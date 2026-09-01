@@ -13,13 +13,10 @@ import { AppText } from '../../../components/ui/AppText';
 import { colors, spacing } from '../../../design-system';
 
 import {
-
   extractKorapayReference,
-
   isKorapayCheckoutCancelledUrl,
-
+  isKorapayDeepLinkUrl,
   isKorapayReturnUrl,
-
 } from '../utils/korapayReturnUrl';
 
 
@@ -112,40 +109,29 @@ export function KorapayCheckoutWebView({
 
 
 
-  const handleNavigation = (navigation: WebViewNavigation) => {
-
-    const url = navigation.url;
-
-    if (!url) {
-
-      return;
-
+  const evaluateNavigation = (url: string | undefined): boolean => {
+    if (!url || hasCompletedRef.current) {
+      return false;
     }
-
-
 
     if (isKorapayCheckoutCancelledUrl(url)) {
-
       finishWithCancel();
-
-      return;
-
+      return true;
     }
-
-
 
     if (isKorapayReturnUrl(url)) {
-
       const reference = extractKorapayReference(url);
-
       if (reference) {
-
         finishWithComplete(reference);
-
+        return true;
       }
-
     }
 
+    return false;
+  };
+
+  const handleNavigation = (navigation: WebViewNavigation) => {
+    evaluateNavigation(navigation.url);
   };
 
 
@@ -239,36 +225,17 @@ export function KorapayCheckoutWebView({
           onNavigationStateChange={handleNavigation}
 
           onShouldStartLoadWithRequest={(request) => {
-
-            if (isKorapayCheckoutCancelledUrl(request.url)) {
-
-              finishWithCancel();
-
+            if (evaluateNavigation(request.url)) {
               return false;
-
             }
 
-
-
-            if (isKorapayReturnUrl(request.url)) {
-
-              const reference = extractKorapayReference(request.url);
-
-              if (reference) {
-
-                finishWithComplete(reference);
-
-                return false;
-
-              }
-
+            if (isKorapayDeepLinkUrl(request.url)) {
+              return false;
             }
-
-
 
             return true;
-
           }}
+          originWhitelist={['https://*', 'http://*', 'afoma://*']}
 
           onOpenWindow={(event) => {
 

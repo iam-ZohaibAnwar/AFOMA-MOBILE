@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { colors } from '../../design-system';
+import { stackHeaderLeftContainerStyle } from './stackHeaderStyles';
 import { StackHeaderBackButton } from './StackHeaderBackButton';
 import { AccountDetailsScreen } from '../../features/account/screens/AccountDetailsScreen';
 import { AddressBookScreen } from '../../features/account/screens/AddressBookScreen';
@@ -39,6 +40,7 @@ export function ShoppingNavigator() {
         headerTintColor: colors.textPrimary,
         headerShadowVisible: false,
         headerBackVisible: false,
+        headerLeftContainerStyle: stackHeaderLeftContainerStyle,
         headerLeft: (props) => (
           <StackHeaderBackButton canGoBack={props.canGoBack} tintColor={props.tintColor} />
         ),

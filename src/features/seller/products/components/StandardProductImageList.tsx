@@ -1,8 +1,12 @@
 import { ActivityIndicator, Image, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppButton } from '../../../../components/ui/AppButton';
-import { AppInput } from '../../../../components/ui/AppInput';
+import { AltTextInput } from '../../../../components/forms';
 import { AppText } from '../../../../components/ui/AppText';
+import {
+  ImageUploadSourceSheet,
+  type ImageUploadSourceSheetProps,
+} from '../../../../components/ui/ImageUploadSourceSheet';
 import { colors, radius, spacing } from '../../../../design-system';
 import type { StandardProductImageEntry } from '../types/standardProductForm';
 import { STANDARD_PRODUCT_MIN_IMAGES } from '../utils/standardProductConstants';
@@ -16,6 +20,7 @@ export interface StandardProductImageListProps {
   onMove: (imageId: string, direction: 'up' | 'down') => void;
   onAltTextChange: (imageId: string, altText: string) => void;
   isAdding?: boolean;
+  imageUploadSheetProps?: ImageUploadSourceSheetProps;
 }
 
 export function StandardProductImageList({
@@ -27,8 +32,10 @@ export function StandardProductImageList({
   onMove,
   onAltTextChange,
   isAdding = false,
+  imageUploadSheetProps,
 }: StandardProductImageListProps) {
   return (
+    <>
     <View style={styles.container}>
       <AppText variant="bodySmall" color="textSecondary">
         Add at least {minImages} images (max 2 MB each after compression).
@@ -71,12 +78,9 @@ export function StandardProductImageList({
                 ) : null}
               </View>
 
-              <AppInput
-                tone="surface"
-                label="Alt text"
+              <AltTextInput
                 value={image.altText}
                 onChangeText={(text) => onAltTextChange(image.id, text)}
-                placeholder="Describe this image"
               />
 
               {image.uploadError ? (
@@ -124,6 +128,9 @@ export function StandardProductImageList({
         })}
       </View>
     </View>
+
+    {imageUploadSheetProps ? <ImageUploadSourceSheet {...imageUploadSheetProps} /> : null}
+    </>
   );
 }
 

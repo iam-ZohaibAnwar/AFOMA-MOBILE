@@ -37,14 +37,14 @@ export function AdminGlobalAttributeRow({
         ) : (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Rename ${name}`}
+            accessibilityLabel={`Edit ${name}`}
             disabled={disabled || isBusy}
             onPress={onRename}
-            style={({ pressed }) => [styles.iconButton, pressed && !disabled ? styles.pressed : null]}
+            style={({ pressed }) => [styles.actionButton, pressed && !disabled ? styles.pressed : null]}
             hitSlop={8}
           >
-            <AppText variant="bodyMedium" style={styles.icon}>
-              ✎
+            <AppText variant="bodySmall" color="textLink" style={styles.actionLabel}>
+              Edit
             </AppText>
           </Pressable>
         )}
@@ -57,11 +57,11 @@ export function AdminGlobalAttributeRow({
             accessibilityLabel={`Delete ${name}`}
             disabled={disabled || isBusy}
             onPress={onDelete}
-            style={({ pressed }) => [styles.iconButton, pressed && !disabled ? styles.pressed : null]}
+            style={({ pressed }) => [styles.actionButton, pressed && !disabled ? styles.pressed : null]}
             hitSlop={8}
           >
-            <AppText variant="bodyMedium" style={styles.icon}>
-              ⋮
+            <AppText variant="bodySmall" style={styles.deleteLabel}>
+              Delete
             </AppText>
           </Pressable>
         )}
@@ -92,23 +92,24 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.md,
+    flexShrink: 0,
   },
-  iconButton: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 18,
+  actionButton: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.xs,
+    borderRadius: 6,
   },
-  icon: {
-    color: colors.textSecondary,
-    fontSize: 18,
-    lineHeight: 22,
+  actionLabel: {
+    fontWeight: '600',
+  },
+  deleteLabel: {
+    color: colors.error,
+    fontWeight: '600',
   },
   spinner: {
-    width: 36,
-    height: 36,
+    minWidth: 48,
+    height: 28,
   },
   pressed: {
     backgroundColor: colors.surfaceMuted,

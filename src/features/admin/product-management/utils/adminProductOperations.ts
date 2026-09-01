@@ -1,4 +1,5 @@
 import type { Product } from '../../../../services/types/product';
+import { isPopulatedProductSellerRef } from '../../../products/utils/productDisplay';
 import type { AdminProductApprovalStatus } from '../types/adminProductOperations';
 import type { AdminProductDetail, AdminProductListItem } from '../types/adminProductManagement';
 import type { SelectOption } from '../../../../utils/regionOptions';
@@ -47,16 +48,21 @@ export function patchAdminProductStoreVisibility<T extends Product>(
 export function toAdminProductListPatch(
   product: AdminProductDetail | AdminProductListItem,
 ): Partial<AdminProductListItem> {
-  return {
+  const patch: Partial<AdminProductListItem> = {
     productStatus: product.productStatus,
     status: product.status,
     productName: product.productName,
     productType: product.productType,
     finalPrice: product.finalPrice,
     variations: product.variations,
-    seller: product.seller,
     Category: product.Category,
   };
+
+  if (isPopulatedProductSellerRef(product.seller)) {
+    patch.seller = product.seller;
+  }
+
+  return patch;
 }
 
 export function getAdminProductVisibilityLabel(status?: number): 'Active' | 'Inactive' | 'Unknown' {

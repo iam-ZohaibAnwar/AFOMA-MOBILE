@@ -50,6 +50,7 @@ export function useDownloadableProductWizard(sellerId?: string, productId?: stri
     removeImage,
     moveImage,
     updateImageAltText,
+    imageUploadSheetProps,
   } = useProductImages();
   const [downloadFile, setDownloadFile] = useState<DownloadableFileEntry | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
@@ -387,6 +388,7 @@ export function useDownloadableProductWizard(sellerId?: string, productId?: stri
     removeImage,
     moveImage,
     updateImageAltText,
+    imageUploadSheetProps,
     saveProduct,
     submitForReview,
     setSaveError,

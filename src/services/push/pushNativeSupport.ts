@@ -6,7 +6,17 @@ type ExpoDeviceModule = {
 };
 
 const expoDeviceNative = requireOptionalNativeModule<ExpoDeviceModule>('ExpoDevice');
-const expoNotificationsNative = requireOptionalNativeModule('ExpoNotifications');
+
+/** SDK 54 splits expo-notifications into multiple native modules (no single ExpoNotifications). */
+function resolveExpoNotificationsNativeModule(): unknown {
+  return (
+    requireOptionalNativeModule('ExpoNotificationPermissionsModule') ??
+    requireOptionalNativeModule('ExpoPushTokenManager') ??
+    requireOptionalNativeModule('ExpoNotificationsEmitter') ??
+    requireOptionalNativeModule('ExpoNotificationsHandlerModule') ??
+    requireOptionalNativeModule('ExpoNotifications')
+  );
+}
 
 export type PushUnsupportedReason = 'simulator' | 'web' | 'native_module';
 
@@ -16,7 +26,7 @@ export function isExpoDeviceNativeAvailable(): boolean {
 
 /** Push permission APIs require the expo-notifications native module. */
 export function isPushNativeAvailable(): boolean {
-  return expoNotificationsNative != null;
+  return resolveExpoNotificationsNativeModule() != null;
 }
 
 export function getPushUnsupportedReason(): PushUnsupportedReason | null {
@@ -55,7 +65,7 @@ export function getPushUnsupportedMessage(reason: PushUnsupportedReason): string
     case 'web':
       return 'Push notifications are not available in the web browser. Use the iOS or Android app on a phone.';
     case 'native_module':
-      return 'This build is missing the notifications native module. Install the app from a current EAS development or production build, not an outdated dev client.';
+      return 'This build is missing expo-notifications. Reload the app from Metro, or reinstall the latest development build if the message persists.';
     default:
       return 'Push notifications are unavailable on this device.';
   }

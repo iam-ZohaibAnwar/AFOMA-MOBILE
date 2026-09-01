@@ -1,11 +1,13 @@
-import { env } from '../../../app/config/env';
-
 function tryParseUrl(url: string): URL | null {
   try {
     return new URL(url);
   } catch {
     return null;
   }
+}
+
+export function isKorapayDeepLinkUrl(url: string): boolean {
+  return url.trim().toLowerCase().startsWith('afoma://checkout/korapay');
 }
 
 export function extractKorapayReference(url: string): string | null {
@@ -24,31 +26,13 @@ export function isKorapayReturnUrl(url: string): boolean {
     return false;
   }
 
-  const parsed = tryParseUrl(url);
-  if (!parsed) {
-    return false;
-  }
-
-  const host = parsed.hostname.toLowerCase();
-  const path = parsed.pathname.toLowerCase();
-
-  if (path.includes('redirect-page')) {
+  if (isKorapayDeepLinkUrl(url)) {
     return true;
   }
 
-  if (host.includes('afomamarketplace.com')) {
+  // Web checkout only (not used by the mobile app).
+  if (url.toLowerCase().includes('redirect-page')) {
     return true;
-  }
-
-  if (env.webUrl) {
-    try {
-      const webHost = new URL(env.webUrl).hostname.toLowerCase();
-      if (host === webHost) {
-        return true;
-      }
-    } catch {
-      /* ignore invalid env url */
-    }
   }
 
   return false;

@@ -1,8 +1,10 @@
 import { useCallback } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { KeyboardAwareFormScreen } from '../../../../components/forms';
 
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
 import { AppButton } from '../../../../components/ui/AppButton';
@@ -65,11 +67,7 @@ export function AdminSellerBasicInformationEditScreen({ navigation, route }: Pro
   }
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
-      keyboardShouldPersistTaps="handled"
-    >
+    <KeyboardAwareFormScreen contentContainerStyle={styles.content}>
       <AppCard>
         <View style={styles.form}>
           <AppInput
@@ -137,7 +135,7 @@ export function AdminSellerBasicInformationEditScreen({ navigation, route }: Pro
         loading={isSaving}
         disabled={!isDirty || isSaving}
       />
-    </ScrollView>
+    </KeyboardAwareFormScreen>
   );
 }
 

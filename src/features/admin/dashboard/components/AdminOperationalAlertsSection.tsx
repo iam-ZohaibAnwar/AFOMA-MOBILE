@@ -1,10 +1,8 @@
 import { Pressable, StyleSheet, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
-import { AppCard } from '../../../../components/ui/AppCard';
 import { AppText } from '../../../../components/ui/AppText';
-import { colors, radius, shadows, spacing } from '../../../../design-system';
+import { colors, shadows, spacing } from '../../../../design-system';
 import type {
   AdminPendingOrdersCount,
   AdminPendingPayoutCount,
@@ -15,6 +13,8 @@ import type {
 import { formatAdminCount, formatAdminOptionalCount } from '../utils/adminDashboardDisplay';
 import { adminDashboardTheme } from '../utils/adminDashboardTheme';
 import { AdminSectionTitle } from './AdminSectionTitle';
+
+const LOW_STOCK_THRESHOLD = 5;
 
 export interface AdminOperationalAlertsSectionProps {
   stockStatus: AdminProductStockStatus | null;
@@ -37,108 +37,63 @@ export interface AdminOperationalAlertsSectionProps {
   onPendingOrdersPress?: () => void;
 }
 
-function AlertActionButton({
-  label,
+function InventoryStatCard({
+  title,
+  count,
+  description,
   tone,
   onPress,
-  fullWidth = false,
 }: {
-  label: string;
-  tone: 'critical' | 'review' | 'neutral';
-  onPress: () => void;
-  fullWidth?: boolean;
+  title: string;
+  count: number;
+  description: string;
+  tone: 'critical' | 'warning' | 'neutral';
+  onPress?: () => void;
 }) {
-  const toneStyle =
+  const isActionable = count > 0 && Boolean(onPress);
+  const toneStyles =
     tone === 'critical'
-      ? styles.actionCritical
-      : tone === 'review'
-        ? styles.actionReview
-        : styles.actionNeutral;
-  const labelStyle =
-    tone === 'critical'
-      ? styles.actionCriticalLabel
-      : tone === 'review'
-        ? styles.actionReviewLabel
-        : styles.actionNeutralLabel;
+      ? styles.statCritical
+      : tone === 'warning'
+        ? styles.statWarning
+        : styles.statNeutral;
+  const countColor =
+    tone === 'critical' ? colors.error : tone === 'warning' ? colors.warningText : colors.textPrimary;
+
+  const content = (
+    <>
+      <AppText variant="bodyMedium" style={styles.statTitle}>
+        {title}
+      </AppText>
+      <AppText variant="h2" style={[styles.statCount, { color: countColor }]}>
+        {formatAdminCount(count)}
+      </AppText>
+      <AppText variant="caption" color="textMuted" style={styles.statUnit}>
+        {count === 1 ? 'product' : 'products'}
+      </AppText>
+      <AppText variant="bodySmall" color="textSecondary" style={styles.statDescription}>
+        {description}
+      </AppText>
+      {isActionable ? (
+        <AppText variant="bodySmall" color="textLink" style={styles.statAction}>
+          Open product list
+        </AppText>
+      ) : null}
+    </>
+  );
+
+  if (!isActionable) {
+    return <View style={[styles.statCard, toneStyles]}>{content}</View>;
+  }
 
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.actionButton,
-        toneStyle,
-        fullWidth && styles.actionFullWidth,
-        pressed && styles.pressed,
-      ]}
+      style={({ pressed }) => [styles.statCard, toneStyles, pressed && styles.pressed]}
     >
-      <AppText variant="bodyMedium" style={labelStyle}>
-        {label}
-      </AppText>
+      {content}
     </Pressable>
-  );
-}
-
-function AlertCard({
-  tone,
-  title,
-  message,
-  icon,
-  primaryAction,
-  secondaryAction,
-}: {
-  tone: 'critical' | 'warning';
-  title: string;
-  message: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  primaryAction?: { label: string; onPress: () => void; fullWidth?: boolean };
-  secondaryAction?: { label: string; onPress: () => void };
-}) {
-  const toneStyles = tone === 'critical' ? styles.criticalCard : styles.warningCard;
-  const titleColor = tone === 'critical' ? colors.error : colors.warningText;
-
-  return (
-    <View style={[styles.alertCard, toneStyles]}>
-      <View style={styles.alertTop}>
-        <View style={styles.alertCopy}>
-          <AppText variant="bodyMedium" style={[styles.alertTitle, { color: titleColor }]}>
-            {title}
-          </AppText>
-          <AppText variant="bodySmall" color="textSecondary">
-            {message}
-          </AppText>
-        </View>
-        <View
-          style={[
-            styles.alertIconWrap,
-            {
-              backgroundColor:
-                tone === 'critical'
-                  ? adminDashboardTheme.alertCriticalIconBackground
-                  : adminDashboardTheme.alertWarningIconBackground,
-            },
-          ]}
-        >
-          <Ionicons name={icon} size={22} color={adminDashboardTheme.alertIconColor} />
-        </View>
-      </View>
-
-      {primaryAction && !secondaryAction ? (
-        <AlertActionButton
-          label={primaryAction.label}
-          tone="critical"
-          onPress={primaryAction.onPress}
-          fullWidth={primaryAction.fullWidth}
-        />
-      ) : null}
-
-      {primaryAction && secondaryAction ? (
-        <View style={styles.alertActions}>
-          <AlertActionButton label={secondaryAction.label} tone="neutral" onPress={secondaryAction.onPress} />
-          <AlertActionButton label={primaryAction.label} tone="review" onPress={primaryAction.onPress} />
-        </View>
-      ) : null}
-    </View>
   );
 }
 
@@ -156,8 +111,6 @@ export function AdminOperationalAlertsSection({
   onPendingPayoutsPress,
   onPendingOrdersPress,
 }: AdminOperationalAlertsSectionProps) {
-  const outOfStockCount = formatAdminOptionalCount(stockStatus?.outOfStockCount);
-  const lowStockCount = formatAdminCount(stockStatus?.lowStockCount, '0');
   const hasAnyError = Object.values(errors).some(Boolean);
 
   const outOfStockNumber = Number(stockStatus?.outOfStockCount ?? 0);
@@ -169,84 +122,80 @@ export function AdminOperationalAlertsSection({
     <View style={styles.section}>
       <AdminSectionTitle title="Operational Alerts" icon="warning-outline" />
 
-      <View style={styles.stack}>
-          <AlertCard
-            tone="critical"
-            title="Out of Stock"
-            message={
+      <View style={styles.inventoryBlock}>
+        <AppText variant="bodyMedium" style={styles.inventoryHeading}>
+          Inventory overview
+        </AppText>
+        <AppText variant="bodySmall" color="textSecondary" style={styles.inventoryIntro}>
+          How many marketplace products need inventory attention right now.
+        </AppText>
+
+        <View style={styles.inventoryGrid}>
+          <InventoryStatCard
+            title="Out of stock"
+            count={outOfStockNumber}
+            tone={outOfStockNumber > 0 ? 'critical' : 'neutral'}
+            description={
               outOfStockNumber > 0
-                ? `${outOfStockCount} critical item${outOfStockNumber === 1 ? '' : 's'} require attention.`
-                : 'No critical out-of-stock items right now.'
+                ? 'Unavailable to buyers until stock status is updated.'
+                : 'No products are currently marked out of stock.'
             }
-            icon="cube-outline"
-            primaryAction={
-              onRestockPress && outOfStockNumber > 0
-                ? { label: 'Restock Now', onPress: onRestockPress, fullWidth: true }
-                : undefined
-            }
+            onPress={outOfStockNumber > 0 ? onRestockPress : undefined}
           />
 
-          <AlertCard
-            tone="warning"
-            title="Low Stock"
-            message={
+          <InventoryStatCard
+            title="Low stock"
+            count={lowStockNumber}
+            tone={lowStockNumber > 0 ? 'warning' : 'neutral'}
+            description={
               lowStockNumber > 0
-                ? `${lowStockCount} item${lowStockNumber === 1 ? '' : 's'} dipping below threshold.`
-                : 'Inventory levels are above the low-stock threshold.'
+                ? `In-stock products with fewer than ${LOW_STOCK_THRESHOLD} units left.`
+                : `No in-stock products are below ${LOW_STOCK_THRESHOLD} units.`
             }
-            icon="trending-down-outline"
-            secondaryAction={
-              onLowStockPress && lowStockNumber > 0
-                ? { label: 'View All', onPress: onLowStockPress }
-                : undefined
-            }
-            primaryAction={
-              onLowStockPress && lowStockNumber > 0
-                ? { label: 'Review', onPress: onLowStockPress }
-                : undefined
-            }
+            onPress={lowStockNumber > 0 ? onLowStockPress : undefined}
           />
-
-          {(pendingProductNumber > 0 || pendingOrderNumber > 0) && (
-            <View style={styles.pendingCard}>
-              <AppText variant="bodyMedium" style={styles.pendingTitle}>
-                Pending review
-              </AppText>
-              <View style={styles.pendingRows}>
-                {pendingProductNumber > 0 ? (
-                  <Pressable accessibilityRole="button" onPress={onPendingProductsPress} style={styles.pendingRow}>
-                    <AppText variant="bodySmall" color="textSecondary">
-                      Products awaiting approval
-                    </AppText>
-                    <AppText variant="bodyMedium" style={styles.pendingValue}>
-                      {formatAdminOptionalCount(pendingProducts?.pendingProductCount)}
-                    </AppText>
-                  </Pressable>
-                ) : null}
-                {pendingOrderNumber > 0 ? (
-                  <Pressable accessibilityRole="button" onPress={onPendingOrdersPress} style={styles.pendingRow}>
-                    <AppText variant="bodySmall" color="textSecondary">
-                      Orders awaiting action
-                    </AppText>
-                    <AppText variant="bodyMedium" style={styles.pendingValue}>
-                      {formatAdminOptionalCount(pendingOrders?.pendingOrdersCount)}
-                    </AppText>
-                  </Pressable>
-                ) : null}
-                {Number(pendingPayouts?.pendingPayoutsCount ?? 0) > 0 ? (
-                  <Pressable accessibilityRole="button" onPress={onPendingPayoutsPress} style={styles.pendingRow}>
-                    <AppText variant="bodySmall" color="textSecondary">
-                      Pending payouts
-                    </AppText>
-                    <AppText variant="bodyMedium" style={styles.pendingValue}>
-                      {formatAdminOptionalCount(pendingPayouts?.pendingPayoutsCount)}
-                    </AppText>
-                  </Pressable>
-                ) : null}
-              </View>
-            </View>
-          )}
         </View>
+      </View>
+
+      {(pendingProductNumber > 0 || pendingOrderNumber > 0) && (
+        <View style={styles.pendingCard}>
+          <AppText variant="bodyMedium" style={styles.pendingTitle}>
+            Pending review
+          </AppText>
+          <View style={styles.pendingRows}>
+            {pendingProductNumber > 0 ? (
+              <Pressable accessibilityRole="button" onPress={onPendingProductsPress} style={styles.pendingRow}>
+                <AppText variant="bodySmall" color="textSecondary">
+                  Products awaiting approval
+                </AppText>
+                <AppText variant="bodyMedium" style={styles.pendingValue}>
+                  {formatAdminOptionalCount(pendingProducts?.pendingProductCount)}
+                </AppText>
+              </Pressable>
+            ) : null}
+            {pendingOrderNumber > 0 ? (
+              <Pressable accessibilityRole="button" onPress={onPendingOrdersPress} style={styles.pendingRow}>
+                <AppText variant="bodySmall" color="textSecondary">
+                  Orders awaiting action
+                </AppText>
+                <AppText variant="bodyMedium" style={styles.pendingValue}>
+                  {formatAdminOptionalCount(pendingOrders?.pendingOrdersCount)}
+                </AppText>
+              </Pressable>
+            ) : null}
+            {Number(pendingPayouts?.pendingPayoutsCount ?? 0) > 0 ? (
+              <Pressable accessibilityRole="button" onPress={onPendingPayoutsPress} style={styles.pendingRow}>
+                <AppText variant="bodySmall" color="textSecondary">
+                  Pending payouts
+                </AppText>
+                <AppText variant="bodyMedium" style={styles.pendingValue}>
+                  {formatAdminOptionalCount(pendingPayouts?.pendingPayoutsCount)}
+                </AppText>
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+      )}
 
       {hasAnyError ? (
         <ErrorState
@@ -270,82 +219,59 @@ const styles = StyleSheet.create({
   section: {
     gap: spacing.md,
   },
-  stack: {
+  inventoryBlock: {
     gap: spacing.sm,
   },
-  alertCard: {
+  inventoryHeading: {
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  inventoryIntro: {
+    lineHeight: 20,
+  },
+  inventoryGrid: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  statCard: {
+    flex: 1,
     borderRadius: adminDashboardTheme.cardRadius,
-    padding: spacing.lg,
-    gap: spacing.md,
+    padding: spacing.md,
+    gap: spacing.xs,
     borderWidth: StyleSheet.hairlineWidth,
     backgroundColor: adminDashboardTheme.cardBackground,
     ...shadows.card,
   },
-  criticalCard: {
+  statCritical: {
     backgroundColor: adminDashboardTheme.alertCriticalCardBackground,
     borderColor: colors.errorBorder,
   },
-  warningCard: {
+  statWarning: {
     backgroundColor: adminDashboardTheme.alertWarningCardBackground,
     borderColor: colors.border,
   },
-  alertTop: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
+  statNeutral: {
+    borderColor: colors.border,
   },
-  alertCopy: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  alertTitle: {
-    fontWeight: '700',
-    fontSize: 17,
-  },
-  alertIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.medium,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  alertActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  actionButton: {
-    flex: 1,
-    minHeight: 44,
-    borderRadius: radius.large,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.md,
-  },
-  actionFullWidth: {
-    flex: undefined,
-    width: '100%',
-  },
-  actionCritical: {
-    backgroundColor: adminDashboardTheme.alertCriticalButton,
-  },
-  actionReview: {
-    backgroundColor: adminDashboardTheme.alertReviewButton,
-  },
-  actionNeutral: {
-    backgroundColor: adminDashboardTheme.alertViewAllBackground,
-  },
-  actionCriticalLabel: {
-    color: colors.textInverse,
+  statTitle: {
+    color: colors.textPrimary,
     fontWeight: '700',
   },
-  actionReviewLabel: {
-    color: colors.textInverse,
+  statCount: {
     fontWeight: '700',
+    lineHeight: 36,
   },
-  actionNeutralLabel: {
-    color: adminDashboardTheme.alertViewAllText,
-    fontWeight: '700',
+  statUnit: {
+    textTransform: 'lowercase',
+    marginTop: -spacing.xs,
+  },
+  statDescription: {
+    lineHeight: 18,
+    marginTop: spacing.xs,
+  },
+  statAction: {
+    marginTop: spacing.sm,
+    fontWeight: '600',
   },
   pendingCard: {
     borderRadius: adminDashboardTheme.cardRadius,

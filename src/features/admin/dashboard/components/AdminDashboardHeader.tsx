@@ -70,9 +70,9 @@ const styles = StyleSheet.create({
     backgroundColor: adminDashboardTheme.iconButtonBackground,
   },
   backWrap: {
-    width: 40,
-    height: 40,
-    alignItems: 'flex-start',
+    width: 44,
+    height: 44,
+    alignItems: 'center',
     justifyContent: 'center',
   },
   title: {

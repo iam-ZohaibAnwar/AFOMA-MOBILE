@@ -65,6 +65,7 @@ export function useAdminStandardProductWizard(
     removeImage,
     moveImage,
     updateImageAltText,
+    imageUploadSheetProps,
   } = useProductImages();
   const [stepIndex, setStepIndex] = useState(0);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -387,6 +388,7 @@ export function useAdminStandardProductWizard(
     removeImage,
     moveImage,
     updateImageAltText,
+    imageUploadSheetProps,
     saveProduct,
     reloadProduct: () => loadProduct('initial'),
     setSaveError,

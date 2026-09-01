@@ -13,6 +13,7 @@ export function StripeCheckoutBridge({ children }: { children: ReactNode }) {
         presentPaymentSheet: stripe.presentPaymentSheet,
         confirmPlatformPayPayment: stripe.confirmPlatformPayPayment,
         isPlatformPaySupported: stripe.isPlatformPaySupported,
+        retrievePaymentIntent: stripe.retrievePaymentIntent,
       }}
     >
       {children}

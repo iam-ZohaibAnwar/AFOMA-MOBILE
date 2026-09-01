@@ -25,6 +25,10 @@ function buildAdminProductListParams(query: AdminProductListQuery): Record<strin
     params.status = query.inventoryStatus;
   }
 
+  if (query.stockAlert) {
+    params.stockAlert = query.stockAlert;
+  }
+
   return params;
 }
 

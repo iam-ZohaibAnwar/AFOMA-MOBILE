@@ -1,17 +1,14 @@
 import { useCallback, useRef, useState } from 'react';
-import { Alert } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
 
 import { getErrorMessage } from '../../../services/api/errors';
 import { getUserProfile, updateUserProfilePhoto } from '../../../services/api/usersApi';
 import { uploadUserProfileImage } from '../../../services/api/sellersApi';
+import { useImageUploadSourceSheet } from '../../../hooks/useImageUploadSourceSheet';
+import { SQUARE_IMAGE_CROP } from '../../../utils/imageCropPresets';
 import { resolveUserProfileImageUrl } from '../../../utils/resolveUserProfileImageUrl';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { mapUserProfileToStoredProfile } from '../utils/accountDetailsForm';
-import {
-  isAllowedImageMimeType,
-  prepareListingImageForUpload,
-} from '../../seller/products/utils/productImageUpload';
+import { prepareListingImageForUpload } from '../../seller/products/utils/productImageUpload';
 import { getUserProfileImageUrl } from '../utils/accountDisplay';
 
 export function useAccountProfilePhoto(authUserId?: string) {
@@ -19,6 +16,7 @@ export function useAccountProfilePhoto(authUserId?: string) {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isUploadingRef = useRef(false);
+  const imageUploadSheet = useImageUploadSourceSheet();
 
   const uploadAndSavePhoto = useCallback(
     async (localUri: string) => {
@@ -53,7 +51,6 @@ export function useAccountProfilePhoto(authUserId?: string) {
       } catch (err) {
         const message = getErrorMessage(err, 'Failed to update profile photo');
         setError(message);
-        Alert.alert('Profile photo', message);
       } finally {
         isUploadingRef.current = false;
         setIsUploading(false);
@@ -69,34 +66,28 @@ export function useAccountProfilePhoto(authUserId?: string) {
 
     setError(null);
 
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      const message = 'Photo library permission is required to upload a profile photo.';
-      setError(message);
-      Alert.alert('Profile photo', message);
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 1,
-      allowsMultipleSelection: false,
+    const hasPhoto = Boolean(getUserProfileImageUrl(user));
+    const { asset, error: pickError } = await imageUploadSheet.pickImage({
+      title: 'Profile photo',
+      subtitle: hasPhoto
+        ? 'View or update your profile photo. New photos are cropped square.'
+        : 'Upload a profile photo. You can crop it square before saving.',
+      libraryLabel: hasPhoto ? 'Change photo' : 'Choose from library',
+      cameraLabel: 'Take photo',
+      crop: SQUARE_IMAGE_CROP,
     });
 
-    if (result.canceled || !result.assets?.[0]) {
+    if (pickError) {
+      setError(pickError);
       return;
     }
 
-    const asset = result.assets[0];
-    if (!isAllowedImageMimeType(asset.mimeType)) {
-      const message = 'Unsupported image type. Use JPG, PNG, GIF, or WebP.';
-      setError(message);
-      Alert.alert('Profile photo', message);
+    if (!asset) {
       return;
     }
 
     await uploadAndSavePhoto(asset.uri);
-  }, [authUserId, uploadAndSavePhoto]);
+  }, [authUserId, imageUploadSheet, uploadAndSavePhoto, user]);
 
   const openPhotoActions = useCallback(
     (options?: { onViewPhoto?: () => void }) => {
@@ -106,24 +97,39 @@ export function useAccountProfilePhoto(authUserId?: string) {
 
       const hasPhoto = Boolean(getUserProfileImageUrl(user));
 
-      Alert.alert(
-        'Profile photo',
-        hasPhoto ? 'View or update your profile photo.' : 'Upload a profile photo for your account.',
-        [
-          ...(hasPhoto && options?.onViewPhoto
-            ? [{ text: 'View photo', onPress: options.onViewPhoto }]
-            : []),
-          {
-            text: hasPhoto ? 'Change photo' : 'Upload photo',
-            onPress: () => {
-              void pickAndUploadPhoto();
-            },
-          },
-          { text: 'Cancel', style: 'cancel' as const },
-        ],
-      );
+      void imageUploadSheet
+        .pickImage({
+          title: 'Profile photo',
+          subtitle: hasPhoto
+            ? 'View or update your profile photo. New photos are cropped square.'
+            : 'Upload a profile photo. You can crop it square before saving.',
+          libraryLabel: hasPhoto ? 'Change photo' : 'Choose from library',
+          cameraLabel: 'Take photo',
+          crop: SQUARE_IMAGE_CROP,
+          extraActions:
+            hasPhoto && options?.onViewPhoto
+              ? [
+                  {
+                    id: 'view',
+                    label: 'View photo',
+                    icon: 'eye-outline' as const,
+                    onPress: () => options.onViewPhoto?.(),
+                  },
+                ]
+              : [],
+        })
+        .then(({ asset, error: pickError }) => {
+          if (pickError) {
+            setError(pickError);
+            return;
+          }
+
+          if (asset) {
+            void uploadAndSavePhoto(asset.uri);
+          }
+        });
     },
-    [authUserId, pickAndUploadPhoto, user],
+    [authUserId, imageUploadSheet, uploadAndSavePhoto, user],
   );
 
   return {
@@ -131,5 +137,6 @@ export function useAccountProfilePhoto(authUserId?: string) {
     error,
     openPhotoActions,
     pickAndUploadPhoto,
+    imageUploadSheetProps: imageUploadSheet.sheetProps,
   };
 }

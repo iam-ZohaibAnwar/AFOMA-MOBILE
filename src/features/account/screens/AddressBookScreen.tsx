@@ -1,14 +1,13 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -28,7 +27,7 @@ import { useRequireAuth } from '../../auth/hooks/useRequireAuth';
 import { authReturnTo } from '../../auth/utils/authNavigation';
 import { resolveAuthUserId } from '../../auth/utils/resolveAuthUserId';
 import { DeliveryAddressRow } from '../../checkout/components/DeliveryAddressRow';
-import { SavedAddressForm } from '../../checkout/components/SavedAddressForm';
+import { SavedAddressFormSheet } from '../../checkout/components/SavedAddressFormSheet';
 import { useDeliveryAddresses } from '../../checkout/hooks/useDeliveryAddresses';
 import type { DeliveryAddressListItem, SavedAddressFormField, SavedAddressFormValues } from '../../checkout/types/deliveryAddress';
 import {
@@ -39,15 +38,13 @@ import { validateSavedAddressForm, formatDeliveryAddressLine } from '../../check
 
 type Props = NativeStackScreenProps<ShoppingStackParamList, 'AddressBook'>;
 
-type ScreenMode = 'list' | 'form';
-
 const ADDRESS_BOOK_RETURN_TO = authReturnTo.addressBook();
 
 function formatAddressRecipient(address: DeliveryAddressListItem): string {
   return [address.firstName, address.lastName].filter(Boolean).join(' ').trim() || 'Address';
 }
 
-export function AddressBookScreen(_props: Props) {
+export function AddressBookScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const footerInset = useMarketplaceFooterContentInset();
   const onMarketplaceScroll = useMarketplaceScrollHandler();
@@ -55,7 +52,7 @@ export function AddressBookScreen(_props: Props) {
   const { user } = useAuth();
   const authUserId = resolveAuthUserId(user);
 
-  const [mode, setMode] = useState<ScreenMode>('list');
+  const [formSheetVisible, setFormSheetVisible] = useState(false);
   const [editingAddress, setEditingAddress] = useState<DeliveryAddressListItem | null>(null);
   const [formValues, setFormValues] = useState<SavedAddressFormValues>(emptySavedAddressFormValues());
   const [formErrors, setFormErrors] = useState<Partial<Record<SavedAddressFormField, string>>>({});
@@ -80,20 +77,53 @@ export function AddressBookScreen(_props: Props) {
     [addresses, selectedAddressId],
   );
 
-  const openCreateForm = () => {
+  const openCreateForm = useCallback(() => {
     setEditingAddress(null);
     setFormValues(emptySavedAddressFormValues());
     setFormErrors({});
     setSaveMessage(null);
-    setMode('form');
-  };
+    setFormSheetVisible(true);
+  }, []);
+
+  const showAddressActions = useCallback(() => {
+    Alert.alert('Address options', undefined, [
+      { text: 'Add new address', onPress: openCreateForm },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }, [openCreateForm]);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Address options"
+          onPress={showAddressActions}
+          hitSlop={8}
+          style={styles.headerAction}
+        >
+          <Ionicons name="ellipsis-vertical" size={20} color={colors.textPrimary} />
+        </Pressable>
+      ),
+    });
+  }, [navigation, showAddressActions]);
 
   const openEditForm = (address: DeliveryAddressListItem) => {
     setEditingAddress(address);
     setFormValues(deliveryAddressToFormValues(address));
     setFormErrors({});
     setSaveMessage(null);
-    setMode('form');
+    setFormSheetVisible(true);
+  };
+
+  const closeFormSheet = () => {
+    if (isSaving) {
+      return;
+    }
+
+    setFormSheetVisible(false);
+    setEditingAddress(null);
+    setFormErrors({});
   };
 
   const handleFormChange = (field: SavedAddressFormField, value: string) => {
@@ -118,7 +148,7 @@ export function AddressBookScreen(_props: Props) {
     try {
       await saveAddress(formValues, editingAddress);
       setSaveMessage(editingAddress ? 'Address updated successfully.' : 'Address added successfully.');
-      setMode('list');
+      setFormSheetVisible(false);
       setEditingAddress(null);
     } catch {
       // Error surfaced via hook state.
@@ -168,58 +198,6 @@ export function AddressBookScreen(_props: Props) {
     );
   }
 
-  if (mode === 'form') {
-    return (
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView
-          style={styles.screen}
-          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl + footerInset }]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          onScroll={onMarketplaceScroll}
-          {...marketplaceScrollProps}
-        >
-          <AppCard variant="flat">
-            <AppText variant="label" style={styles.sectionTitle}>
-              {editingAddress ? 'Edit address' : 'New address'}
-            </AppText>
-            <SavedAddressForm
-              tone="surface"
-              value={formValues}
-              errors={formErrors}
-              onChange={handleFormChange}
-              disabled={isSaving}
-            />
-          </AppCard>
-
-          {error ? <ErrorState message={error} style={styles.banner} /> : null}
-
-          <View style={styles.formActions}>
-            <AppButton
-              label="Back"
-              variant="outline"
-              onPress={() => {
-                setMode('list');
-                setEditingAddress(null);
-              }}
-              disabled={isSaving}
-              style={styles.formActionButton}
-            />
-            <AppButton
-              label={isSaving ? 'Saving...' : 'Save address'}
-              loading={isSaving}
-              onPress={() => void handleSaveForm()}
-              style={styles.formActionButton}
-            />
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    );
-  }
-
   return (
     <View style={styles.flex}>
       <ScrollView
@@ -258,35 +236,45 @@ export function AddressBookScreen(_props: Props) {
                 Loading addresses...
               </AppText>
             </View>
-          ) : addresses.length > 0 ? (
-            <View style={styles.addressList}>
-              {addresses.map((address) => (
-                <DeliveryAddressRow
-                  key={`${address.id}-${address._id ?? 'default'}`}
-                  address={address}
-                  selected={selectedAddressId === address._id}
-                  variant="card"
-                  onSelect={() => handleSelectAddress(address)}
-                  onEdit={address.isDefault ? undefined : () => openEditForm(address)}
-                  onDelete={address.isDefault ? undefined : () => handleDelete(address)}
-                />
-              ))}
-            </View>
           ) : (
-            <AppText variant="body" color="textSecondary" style={styles.emptyCopy}>
-              No saved addresses found.
-            </AppText>
+            <>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Add a new address"
+                onPress={openCreateForm}
+                style={styles.addAddressCard}
+              >
+                <Ionicons name="add-circle-outline" size={22} color={colors.primary} />
+                <AppText variant="bodyMedium" color="textLink" style={styles.addAddressLabel}>
+                  Add a new address
+                </AppText>
+              </Pressable>
+
+              {addresses.length > 0 ? (
+                <View style={styles.addressList}>
+                  {addresses.map((address) => (
+                    <DeliveryAddressRow
+                      key={`${address.id}-${address._id ?? 'default'}`}
+                      address={address}
+                      selected={selectedAddressId === address._id}
+                      variant="card"
+                      onSelect={() => handleSelectAddress(address)}
+                      onEdit={address.isDefault ? undefined : () => openEditForm(address)}
+                      onDelete={address.isDefault ? undefined : () => handleDelete(address)}
+                    />
+                  ))}
+                </View>
+              ) : (
+                <AppText variant="body" color="textSecondary" style={styles.emptyCopy}>
+                  No saved addresses found.
+                </AppText>
+              )}
+            </>
           )}
 
           {error ? (
             <ErrorState message={error} onAction={() => void reload()} style={styles.inlineError} />
           ) : null}
-
-          <Pressable accessibilityRole="button" onPress={openCreateForm} style={styles.addAddressButton}>
-            <AppText variant="bodyMedium" color="textLink" style={styles.addAddressLabel}>
-              + Add a new address
-            </AppText>
-          </Pressable>
         </View>
       </ScrollView>
 
@@ -320,6 +308,18 @@ export function AddressBookScreen(_props: Props) {
           onPress={() => void handleUseSelectedAddress()}
         />
       </View>
+
+      <SavedAddressFormSheet
+        visible={formSheetVisible}
+        title={editingAddress ? 'Edit address' : 'New address'}
+        value={formValues}
+        errors={formErrors}
+        isSaving={isSaving}
+        errorMessage={error}
+        onChange={handleFormChange}
+        onSave={() => void handleSaveForm()}
+        onClose={closeFormSheet}
+      />
     </View>
   );
 }
@@ -360,12 +360,22 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: spacing.xl,
   },
+  headerAction: {
+    paddingHorizontal: spacing.xs,
+  },
   addressList: {
     gap: spacing.md,
   },
-  addAddressButton: {
-    paddingTop: spacing.md,
-    paddingHorizontal: spacing.xs,
+  addAddressCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
   addAddressLabel: {
     fontWeight: '600',
@@ -373,10 +383,6 @@ const styles = StyleSheet.create({
   emptyCopy: {
     textAlign: 'center',
     paddingVertical: spacing.lg,
-  },
-  banner: {
-    alignSelf: 'stretch',
-    marginHorizontal: 0,
   },
   inlineError: {
     alignSelf: 'stretch',
@@ -386,13 +392,6 @@ const styles = StyleSheet.create({
   successBanner: {
     backgroundColor: colors.successBg,
     borderColor: colors.successSoft,
-  },
-  formActions: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  formActionButton: {
-    flex: 1,
   },
   footer: {
     paddingHorizontal: spacing.lg,

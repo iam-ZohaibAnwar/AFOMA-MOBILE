@@ -1,14 +1,15 @@
-import { Alert, Image, Pressable, StyleSheet, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Alert, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
+import { navigateToShop } from '../../../../../app/navigation/shoppingNavigation';
 import { AppButton } from '../../../../../components/ui/AppButton';
 import { AppText } from '../../../../../components/ui/AppText';
-import { colors, radius, spacing } from '../../../../../design-system';
+import { spacing } from '../../../../../design-system';
 import type { Product } from '../../../../../services/types/product';
 import { useAuth } from '../../../../auth/hooks/useAuth';
 import { resolveAuthUserId } from '../../../../auth/utils/resolveAuthUserId';
+import { ProductSellerSection } from '../../../../products/components/ProductSellerSection';
 import {
   canShowProductSellerMessage,
   resolveSellerChatReceiverId,
@@ -22,19 +23,20 @@ export function AdminProductDetailSellerCard({ product }: { product: Product }) 
   const { user, isAuthenticated } = useAuth();
   const seller = product.seller;
   const sellerName = seller?.storeTitle?.trim() || getAdminProductSellerName(product);
-  const sellerId = seller?._id ?? seller?.id ?? seller?.userId;
+  const sellerStoreSlug = seller?.storeSlug?.trim();
   const sellerLogo = seller?.storeLogo?.trim() || seller?.userProfile?.trim();
   const authUserId = resolveAuthUserId(user);
   const canContactSeller = canShowProductSellerMessage({ seller, authUserId });
 
-  const handleOpenSellerDetail = () => {
-    if (!sellerId) {
+  const handleVisitShop = () => {
+    if (!sellerStoreSlug) {
       return;
     }
 
-    navigation.navigate('AdminSellerDetail', {
-      sellerId: String(sellerId),
-    });
+    const rootNavigation = navigation.getParent();
+    if (rootNavigation) {
+      navigateToShop(rootNavigation, sellerStoreSlug);
+    }
   };
 
   const handleContactSeller = () => {
@@ -65,45 +67,29 @@ export function AdminProductDetailSellerCard({ product }: { product: Product }) 
         </AppText>
       }
     >
-      <Pressable
-        accessibilityRole="button"
-        disabled={!sellerId}
-        onPress={handleOpenSellerDetail}
-        style={({ pressed }) => [styles.profileRow, pressed && sellerId && styles.profileRowPressed]}
-      >
-        <View style={styles.avatarWrap}>
-          {sellerLogo ? (
-            <Image source={{ uri: sellerLogo }} style={styles.avatar} resizeMode="cover" />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Ionicons name="person-outline" size={20} color={colors.textInverse} />
-            </View>
-          )}
-        </View>
-
-        <View style={styles.profileCopy}>
-          <AppText variant="bodyMedium" style={styles.sellerName} numberOfLines={1}>
-            {sellerName}
-          </AppText>
-          {seller?.uuid ? (
-            <AppText variant="caption" color="textMuted" numberOfLines={1}>
-              {String(seller.uuid)}
-            </AppText>
-          ) : null}
-        </View>
-
-        {sellerId ? (
-          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-        ) : null}
-      </Pressable>
-
-      <AppButton
-        label="Contact seller"
-        variant="outline"
-        onPress={handleContactSeller}
-        disabled={!canContactSeller}
-        fullWidth
+      <ProductSellerSection
+        embedded
+        centered
+        sellerName={sellerName}
+        sellerLogoUrl={sellerLogo}
       />
+
+      <View style={styles.actions}>
+        <AppButton
+          label="Visit shop"
+          variant="outline"
+          onPress={handleVisitShop}
+          disabled={!sellerStoreSlug}
+          fullWidth
+        />
+        <AppButton
+          label="Contact seller"
+          variant="outline"
+          onPress={handleContactSeller}
+          disabled={!canContactSeller}
+          fullWidth
+        />
+      </View>
     </AdminProductCollapsibleSection>
   );
 }
@@ -112,39 +98,8 @@ const styles = StyleSheet.create({
   previewText: {
     textAlign: 'right',
   },
-  profileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  profileRowPressed: {
-    opacity: 0.9,
-  },
-  avatarWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.pill,
-    overflow: 'hidden',
-    backgroundColor: colors.surfaceMuted,
-    flexShrink: 0,
-  },
-  avatar: {
-    width: '100%',
-    height: '100%',
-  },
-  avatarPlaceholder: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-  },
-  profileCopy: {
-    flex: 1,
-    gap: 2,
-    minWidth: 0,
-  },
-  sellerName: {
-    fontWeight: '700',
-    color: colors.textPrimary,
+  actions: {
+    gap: spacing.sm,
+    marginTop: spacing.xs,
   },
 });

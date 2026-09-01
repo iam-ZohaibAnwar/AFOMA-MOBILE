@@ -2,7 +2,7 @@ import type { CartLineItem, CartMap } from '../../../services/types/cart';
 import type { ShippingRateOption } from '../../../services/types/shipping';
 import type { CheckoutShippingOption } from '../hooks/useCheckoutShippingRates';
 import { getProductSellerId, getProductSellerName } from './cartShipping';
-import { getShippingOptionId, normalizeShippingRate } from './formatShippingOption';
+import { getShippingMethodTitle, getShippingOptionId, normalizeShippingRate } from './formatShippingOption';
 
 interface CartShippingService {
   value?: string | number;
@@ -55,7 +55,7 @@ export function extractSelectedShippingFromCart(cart: CartMap): CheckoutShipping
       ({
         service_id: serviceId,
         carrier_name: shippingService.carrier_name,
-        service_name: shippingService.label,
+        service_name: '',
         rate: line.shippingRate,
       } satisfies ShippingRateOption);
 
@@ -64,7 +64,7 @@ export function extractSelectedShippingFromCart(cart: CartMap): CheckoutShipping
       sellerId,
       sellerName: getSellerName(line),
       option: matchingOption,
-      label: shippingService.label?.trim() || matchingOption.service_name?.trim() || 'Shipping',
+      label: getShippingMethodTitle(matchingOption),
       rate: line.shippingRate ?? normalizeShippingRate(matchingOption),
     });
   }

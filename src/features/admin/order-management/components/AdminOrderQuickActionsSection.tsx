@@ -84,7 +84,7 @@ export function AdminOrderQuickActionsSection({
     <View style={styles.list}>
       {canDownloadLabel ? (
         <QuickActionButton
-          label={isOpeningLabel || isGeneratingLabel ? 'Opening label...' : 'Download Label'}
+          label={isOpeningLabel || isGeneratingLabel ? 'Downloading label...' : 'Download Label'}
           icon="car-outline"
           onPress={onDownloadLabel}
           disabled={shippingDisabled || isOpeningLabel || isGeneratingLabel || isOpeningInvoice}

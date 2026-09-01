@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EmptyState } from '../../../../components/ecommerce/EmptyState';
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
-import { SelectField } from '../../../../components/forms';
+import { ExpandableProductNameText, SelectField } from '../../../../components/forms';
 import { AppButton } from '../../../../components/ui/AppButton';
 import { AppCard } from '../../../../components/ui/AppCard';
 import { AppInput } from '../../../../components/ui/AppInput';
@@ -16,6 +16,7 @@ import type { AdminStackParamList } from '../../navigation/adminTypes';
 import { authReturnTo } from '../../../auth/utils/authNavigation';
 import { useRequireAdmin } from '../../hooks/useRequireAdmin';
 import { useAdminProductVariationsWizard } from '../hooks/useAdminProductVariationsWizard';
+import { navigateToAdminProductListAfterVariations } from '../utils/adminProductWriteNavigation';
 import { VARIATION_INVENTORY_OPTIONS } from '../../../seller/products/utils/productTypeConstants';
 import { formatRemovedAttributesMessage } from '../../../seller/products/utils/variationAttributes';
 
@@ -53,7 +54,7 @@ export function AdminProductVariationsScreen({ navigation, route }: Props) {
   const handleDone = useCallback(async () => {
     const saved = await wizard.saveVariations();
     if (saved) {
-      navigation.goBack();
+      navigateToAdminProductListAfterVariations(navigation);
     }
   }, [navigation, wizard]);
 
@@ -121,9 +122,13 @@ export function AdminProductVariationsScreen({ navigation, route }: Props) {
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
-      <AppText variant="bodyMedium" style={styles.title}>
-        {wizard.productName || 'Product variations'}
-      </AppText>
+      <ExpandableProductNameText
+        value={wizard.productName}
+        emptyLabel="Product variations"
+        variant="bodyMedium"
+        color="textPrimary"
+        layout="stacked"
+      />
       <AppText variant="bodySmall" color="textSecondary">
         Select attributes, then add variation rows. Saving variations does not change approval or
         storefront visibility.

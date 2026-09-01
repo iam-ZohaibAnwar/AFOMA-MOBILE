@@ -24,7 +24,14 @@ import { CartLineItemRow } from '../../cart/components/CartLineItemRow';
 import { useCart } from '../../cart/hooks/useCart';
 import { useClearCartOnSuccessfulCheckout } from '../../cart/hooks/useClearCartOnSuccessfulCheckout';
 import { useAppliedCoupon } from '../../cart/hooks/useAppliedCoupon';
-import { PayPalProcessingOverlay } from '../components/PayPalProcessingOverlay';
+import { getCartSubtotalCad } from '../../cart/utils/cartPricing';
+import { calculateCartTotals } from '../../cart/utils/cartTotals';
+import { resolveCartShippingCad } from '../../cart/utils/resolveCartShipping';
+import {
+  cartHasShippableItems,
+  resolveWebParityShippingTotal,
+} from '../utils/buildCheckoutOrderPayload';
+import { CheckoutConfirmingOverlay } from '../components/CheckoutConfirmingOverlay';
 import { ShippingAddressForm } from '../components/ShippingAddressForm';
 import { ShippingOptionsSection } from '../components/ShippingOptionsSection';
 import { useCheckoutShippingAddress } from '../hooks/useCheckoutShippingAddress';
@@ -35,9 +42,6 @@ import {
   getPayPalCheckoutErrorMessage,
   usePayPalCheckout,
 } from '../hooks/usePayPalCheckout';
-import {
-  cartHasShippableItems,
-} from '../utils/buildCheckoutOrderPayload';
 import { validateShippingAddress } from '../utils/validateShippingAddress';
 import { formatProductPrice } from '../../products/utils/productDisplay';
 import {
@@ -70,7 +74,7 @@ function CheckoutScreenBody(_props: Props) {
   const { isAuthorized } = useRequireCheckoutAccess(CHECKOUT_RETURN_TO);
   const authUserId = resolveAuthUserId(user);
   const { userInfo } = usePricing();
-  const { cart, entries, subTotal, isLoading, error, retry } = useCart();
+  const { cart, entries, isLoading, error, retry, totalShippingRate, fetchedShippingRate } = useCart();
   const { appliedCoupon } = useAppliedCoupon(authUserId);
   const discountAmount = appliedCoupon?.discountAmount ?? 0;
   const { shippingAddress, addressErrors, updateField, validateAddress } =
@@ -97,7 +101,6 @@ function CheckoutScreenBody(_props: Props) {
     groups: shippingGroups,
     selectedOptionBySeller,
     selectedOptions,
-    selectedShippingCost,
     hasMultipleSellers,
     selectOption,
     isLoading: isShippingLoading,
@@ -126,14 +129,49 @@ function CheckoutScreenBody(_props: Props) {
     startPayPalCheckout,
     continuePayPalCheckout,
   } = payPalCheckout;
-  const showProcessingOverlay = payPalCheckout.isPayPalCapturing === true;
+  const showProcessingOverlay =
+    payPalCheckout.isPayPalCapturing ||
+    payPalCheckout.isPayPalBrowserPending ||
+    payPalCheckout.isPayPalResuming;
 
   useClearCartOnSuccessfulCheckout(captureResult, cart, authUserId);
 
-  const shippingAmount = canFetchRates ? selectedShippingCost : 0;
-  const total = Math.max(0, subTotal + shippingAmount - discountAmount);
+  const requiresShippingSelection = cartHasShippableItems(cart);
   const currency = userInfo.currency ?? 'CAD';
   const currencyRate = userInfo.currencyRate ?? 1;
+  const subtotalCad = useMemo(() => getCartSubtotalCad(cart, userInfo), [cart, userInfo]);
+  const shippingCad = useMemo(
+    () =>
+      resolveCartShippingCad(
+        cart,
+        totalShippingRate,
+        fetchedShippingRate,
+        selectedOptions,
+        currencyRate,
+      ),
+    [cart, currencyRate, fetchedShippingRate, selectedOptions, totalShippingRate],
+  );
+  const shippingAmountCad = canFetchRates
+    ? resolveWebParityShippingTotal(fetchedShippingRate, totalShippingRate, shippingCad)
+    : 0;
+  const checkoutTotals = useMemo(
+    () =>
+      calculateCartTotals({
+        subtotalCad,
+        shippingCad: shippingAmountCad,
+        discountDisplay: discountAmount,
+        currencyRate,
+        shippingPending: requiresShippingSelection && selectedOptions.length === 0,
+      }),
+    [
+      currencyRate,
+      discountAmount,
+      requiresShippingSelection,
+      selectedOptions.length,
+      shippingAmountCad,
+      subtotalCad,
+    ],
+  );
   const checkoutParams = useMemo(
     () => ({
       identity: checkoutIdentity,
@@ -141,9 +179,9 @@ function CheckoutScreenBody(_props: Props) {
       shippingAddress,
       selectedOptions,
       totals: {
-        subTotal,
-        shippingTotal: shippingAmount,
-        grandTotal: total,
+        subTotal: subtotalCad,
+        shippingTotal: shippingAmountCad,
+        grandTotal: checkoutTotals.displayTotal ?? subtotalCad + shippingAmountCad,
       },
       currency,
       conversionRate: currencyRate,
@@ -153,13 +191,13 @@ function CheckoutScreenBody(_props: Props) {
       appliedCoupon?.couponCode,
       cart,
       checkoutIdentity,
+      checkoutTotals.displayTotal,
       currency,
       currencyRate,
       selectedOptions,
       shippingAddress,
-      shippingAmount,
-      subTotal,
-      total,
+      shippingAmountCad,
+      subtotalCad,
     ],
   );
   const paymentError = getPayPalCheckoutErrorMessage(
@@ -168,7 +206,6 @@ function CheckoutScreenBody(_props: Props) {
     checkoutNotice,
     Boolean(captureResult),
   );
-  const requiresShippingSelection = cartHasShippableItems(cart);
 
   const handlePlaceOrderPress = async () => {
     if (isPlacingOrder || isEstablishingGuest) {
@@ -279,9 +316,7 @@ function CheckoutScreenBody(_props: Props) {
     if (captureResult) {
       return (
         <>
-          <PayPalProcessingOverlay
-            visible={showProcessingOverlay}
-          />
+          <CheckoutConfirmingOverlay visible={showProcessingOverlay} />
           <View style={styles.centeredState}>
           <Text style={styles.paymentSuccessTitle}>Payment successful</Text>
           <Text style={styles.subtitle}>
@@ -305,9 +340,7 @@ function CheckoutScreenBody(_props: Props) {
 
     return (
       <>
-        <PayPalProcessingOverlay
-          visible={showProcessingOverlay}
-        />
+        <CheckoutConfirmingOverlay visible={showProcessingOverlay} />
         <View style={styles.centeredState}>
         <Text style={styles.title}>Order placed</Text>
         <Text style={styles.subtitle}>
@@ -393,11 +426,17 @@ function CheckoutScreenBody(_props: Props) {
             <View style={styles.summaryBox}>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Subtotal</Text>
-                <Text style={styles.summaryValue}>{formatProductPrice(subTotal)}</Text>
+                <Text style={styles.summaryValue}>
+                  {formatProductPrice(checkoutTotals.displaySubtotal, currency)}
+                </Text>
               </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Shipping</Text>
-                <Text style={styles.summaryValue}>{formatProductPrice(shippingAmount)}</Text>
+                <Text style={styles.summaryValue}>
+                  {checkoutTotals.displayShipping != null
+                    ? formatProductPrice(checkoutTotals.displayShipping, currency)
+                    : '—'}
+                </Text>
               </View>
               {selectedOptions.length === 1 ? (
                 <Text style={styles.selectedShippingText}>{selectedOptions[0].label}</Text>
@@ -409,7 +448,11 @@ function CheckoutScreenBody(_props: Props) {
               ) : null}
               <View style={[styles.summaryRow, styles.totalRow]}>
                 <Text style={styles.totalLabel}>Total</Text>
-                <Text style={styles.totalValue}>{formatProductPrice(total)}</Text>
+                <Text style={styles.totalValue}>
+                  {checkoutTotals.displayTotal != null
+                    ? formatProductPrice(checkoutTotals.displayTotal, currency)
+                    : '—'}
+                </Text>
               </View>
             </View>
 
@@ -450,9 +493,7 @@ function CheckoutScreenBody(_props: Props) {
           </View>
         }
       />
-      <PayPalProcessingOverlay
-        visible={showProcessingOverlay}
-      />
+      <CheckoutConfirmingOverlay visible={showProcessingOverlay} />
     </KeyboardAvoidingView>
   );
 }

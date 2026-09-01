@@ -1,17 +1,21 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
-import { SelectField } from '../../../../components/forms';
+import {
+  KeyboardAwareFormScreen,
+  MetaDescriptionInput,
+  MetaKeywordsInput,
+  MetaTitleInput,
+  ProductDescriptionInput,
+  ProductNameInput,
+  SelectField,
+} from '../../../../components/forms';
 import { AppButton } from '../../../../components/ui/AppButton';
 import { AppCard } from '../../../../components/ui/AppCard';
 import { AppInput } from '../../../../components/ui/AppInput';
@@ -40,7 +44,6 @@ export function AdminDownloadableProductScreen({ navigation, route }: Props) {
   const routeSellerId = route.params?.sellerId;
   const initialProduct = route.params?.initialProduct;
   const isEditMode = Boolean(productId);
-  const insets = useSafeAreaInsets();
   const { isAuthorized } = useRequireAdmin(RETURN_TO);
   const [sellerId, setSellerId] = useState(routeSellerId ?? '');
   const wizard = useAdminDownloadableProductWizard(sellerId, productId, initialProduct);
@@ -181,20 +184,14 @@ export function AdminDownloadableProductScreen({ navigation, route }: Props) {
               onRetry={() => void sellerPicker.reload()}
               disabled={isEditMode && Boolean(wizard.resolvedSellerId)}
             />
-            <AppInput tone="surface"
-              label="Product name *"
+            <ProductNameInput
               value={wizard.values.productName}
               onChangeText={(text) => wizard.updateField('productName', text)}
-              maxLength={120}
               error={wizard.fieldErrors.productName}
             />
-            <AppInput tone="surface"
-              label="Description *"
+            <ProductDescriptionInput
               value={wizard.values.description}
               onChangeText={(text) => wizard.updateField('description', text)}
-              multiline
-              numberOfLines={5}
-              style={styles.textArea}
               error={wizard.fieldErrors.description}
             />
           </View>
@@ -215,6 +212,7 @@ export function AdminDownloadableProductScreen({ navigation, route }: Props) {
             onMove={wizard.moveImage}
             onAltTextChange={wizard.updateImageAltText}
             isAdding={isAddingImage}
+            imageUploadSheetProps={wizard.imageUploadSheetProps}
           />
         );
       case 'pricing':
@@ -297,23 +295,17 @@ export function AdminDownloadableProductScreen({ navigation, route }: Props) {
       case 'additional':
         return (
           <View style={styles.stepContent}>
-            <AppInput tone="surface"
-              label="Meta title"
+            <MetaTitleInput
               value={wizard.values.metaTitle}
               onChangeText={(text) => wizard.updateField('metaTitle', text)}
             />
-            <AppInput tone="surface"
-              label="Meta keywords"
+            <MetaKeywordsInput
               value={wizard.values.metaKeywords}
               onChangeText={(text) => wizard.updateField('metaKeywords', text)}
             />
-            <AppInput tone="surface"
-              label="Meta description"
+            <MetaDescriptionInput
               value={wizard.values.metaDesc}
               onChangeText={(text) => wizard.updateField('metaDesc', text)}
-              multiline
-              numberOfLines={4}
-              style={styles.textArea}
             />
             <AppInput tone="surface"
               label="Discount (%)"
@@ -362,12 +354,7 @@ export function AdminDownloadableProductScreen({ navigation, route }: Props) {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
+    <KeyboardAwareFormScreen contentContainerStyle={styles.content}>
         <View style={styles.progressRow}>
           {DOWNLOADABLE_WIZARD_STEPS.map((step, index) => (
             <View
@@ -395,8 +382,7 @@ export function AdminDownloadableProductScreen({ navigation, route }: Props) {
             ) : null}
           </View>
         ) : null}
-      </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAwareFormScreen>
   );
 }
 

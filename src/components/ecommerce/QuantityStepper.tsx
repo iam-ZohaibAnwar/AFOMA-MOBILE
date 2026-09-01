@@ -81,6 +81,7 @@ function StepperButton({
         styles.button,
         compact && styles.buttonCompact,
         compact && filled && styles.buttonCompactFilled,
+        compact && decrement && styles.buttonCompactDecrement,
         disabled && styles.buttonDisabled,
         pressed && !disabled && styles.buttonPressed,
       ]}
@@ -131,14 +132,17 @@ const styles = StyleSheet.create({
     minWidth: 28,
     minHeight: 28,
     paddingHorizontal: spacing.xs,
-    backgroundColor: colors.surface,
     borderRadius: radius.pill,
+  },
+  buttonCompactDecrement: {
+    backgroundColor: colors.surfaceWhite,
   },
   buttonCompactFilled: {
     backgroundColor: colors.primary,
   },
   buttonDisabled: {
-    backgroundColor: colors.disabledBg,
+    backgroundColor: colors.surfaceWhite,
+    opacity: 0.55,
   },
   buttonPressed: {
     opacity: 0.9,

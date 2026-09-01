@@ -13,7 +13,9 @@ export function toDisplayAmount(amountCad: number, currencyRate = 1): number {
 }
 
 export interface CartTotalsInput {
+  /** Item subtotal in CAD (incl. intl surcharge). */
   subtotalCad: number;
+  /** Shipping in CAD for fee/total math (not display currency). */
   shippingCad: number;
   discountDisplay?: number;
   currencyRate?: number;

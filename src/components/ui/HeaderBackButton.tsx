@@ -1,9 +1,11 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Platform, Pressable, StyleSheet } from 'react-native';
 
-import { colors, layout, spacing } from '../../design-system';
+import { colors, spacing } from '../../design-system';
 import { stackHeaderTitleStyle } from '../../app/navigation/stackHeaderStyles';
-import { BackChevronIcon } from './BackChevronIcon';
 import { AppText } from './AppText';
+
+const MIN_TOUCH_TARGET = 44;
 
 export interface HeaderBackButtonProps {
   onPress?: () => void;
@@ -13,10 +15,12 @@ export interface HeaderBackButtonProps {
   title?: string;
 }
 
+const DEFAULT_CHEVRON_SIZE = Platform.OS === 'ios' ? 24 : 22;
+
 export function HeaderBackButton({
   onPress,
   color = colors.textPrimary,
-  size = 13,
+  size = DEFAULT_CHEVRON_SIZE,
   accessibilityLabel = 'Go back',
   title,
 }: HeaderBackButtonProps) {
@@ -33,9 +37,12 @@ export function HeaderBackButton({
         pressed && styles.pressed,
       ]}
     >
-      <View style={styles.iconWrap}>
-        <BackChevronIcon color={color} size={size} strokeWidth={2} />
-      </View>
+      <Ionicons
+        name="chevron-back"
+        size={size}
+        color={color}
+        style={label ? styles.chevronWithTitle : styles.chevron}
+      />
       {label ? (
         <AppText style={[styles.title, { color }]} numberOfLines={1}>
           {label}
@@ -47,29 +54,26 @@ export function HeaderBackButton({
 
 const styles = StyleSheet.create({
   button: {
-    width: layout.minTouchTarget,
-    height: layout.minTouchTarget,
+    width: MIN_TOUCH_TARGET,
+    height: MIN_TOUCH_TARGET,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: -4,
   },
   buttonWithTitle: {
-    minHeight: layout.minTouchTarget,
+    minHeight: MIN_TOUCH_TARGET,
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: -4,
     paddingRight: spacing.sm,
     maxWidth: 220,
   },
-  iconWrap: {
-    width: layout.minTouchTarget,
-    height: layout.minTouchTarget,
-    alignItems: 'center',
-    justifyContent: 'center',
+  chevron: {
+    textAlign: 'center',
+  },
+  chevronWithTitle: {
+    marginRight: Platform.OS === 'ios' ? -2 : 0,
   },
   title: {
     ...stackHeaderTitleStyle,
-    marginLeft: -2,
   },
   pressed: {
     opacity: 0.85,

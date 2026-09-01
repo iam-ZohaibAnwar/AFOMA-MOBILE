@@ -101,7 +101,7 @@ export function validateAdminUserForm(values: AdminUserFormValues): AdminUserFor
   }
 
   if (values.dob.trim() && !isValidDobInput(values.dob)) {
-    errors.dob = 'Use YYYY-MM-DD';
+    errors.dob = 'Pick a valid date';
   }
 
   return errors;

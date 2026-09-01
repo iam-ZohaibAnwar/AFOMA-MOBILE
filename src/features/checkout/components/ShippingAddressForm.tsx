@@ -1,6 +1,9 @@
-import { StyleSheet, Text, TextInput, View } from 'react-native';
-
-import { colors } from '../../../design-system';
+import { useMemo } from 'react';
+import { StyleSheet, View, type NativeSyntheticEvent, type TextInputFocusEventData } from 'react-native';
+import { CountryStateFields } from '../../../components/forms';
+import { AppInput } from '../../../components/ui/AppInput';
+import { spacing } from '../../../design-system';
+import type { CountryStateSelection } from '../../../utils/regionOptions';
 import type {
   ShippingAddress,
   ShippingAddressErrors,
@@ -11,84 +14,131 @@ interface ShippingAddressFormProps {
   value: ShippingAddress;
   errors: ShippingAddressErrors;
   onChange: (field: ShippingAddressField, nextValue: string) => void;
+  tone?: 'default' | 'surface';
+  hostedCountryStatePickers?: boolean;
+  onOpenCountryPicker?: () => void;
+  onOpenStatePicker?: () => void;
+  onFieldFocus?: (event: NativeSyntheticEvent<TextInputFocusEventData>) => void;
 }
 
-interface AddressFieldConfig {
-  field: ShippingAddressField;
-  label: string;
-  placeholder: string;
-  keyboardType?: 'default' | 'email-address' | 'phone-pad';
-  autoCapitalize?: 'none' | 'words' | 'characters';
-}
+export function ShippingAddressForm({
+  value,
+  errors,
+  onChange,
+  tone = 'surface',
+  hostedCountryStatePickers = false,
+  onOpenCountryPicker,
+  onOpenStatePicker,
+  onFieldFocus,
+}: ShippingAddressFormProps) {
+  const countryStateValue = useMemo(
+    () => ({
+      country: value.country,
+      state: value.state,
+      countryCode: value.countryCode ?? '',
+      stateCode: value.stateCode ?? '',
+    }),
+    [value.country, value.countryCode, value.state, value.stateCode],
+  );
 
-const ADDRESS_FIELDS: AddressFieldConfig[] = [
-  { field: 'name', label: 'Name', placeholder: 'Full name', autoCapitalize: 'words' },
-  {
-    field: 'email',
-    label: 'Email',
-    placeholder: 'Email address',
-    keyboardType: 'email-address',
-    autoCapitalize: 'none',
-  },
-  { field: 'phone', label: 'Phone', placeholder: 'Phone number', keyboardType: 'phone-pad' },
-  { field: 'streetAddress', label: 'Street address', placeholder: 'Street address' },
-  { field: 'city', label: 'City', placeholder: 'City', autoCapitalize: 'words' },
-  { field: 'state', label: 'State', placeholder: 'State / Province', autoCapitalize: 'words' },
-  { field: 'zip', label: 'ZIP', placeholder: 'ZIP / Postal code' },
-  { field: 'country', label: 'Country', placeholder: 'Country', autoCapitalize: 'words' },
-];
+  const handleCountryStateChange = (selection: CountryStateSelection) => {
+    onChange('country', selection.country);
+    onChange('state', selection.state);
+    onChange('countryCode', selection.countryCode);
+    onChange('stateCode', selection.stateCode);
+  };
 
-export function ShippingAddressForm({ value, errors, onChange }: ShippingAddressFormProps) {
   return (
     <View style={styles.container}>
-      {ADDRESS_FIELDS.map(({ field, label, placeholder, keyboardType, autoCapitalize }) => (
-        <View key={field} style={styles.fieldWrap}>
-          <Text style={styles.label}>{label}</Text>
-          <TextInput
-            value={value[field]}
-            onChangeText={(text) => onChange(field, text)}
-            placeholder={placeholder}
-            placeholderTextColor="#94A3B8"
-            style={[styles.input, errors[field] ? styles.inputError : null]}
-            keyboardType={keyboardType ?? 'default'}
-            autoCapitalize={autoCapitalize ?? 'sentences'}
-            autoCorrect={false}
-          />
-          {errors[field] ? <Text style={styles.errorText}>{errors[field]}</Text> : null}
-        </View>
-      ))}
+      <AppInput
+        tone={tone}
+        label="Full Name *"
+        value={value.name}
+        onChangeText={(text) => onChange('name', text)}
+        placeholder="Full name"
+        autoCapitalize="words"
+        autoCorrect={false}
+        error={errors.name}
+        onFocus={onFieldFocus}
+      />
+
+      <AppInput
+        tone={tone}
+        label="Email Address *"
+        value={value.email}
+        onChangeText={(text) => onChange('email', text)}
+        placeholder="Email address"
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoCorrect={false}
+        error={errors.email}
+        onFocus={onFieldFocus}
+      />
+
+      <AppInput
+        tone={tone}
+        label="Address *"
+        value={value.streetAddress}
+        onChangeText={(text) => onChange('streetAddress', text)}
+        placeholder="Street address"
+        autoCorrect={false}
+        error={errors.streetAddress}
+        onFocus={onFieldFocus}
+      />
+
+      <AppInput
+        tone={tone}
+        label="City *"
+        value={value.city}
+        onChangeText={(text) => onChange('city', text)}
+        placeholder="City"
+        autoCapitalize="words"
+        autoCorrect={false}
+        error={errors.city}
+        onFocus={onFieldFocus}
+      />
+
+      <CountryStateFields
+        tone={tone}
+        required
+        value={countryStateValue}
+        onChange={handleCountryStateChange}
+        countryError={errors.country}
+        stateError={errors.state}
+        hostedPickers={hostedCountryStatePickers}
+        onOpenCountryPicker={onOpenCountryPicker}
+        onOpenStatePicker={onOpenStatePicker}
+      />
+
+      <AppInput
+        tone={tone}
+        label="Zip/Postal Code *"
+        value={value.zip}
+        onChangeText={(text) => onChange('zip', text)}
+        placeholder="ZIP / Postal code"
+        autoCapitalize="characters"
+        autoCorrect={false}
+        error={errors.zip}
+        onFocus={onFieldFocus}
+      />
+
+      <AppInput
+        tone={tone}
+        label="Phone Number *"
+        value={value.phone}
+        onChangeText={(text) => onChange('phone', text)}
+        placeholder="Phone number"
+        keyboardType="phone-pad"
+        autoCorrect={false}
+        error={errors.phone}
+        onFocus={onFieldFocus}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    gap: 12,
-  },
-  fieldWrap: {
-    gap: 6,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#172554',
-  },
-  input: {
-    height: 44,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-    backgroundColor: colors.surfaceWhite,
-    paddingHorizontal: 14,
-    fontSize: 15,
-    color: '#172554',
-  },
-  inputError: {
-    borderColor: '#F87171',
-  },
-  errorText: {
-    fontSize: 12,
-    color: '#B91C1C',
-    lineHeight: 16,
+    gap: spacing.md,
   },
 });

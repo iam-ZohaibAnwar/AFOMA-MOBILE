@@ -29,13 +29,15 @@ import {
   navigateToHomeTab,
 } from '../../../app/navigation/shoppingNavigation';
 import type { MainTabParamList, RootStackParamList, ShoppingStackParamList } from '../../../app/navigation/types';
+import { CheckoutStepIndicator } from '../../checkout/components/CheckoutStepIndicator';
 import { CartGuestAddressModal } from '../components/CartGuestAddressModal';
 import { DeliveryAddressSheet } from '../../checkout/components/DeliveryAddressSheet';
 import { ShippingOptionsSheet } from '../components/ShippingOptionsSheet';
 import { CartLineItemRow } from '../components/CartLineItemRow';
 import { CartRecommendationsSection } from '../components/CartRecommendationsSection';
 import { CartScreenHeader } from '../components/CartScreenHeader';
-import { CartShippingSection } from '../components/CartShippingSection';
+import { CartShippingDetailsCard } from '../components/CartShippingDetailsCard';
+import { CartOrderSummaryCard } from '../components/CartOrderSummaryCard';
 import { CartSummarySheet } from '../components/CartSummarySheet';
 import { CartVariationSheet, buildCartVariationSelections } from '../components/CartVariationSheet';
 import { useCart } from '../hooks/useCart';
@@ -71,8 +73,8 @@ type CartNavigationProp = CompositeNavigationProp<
   >
 >;
 
-function CartDivider() {
-  return <View style={styles.divider} />;
+function CartItemSpacer() {
+  return <View style={styles.itemSpacer} />;
 }
 
 export function CartScreen({ route, navigation }: Props) {
@@ -230,14 +232,25 @@ export function CartScreen({ route, navigation }: Props) {
         totalShippingRate,
         fetchedShippingRate,
         cartShipping.selectedOptions,
+        currencyRate,
       ),
-    [filteredSelectedCart, cartShipping.selectedOptions, fetchedShippingRate, totalShippingRate],
+    [
+      currencyRate,
+      filteredSelectedCart,
+      cartShipping.selectedOptions,
+      fetchedShippingRate,
+      totalShippingRate,
+    ],
   );
   const shippingPending =
     selectedItemIds.size === 0 ||
     cartShipping.shippingContext.needsDeliveryDetails ||
-    cartShipping.isLoading ||
-    isCartShippingPending(filteredSelectedCart, cartShipping.selectedOptions);
+    isCartShippingPending(
+      filteredSelectedCart,
+      cartShipping.selectedOptions,
+      cartShipping.groups,
+    ) ||
+    (cartShipping.isLoading && cartShipping.groups.length === 0);
 
   const totals = useMemo(
     () =>
@@ -274,7 +287,20 @@ export function CartScreen({ route, navigation }: Props) {
         editingVariationLine.productData,
         selectedAttributes,
       );
-      await updateVariations(variationItemId, selectedVariations);
+      const nextCartKey = await updateVariations(variationItemId, selectedVariations);
+      if (nextCartKey && nextCartKey !== variationItemId) {
+        setSelectedItemIds((current) => {
+          if (!current.has(variationItemId)) {
+            return current;
+          }
+
+          const next = new Set(current);
+          next.delete(variationItemId);
+          next.add(nextCartKey);
+          return next;
+        });
+        setEmphasizedItemId(nextCartKey);
+      }
       setVariationItemId(null);
     } catch (err) {
       setVariationError(err instanceof Error ? err.message : 'Failed to update options.');
@@ -357,12 +383,20 @@ export function CartScreen({ route, navigation }: Props) {
     );
   }
 
+  const showCheckoutAuthGate =
+    !isAuthenticated && !cartShipping.shippingContext.hasCheckoutIdentity;
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <CartScreenHeader onBack={handleBackFromCart} />
+      <CartScreenHeader onBack={handleBackFromCart} itemCount={selectedItemCount} />
+
+      <View style={styles.stepsWrap}>
+        <CheckoutStepIndicator currentStep="cart" />
+      </View>
 
       <FlatList
         ref={listRef}
+        style={styles.list}
         data={entries}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
@@ -375,7 +409,7 @@ export function CartScreen({ route, navigation }: Props) {
             animated: true,
           });
         }}
-        ItemSeparatorComponent={CartDivider}
+        ItemSeparatorComponent={CartItemSpacer}
         renderItem={({ item }) => (
           <CartLineItemRow
             itemId={item.id}
@@ -398,18 +432,37 @@ export function CartScreen({ route, navigation }: Props) {
         )}
         ListFooterComponent={
           <View style={styles.footerContent}>
-            <CartShippingSection
+            <CartShippingDetailsCard
               isAuthenticated={isAuthenticated}
               isLoadingAuthAddress={cartShipping.isLoadingAuthAddress}
               needsDeliveryDetails={cartShipping.shippingContext.needsDeliveryDetails}
               canFetchRates={cartShipping.shippingContext.canFetchRates}
               isLoading={cartShipping.isLoading}
               error={cartShipping.error}
+              shippingAddress={cartShipping.shippingAddress}
+              groups={cartShipping.groups}
               selectedOptions={cartShipping.selectedOptions}
+              currency={currency}
               onOpenDeliveryDetails={cartShipping.openDeliveryDetails}
               onOpenShippingOptions={cartShipping.openShippingOptions}
-              onSignIn={() => openAuthLogin(rootNavigation, authReturnTo.cartTab())}
               onRetry={() => void cartShipping.retry()}
+            />
+
+            <CartOrderSummaryCard
+              currency={currency}
+              itemCount={selectedItemCount}
+              subTotal={displaySubTotal}
+              discountAmount={totals.displayDiscount}
+              shippingAmount={totals.displayShipping}
+              serviceChargeAmount={totals.displayServiceCharge}
+              total={totals.displayTotal}
+              shippingPending={shippingPending}
+              onApplyPromo={applyPromoCode}
+              onRemovePromo={clearCoupon}
+              isApplyingCoupon={isApplyingCoupon}
+              appliedCode={appliedCoupon?.couponCode}
+              couponError={couponError}
+              couponMessage={couponMessage}
             />
 
             <CartRecommendationsSection
@@ -429,20 +482,12 @@ export function CartScreen({ route, navigation }: Props) {
 
       <CartSummarySheet
         currency={currency}
-        itemCount={selectedItemCount}
-        subTotal={displaySubTotal}
-        discountAmount={totals.displayDiscount}
-        shippingAmount={totals.displayShipping}
-        serviceChargeAmount={totals.displayServiceCharge}
         total={totals.displayTotal}
         shippingPending={shippingPending}
-        onApplyPromo={applyPromoCode}
-        onRemovePromo={clearCoupon}
-        isApplyingCoupon={isApplyingCoupon}
-        appliedCode={appliedCoupon?.couponCode}
-        couponError={couponError}
-        couponMessage={couponMessage}
         checkoutDisabled={!cartShipping.canProceedToCheckout || selectedItemCount === 0}
+        showAuthGate={showCheckoutAuthGate}
+        onSignIn={() => openAuthLogin(rootNavigation, authReturnTo.cartTab())}
+        onContinueAsGuest={cartShipping.openDeliveryDetails}
         hasFooterTabs
         onCheckout={() => {
           rootNavigation.navigate('Payment');
@@ -482,6 +527,7 @@ export function CartScreen({ route, navigation }: Props) {
 
       <CartVariationSheet
         visible={variationItemId !== null}
+        itemId={variationItemId}
         line={editingVariationLine}
         isSaving={Boolean(variationItemId && updatingItemId === variationItemId)}
         errorMessage={variationError}
@@ -502,16 +548,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  stepsWrap: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
+  },
+  list: {
+    flex: 1,
+  },
   listContent: {
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.xl,
   },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.borderStrong,
+  itemSpacer: {
+    height: spacing.md,
   },
   footerContent: {
-    gap: spacing.sm,
+    gap: spacing.lg,
+    paddingTop: spacing.lg,
     paddingBottom: spacing.sm,
   },
   centeredState: {

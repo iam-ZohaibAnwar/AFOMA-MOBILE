@@ -47,7 +47,7 @@ function formatPermissionStatus(
         case 'web':
           return 'Web not supported';
         case 'native_module':
-          return 'Rebuild required';
+          return 'Unavailable in this build';
         default:
           return 'Unavailable on this device';
       }

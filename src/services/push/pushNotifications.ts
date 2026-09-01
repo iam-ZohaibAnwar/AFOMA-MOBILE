@@ -48,10 +48,6 @@ export async function getPushDeviceId(): Promise<string> {
 function resolvePermissionStatus(
   permissions: Notifications.NotificationPermissionsStatus,
 ): NotificationPermissionStatus {
-  if (getPushUnsupportedReason() != null) {
-    return 'unsupported';
-  }
-
   if (!isPhysicalDevice()) {
     return 'unsupported';
   }
@@ -74,12 +70,16 @@ function resolvePermissionStatus(
 }
 
 export async function getNotificationPermissionStatus(): Promise<NotificationPermissionStatus> {
-  if (!isPushNativeAvailable() || getPushUnsupportedReason() != null || !isPhysicalDevice()) {
+  if (Platform.OS === 'web' || !isPhysicalDevice()) {
     return 'unsupported';
   }
 
-  const permissions = await Notifications.getPermissionsAsync();
-  return resolvePermissionStatus(permissions);
+  try {
+    const permissions = await Notifications.getPermissionsAsync();
+    return resolvePermissionStatus(permissions);
+  } catch {
+    return 'unsupported';
+  }
 }
 
 export async function openNotificationSettings(): Promise<void> {
@@ -123,29 +123,33 @@ async function ensureAndroidNotificationChannels(): Promise<void> {
 }
 
 export async function requestExpoPushPermissions(): Promise<boolean> {
-  if (!isPushNativeAvailable() || !isPhysicalDevice()) {
+  if (Platform.OS === 'web' || !isPhysicalDevice()) {
     return false;
   }
 
-  await ensureAndroidNotificationChannels();
+  try {
+    await ensureAndroidNotificationChannels();
 
-  const current = await Notifications.getPermissionsAsync();
-  if (current.granted || current.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL) {
-    return true;
+    const current = await Notifications.getPermissionsAsync();
+    if (current.granted || current.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL) {
+      return true;
+    }
+
+    const requested = await Notifications.requestPermissionsAsync({
+      ios: {
+        allowAlert: true,
+        allowBadge: true,
+        allowSound: true,
+      },
+    });
+
+    return (
+      requested.granted ||
+      requested.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL
+    );
+  } catch {
+    return false;
   }
-
-  const requested = await Notifications.requestPermissionsAsync({
-    ios: {
-      allowAlert: true,
-      allowBadge: true,
-      allowSound: true,
-    },
-  });
-
-  return (
-    requested.granted ||
-    requested.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL
-  );
 }
 
 export async function getExpoPushToken(): Promise<string | null> {

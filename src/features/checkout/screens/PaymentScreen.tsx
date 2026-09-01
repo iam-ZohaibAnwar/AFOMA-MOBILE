@@ -1,7 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
 import {
   ActivityIndicator,
-  InteractionManager,
   Platform,
   ScrollView,
   StyleSheet,
@@ -23,10 +22,9 @@ import { spacing, colors } from '../../../design-system';
 import { usePricing } from '../../../app/providers/PricingProvider';
 import {
   marketplaceScrollProps,
-  useMarketplaceFooterContentInset,
   useMarketplaceScrollHandler,
 } from '../../../app/navigation/marketplaceChrome';
-import { navigateToCartTab, navigateToHomeTab } from '../../../app/navigation/shoppingNavigation';
+import { navigateToCartTab } from '../../../app/navigation/shoppingNavigation';
 import type { RootStackParamList, ShoppingStackParamList } from '../../../app/navigation/types';
 import { useAuth } from '../../auth/hooks/useAuth';
 import { authReturnTo } from '../../auth/utils/authNavigation';
@@ -35,34 +33,41 @@ import { resolveAuthUserId } from '../../auth/utils/resolveAuthUserId';
 import { useCart } from '../../cart/hooks/useCart';
 import { useClearCartOnSuccessfulCheckout } from '../../cart/hooks/useClearCartOnSuccessfulCheckout';
 import { useAppliedCoupon } from '../../cart/hooks/useAppliedCoupon';
-import { getCartLineDisplayAmount, getCartSubtotalCad } from '../../cart/utils/cartPricing';
+import { getCartSubtotalCad } from '../../cart/utils/cartPricing';
 import { calculateCartTotals } from '../../cart/utils/cartTotals';
-import { getCartItemCount } from '../../cart/utils/cartUtils';
 import {
   isCartShippingPending,
   resolveCartShippingCad,
   resolveCartShippingOptions,
 } from '../../cart/utils/resolveCartShipping';
 import { resolveWebParityShippingTotal } from '../utils/buildCheckoutOrderPayload';
+import { CheckoutStepIndicator } from '../components/CheckoutStepIndicator';
+import { CheckoutProcessingLoader } from '../components/CheckoutProcessingLoader';
+import { PaymentEditCartLink } from '../components/PaymentEditCartLink';
 import { KorapayCheckoutWebView } from '../components/KorapayCheckoutWebView';
 import { OrderSuccessSheet } from '../components/OrderSuccessSheet';
-import { PayPalProcessingOverlay } from '../components/PayPalProcessingOverlay';
-import { PaymentAddressSection } from '../components/PaymentAddressSection';
 import type { PaymentMethodId } from '../components/PaymentMethodOption';
-import { PaymentMethodSheet } from '../components/PaymentMethodSheet';
-import { PaymentProductsSection } from '../components/PaymentProductsSection';
+import { PaymentMethodPicker, type PaymentMethodPickerItem } from '../components/PaymentMethodPicker';
+import { PaymentMethodPickerFooter } from '../components/PaymentMethodPickerFooter';
 import { PaymentScreenHeader } from '../components/PaymentScreenHeader';
 import { usesKorapayCheckout } from '../constants/checkoutPaymentMethods';
 import { useCheckoutShippingAddress } from '../hooks/useCheckoutShippingAddress';
 import {
   formatCheckoutPaymentFailure,
   getCheckoutPaymentErrorMessage,
+  isPayPalReturnRouteParams,
   useCheckoutPayment,
 } from '../hooks/useCheckoutPayment';
+
 import { useGuestCheckoutIdentity } from '../hooks/useGuestCheckoutIdentity';
 import type { CheckoutOrderParams } from '../utils/buildCheckoutOrderPayload';
 import { maskEmail } from '../utils/maskEmail';
 import { resolveCapturedOrderId } from '../utils/resolveCapturedOrderId';
+import {
+  resetStackAfterCheckoutToHome,
+  resetStackAfterCheckoutToOrderDetail,
+  resetStackAfterCheckoutToOrders,
+} from '../utils/checkoutCompletionNavigation';
 import { validateShippingAddress } from '../utils/validateShippingAddress';
 
 type Props = NativeStackScreenProps<ShoppingStackParamList, 'Payment'>;
@@ -73,36 +78,6 @@ type PaymentNavigationProp = CompositeNavigationProp<
 >;
 
 const PAYMENT_RETURN_TO = authReturnTo.payment();
-/** iOS needs native pay sheets / Safari to finish dismissing before a second RN Modal can show. */
-const IOS_SUCCESS_SHEET_DELAY_MS = 350;
-
-function scheduleOrderSuccessSheet(onReady: () => void): () => void {
-  let cancelled = false;
-
-  const show = () => {
-    if (!cancelled) {
-      onReady();
-    }
-  };
-
-  if (Platform.OS === 'ios') {
-    const interactionTask = InteractionManager.runAfterInteractions(() => {
-      requestAnimationFrame(() => {
-        setTimeout(show, IOS_SUCCESS_SHEET_DELAY_MS);
-      });
-    });
-
-    return () => {
-      cancelled = true;
-      interactionTask.cancel();
-    };
-  }
-
-  show();
-  return () => {
-    cancelled = true;
-  };
-}
 
 export function PaymentScreen(props: Props) {
   return <PaymentScreenBody {...props} />;
@@ -110,7 +85,6 @@ export function PaymentScreen(props: Props) {
 
 function PaymentScreenBody({ route }: Props) {
   const insets = useSafeAreaInsets();
-  const footerInset = useMarketplaceFooterContentInset();
   const onMarketplaceScroll = useMarketplaceScrollHandler();
   const navigation = useNavigation<PaymentNavigationProp>();
   const { user, isAuthenticated } = useAuth();
@@ -132,6 +106,7 @@ function PaymentScreenBody({ route }: Props) {
   const {
     isProcessing,
     isCapturing,
+    prepareStripeCardCheckout,
     orderError,
     captureError,
     checkoutNotice,
@@ -148,21 +123,16 @@ function PaymentScreenBody({ route }: Props) {
     retryCaptureForCreatedOrder,
     resumePayPalFromRouteParams,
     createdOrderId,
+    isPayPalBrowserPending,
+    isPayPalCapturing,
+    isPayPalResuming,
+    isStripeConfirming,
   } = checkoutPayment;
 
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethodId>('paypal');
   const [formNotice, setFormNotice] = useState<string | null>(null);
-  const [orderSuccessSheetReady, setOrderSuccessSheetReady] = useState(false);
-  const [orderSuccessSheetDismissed, setOrderSuccessSheetDismissed] = useState(false);
 
-  const showProcessingOverlay =
-    !captureResult &&
-    (checkoutPayment.isPayPalCapturing === true ||
-      checkoutPayment.isStripeInitializing === true ||
-      (isCapturing && !checkoutPayment.isPayPalCapturing && selectedPayment === 'stripe'));
-
-  const showOrderSuccess =
-    Boolean(captureResult) && orderSuccessSheetReady && !orderSuccessSheetDismissed;
+  const hasPayPalReturnParams = isPayPalReturnRouteParams(route.params);
 
   const paymentError = getCheckoutPaymentErrorMessage(
     orderError,
@@ -171,24 +141,35 @@ function PaymentScreenBody({ route }: Props) {
     Boolean(captureResult),
   );
 
+  const isConfirmingOrder =
+    isCapturing || isPayPalCapturing || isPayPalResuming || isStripeConfirming;
+
+  const showProcessingOverlay =
+    !paymentError &&
+    !captureResult &&
+    (hasPayPalReturnParams || isConfirmingOrder);
+
+  const processingVariant =
+    isPayPalCapturing || isPayPalResuming || hasPayPalReturnParams || selectedPayment === 'paypal'
+      ? 'paypal'
+      : selectedPayment === 'stripe' || selectedPayment === 'applepay'
+        ? 'stripe'
+        : 'default';
+
+  const hidePaymentFooter = Boolean(captureResult) || isConfirmingOrder || isPayPalBrowserPending;
+
+  const showOrderSuccess = Boolean(captureResult);
+
   useEffect(() => {
     void resumePayPalFromRouteParams(route.params);
   }, [resumePayPalFromRouteParams, route.params]);
 
   useEffect(() => {
-    if (!captureResult) {
-      setOrderSuccessSheetReady(false);
-      setOrderSuccessSheetDismissed(false);
+    if (!captureResult || !authUserId) {
       return;
     }
 
-    if (authUserId) {
-      void removeAppliedCoupon();
-    }
-
-    return scheduleOrderSuccessSheet(() => {
-      setOrderSuccessSheetReady(true);
-    });
+    void removeAppliedCoupon();
   }, [authUserId, captureResult, removeAppliedCoupon]);
 
   useClearCartOnSuccessfulCheckout(captureResult, cart, authUserId);
@@ -210,7 +191,6 @@ function PaymentScreenBody({ route }: Props) {
     }
   }, [selectedPayment, showKorapay]);
 
-  const itemCount = getCartItemCount(cart);
   const subtotalCad = useMemo(() => getCartSubtotalCad(cart, userInfo), [cart, userInfo]);
   const selectedShippingOptions = useMemo(() => resolveCartShippingOptions(cart), [cart]);
   const shippingCad = useMemo(
@@ -220,8 +200,9 @@ function PaymentScreenBody({ route }: Props) {
         totalShippingRate,
         fetchedShippingRate,
         selectedShippingOptions,
+        currencyRate,
       ),
-    [cart, fetchedShippingRate, selectedShippingOptions, totalShippingRate],
+    [cart, currencyRate, fetchedShippingRate, selectedShippingOptions, totalShippingRate],
   );
 
   const discountAmount = appliedCoupon?.discountAmount ?? 0;
@@ -246,30 +227,42 @@ function PaymentScreenBody({ route }: Props) {
   const payerEmail = shippingAddress.email || user?.email || checkoutIdentity?.email;
   const maskedPayerEmail = maskEmail(payerEmail);
 
-  const paymentMethods = useMemo(() => {
+  const paymentMethods = useMemo((): PaymentMethodPickerItem[] => {
     const stripeEnabled = !showKorapay && stripeConfigured;
     const korapayEnabled = showKorapay;
     const applePayEnabled = Platform.OS === 'ios' && applePaySupported && applePayBuildReady;
 
-    const methods: Array<{
-      id: PaymentMethodId;
-      label: string;
-      subtitle?: string;
-      disabled?: boolean;
-    }> = [
-      {
-        id: 'paypal',
-        label: 'PayPal',
-        subtitle: maskedPayerEmail ?? 'Pay with your PayPal account',
-      },
-    ];
+    const methods: PaymentMethodPickerItem[] = [];
+
+    if (Platform.OS === 'ios') {
+      methods.push({
+        id: 'applepay',
+        label: 'Apple Pay',
+        subtitle: applePayEnabled
+          ? 'Fast checkout on iPhone'
+          : applePayBuildReady
+            ? 'Apple Pay is not available on this device'
+            : 'Requires a development build',
+        disabled: !applePayEnabled,
+        icon: 'logo-apple',
+      });
+    }
+
+    methods.push({
+      id: 'paypal',
+      label: 'PayPal',
+      subtitle: maskedPayerEmail ?? 'Pay with your PayPal account',
+      icon: 'logo-paypal',
+      external: true,
+    });
 
     if (!showKorapay) {
       methods.push({
         id: 'stripe',
-        label: 'Debit / Credit Card',
-        subtitle: stripeConfigured ? 'Secure Stripe checkout' : 'Stripe is not configured',
+        label: 'Credit / Debit Card',
+        subtitle: stripeConfigured ? 'Visa, Mastercard, and more' : 'Stripe is not configured',
         disabled: !stripeEnabled,
+        icon: 'card-outline',
       });
     }
 
@@ -279,35 +272,46 @@ function PaymentScreenBody({ route }: Props) {
         label: 'Korapay',
         subtitle: 'Local payment methods for Nigeria and Africa',
         disabled: !korapayEnabled,
+        icon: 'wallet-outline',
+        external: true,
       });
     }
-
-    methods.push({
-      id: 'applepay',
-      label: 'Apple Pay',
-      subtitle:
-        Platform.OS !== 'ios'
-          ? 'Available on iOS only'
-          : applePayEnabled
-            ? 'Fast checkout on iPhone'
-            : applePayBuildReady
-              ? 'Apple Pay is not available on this device'
-              : 'Requires a development build',
-      disabled: !applePayEnabled,
-    });
 
     return methods;
   }, [applePayBuildReady, applePaySupported, maskedPayerEmail, showKorapay, stripeConfigured]);
 
-  const productEntries = useMemo(
-    () =>
-      entries.map((entry) => ({
-        id: entry.id,
-        line: entry.line,
-        displayLineTotal: getCartLineDisplayAmount(entry.line, cart, userInfo),
-      })),
-    [cart, entries, userInfo],
-  );
+  const defaultPaymentMethod = useMemo((): PaymentMethodId => {
+    const applePayOption = paymentMethods.find((method) => method.id === 'applepay');
+    if (applePayOption && !applePayOption.disabled) {
+      return 'applepay';
+    }
+
+    return 'paypal';
+  }, [paymentMethods]);
+
+  useEffect(() => {
+    setSelectedPayment((current) => {
+      const currentOption = paymentMethods.find((method) => method.id === current);
+      if (currentOption && !currentOption.disabled) {
+        return current;
+      }
+
+      return defaultPaymentMethod;
+    });
+  }, [defaultPaymentMethod, paymentMethods]);
+
+  const handleBackPress = () => {
+    if (captureResult) {
+      resetStackAfterCheckoutToHome(navigation);
+      return;
+    }
+
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigateToCartTab(navigation);
+    }
+  };
 
   const buildCheckoutParams = (identity: CheckoutOrderParams['identity']): CheckoutOrderParams => ({
     identity,
@@ -321,12 +325,52 @@ function PaymentScreenBody({ route }: Props) {
         totalShippingRate,
         shippingCad,
       ),
-      grandTotal: subtotalCad + shippingCad + totals.serviceChargeCad - discountAmount,
+      grandTotal:
+        subtotalCad +
+        resolveWebParityShippingTotal(fetchedShippingRate, totalShippingRate, shippingCad) +
+        totals.serviceChargeCad -
+        discountAmount / (currencyRate > 0 ? currencyRate : 1),
     },
     currency,
     conversionRate: currencyRate,
     couponCode: appliedCoupon?.couponCode,
   });
+
+  useEffect(() => {
+    if (
+      selectedPayment !== 'stripe' ||
+      !stripeConfigured ||
+      shippingPending ||
+      totals.displayTotal == null
+    ) {
+      return;
+    }
+
+    const identity = resolveIdentityForAddress(shippingAddress);
+    if (!identity) {
+      return;
+    }
+
+    void prepareStripeCardCheckout(buildCheckoutParams(identity), totals.displayTotal, currency);
+  }, [
+    selectedPayment,
+    stripeConfigured,
+    shippingPending,
+    totals.displayTotal,
+    currency,
+    shippingAddress,
+    resolveIdentityForAddress,
+    prepareStripeCardCheckout,
+    cart,
+    appliedCoupon,
+    selectedShippingOptions,
+    subtotalCad,
+    shippingCad,
+    discountAmount,
+    currencyRate,
+    fetchedShippingRate,
+    totalShippingRate,
+  ]);
 
   const resolveCheckoutIdentity = async () => {
     if (isAuthenticated && checkoutIdentity) {
@@ -393,19 +437,16 @@ function PaymentScreenBody({ route }: Props) {
   const capturedOrderId = useMemo(() => resolveCapturedOrderId(captureResult), [captureResult]);
 
   const handleTrackOrder = () => {
-    setOrderSuccessSheetDismissed(true);
-
     if (capturedOrderId) {
-      navigation.navigate('OrderDetail', { orderId: capturedOrderId });
+      resetStackAfterCheckoutToOrderDetail(navigation, capturedOrderId);
       return;
     }
 
-    navigation.navigate('Orders');
+    resetStackAfterCheckoutToOrders(navigation);
   };
 
   const handleContinueShopping = () => {
-    setOrderSuccessSheetDismissed(true);
-    navigateToHomeTab(navigation);
+    resetStackAfterCheckoutToHome(navigation);
   };
 
   const paymentFlowActive = Boolean(korapaySession);
@@ -455,31 +496,27 @@ function PaymentScreenBody({ route }: Props) {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <PaymentScreenHeader
-        onBack={() => {
-          if (captureResult) {
-            navigateToHomeTab(navigation);
-            return;
-          }
+      <PaymentScreenHeader onBack={handleBackPress} />
 
-          if (navigation.canGoBack()) {
-            navigation.goBack();
-          } else {
-            navigateToCartTab(navigation);
-          }
-        }}
-      />
+      <View style={styles.stepsWrap}>
+        <CheckoutStepIndicator currentStep="payment" />
+      </View>
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: footerInset + spacing.lg }]}
+        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         onScroll={onMarketplaceScroll}
         {...marketplaceScrollProps}
       >
-        <PaymentAddressSection address={shippingAddress} />
-        <PaymentProductsSection entries={productEntries} currency={currency} />
+        <PaymentEditCartLink onPress={() => navigateToCartTab(navigation)} />
+
+        <PaymentMethodPicker
+          methods={paymentMethods}
+          selectedMethod={selectedPayment}
+          onSelectMethod={setSelectedPayment}
+        />
 
         {shippingPending ? (
           <AppText variant="bodySmall" color="error">
@@ -491,7 +528,7 @@ function PaymentScreenBody({ route }: Props) {
             {guestError}
           </AppText>
         ) : null}
-        {paymentError ? (
+        {paymentError && !showProcessingOverlay ? (
           <AppText variant="bodySmall" color="error">
             {paymentError}
           </AppText>
@@ -499,9 +536,9 @@ function PaymentScreenBody({ route }: Props) {
         {createdOrderId && captureError && !captureResult ? (
           <AppButton
             label="Confirm PayPal payment"
-            variant="secondary"
+            variant="primary"
             onPress={() => void retryCaptureForCreatedOrder()}
-            loading={checkoutPayment.isPayPalCapturing}
+            loading={isPayPalCapturing}
           />
         ) : null}
         {formNotice ? (
@@ -511,25 +548,18 @@ function PaymentScreenBody({ route }: Props) {
         ) : null}
       </ScrollView>
 
-      {!captureResult ? (
-        <PaymentMethodSheet
-          methods={paymentMethods}
-          selectedMethod={selectedPayment}
-          onSelectMethod={setSelectedPayment}
+      {!hidePaymentFooter ? (
+        <PaymentMethodPickerFooter
           currency={currency}
-          itemCount={itemCount}
-          subTotal={totals.displaySubtotal}
-          shippingAmount={totals.displayShipping}
-          serviceChargeAmount={totals.displayServiceCharge}
           total={totals.displayTotal}
-          confirmDisabled={totals.displayTotal == null || paymentFlowActive}
-          confirmLoading={isProcessing || isEstablishingGuest}
-          onConfirm={() => void handleConfirmPayment()}
+          shippingPending={shippingPending}
+          onContinue={() => void handleConfirmPayment()}
+          continueDisabled={
+            totals.displayTotal == null || paymentFlowActive || isProcessing || isEstablishingGuest
+          }
           hasFooterTabs
         />
       ) : null}
-
-      <PayPalProcessingOverlay visible={showProcessingOverlay} />
 
       <KorapayCheckoutWebView
         visible={Boolean(korapaySession)}
@@ -537,6 +567,10 @@ function PaymentScreenBody({ route }: Props) {
         onComplete={() => void completeKorapayCheckout()}
         onCancel={cancelKorapayCheckout}
       />
+
+      {showProcessingOverlay ? (
+        <CheckoutProcessingLoader overlay variant={processingVariant} />
+      ) : null}
 
       <OrderSuccessSheet
         visible={showOrderSuccess}
@@ -550,23 +584,27 @@ function PaymentScreenBody({ route }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: colors.background,
   },
   scroll: {
     flex: 1,
   },
+  stepsWrap: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
+  },
   content: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    gap: 20,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+    gap: spacing.lg,
   },
   centeredState: {
     flex: 1,
     alignItems: 'stretch',
     justifyContent: 'center',
-    padding: 24,
-    backgroundColor: '#FFF7ED',
-    gap: 12,
+    padding: spacing.xl,
+    backgroundColor: colors.background,
+    gap: spacing.md,
   },
   centeredCopy: {
     textAlign: 'center',

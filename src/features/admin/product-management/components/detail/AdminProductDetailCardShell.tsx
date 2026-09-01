@@ -45,15 +45,30 @@ export function AdminProductDetailCardShell({
 export interface AdminProductDetailMetricRowProps {
   label: string;
   value: string;
+  layout?: 'inline' | 'stacked';
 }
 
-export function AdminProductDetailMetricRow({ label, value }: AdminProductDetailMetricRowProps) {
+export function AdminProductDetailMetricRow({
+  label,
+  value,
+  layout = 'inline',
+}: AdminProductDetailMetricRowProps) {
+  const isStacked = layout === 'stacked';
+
   return (
-    <View style={styles.metricRow}>
-      <AppText variant="bodySmall" color="textSecondary" style={styles.metricLabel}>
+    <View style={[styles.metricRow, isStacked && styles.metricRowStacked]}>
+      <AppText
+        variant="bodySmall"
+        color="textSecondary"
+        style={[styles.metricLabel, isStacked && styles.metricLabelStacked]}
+      >
         {label}
       </AppText>
-      <AppText variant="bodySmall" style={styles.metricValue} numberOfLines={3}>
+      <AppText
+        variant="bodySmall"
+        style={[styles.metricValue, isStacked && styles.metricValueStacked]}
+        numberOfLines={isStacked ? undefined : 3}
+      >
         {value}
       </AppText>
     </View>
@@ -110,12 +125,20 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingVertical: 2,
   },
+  metricRowStacked: {
+    flexDirection: 'column',
+    gap: spacing.xs,
+  },
   metricLabel: {
     flex: 1,
     flexShrink: 0,
     maxWidth: '52%',
     fontWeight: '600',
     lineHeight: 20,
+  },
+  metricLabelStacked: {
+    flex: undefined,
+    maxWidth: undefined,
   },
   metricValue: {
     flex: 1,
@@ -124,5 +147,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'right',
     lineHeight: 20,
+  },
+  metricValueStacked: {
+    flex: undefined,
+    textAlign: 'left',
+    lineHeight: 22,
   },
 });

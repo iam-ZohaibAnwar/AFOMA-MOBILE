@@ -1,7 +1,8 @@
 import { useCallback, useRef, useState } from 'react';
-import * as ImagePicker from 'expo-image-picker';
 
 import { getErrorMessage } from '../../../../services/api/errors';
+import { useImageUploadSourceSheet } from '../../../../hooks/useImageUploadSourceSheet';
+import { NO_IMAGE_CROP } from '../../../../utils/imageCropPresets';
 import {
   getAdminAiListingMinImages,
   mergeAdminAiPrefillImagesWithAltSuggestions,
@@ -15,9 +16,6 @@ import type {
   AdminProductAiPrefill,
 } from '../types/adminProductAiPrefill';
 import { buildAdminProductAiPrefill } from '../utils/adminProductAiListingMap';
-import {
-  isAllowedImageMimeType,
-} from '../../../seller/products/utils/productImageUpload';
 
 function createLocalImageId(): string {
   return `local-ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -29,6 +27,7 @@ export function useAdminProductAiListing(productType: AdminProductAiListingType,
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const imageUploadSheet = useImageUploadSourceSheet();
 
   const minImages = getAdminAiListingMinImages(productType);
 
@@ -43,39 +42,33 @@ export function useAdminProductAiListing(productType: AdminProductAiListingType,
   const addImagesFromPicker = useCallback(async () => {
     setError(null);
 
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      setError('Photo library permission is required to add product images.');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 1,
-      allowsMultipleSelection: true,
+    const { assets, error: pickError } = await imageUploadSheet.pickImages({
+      title: 'Add product photos',
+      subtitle: 'Choose up to 8 photos from your library. Batch upload skips crop.',
+      libraryLabel: 'Choose from library',
+      showCamera: false,
       selectionLimit: 8,
+      crop: NO_IMAGE_CROP,
     });
 
-    if (result.canceled || !result.assets?.length) {
+    if (pickError) {
+      setError(pickError);
       return;
     }
 
-    const nextImages = result.assets
-      .filter((asset) => isAllowedImageMimeType(asset.mimeType))
-      .map((asset, index) => ({
-        id: createLocalImageId() + index,
-        uri: asset.uri,
-        mimeType: asset.mimeType,
-        fileName: asset.fileName ?? `ai-photo-${Date.now()}-${index + 1}.jpg`,
-      }));
-
-    if (!nextImages.length) {
-      setError('Allowed image types: jpg, jpeg, png, gif, webp');
+    if (!assets.length) {
       return;
     }
+
+    const nextImages = assets.map((asset, index) => ({
+      id: createLocalImageId() + index,
+      uri: asset.uri,
+      mimeType: asset.mimeType,
+      fileName: asset.fileName ?? `ai-photo-${Date.now()}-${index + 1}.jpg`,
+    }));
 
     setImages((current) => [...current, ...nextImages].slice(0, 8));
-  }, []);
+  }, [imageUploadSheet]);
 
   const removeImage = useCallback((imageId: string) => {
     setImages((current) => current.filter((image) => image.id !== imageId));
@@ -165,5 +158,6 @@ export function useAdminProductAiListing(productType: AdminProductAiListingType,
     cancelGeneration,
     clearError,
     clearWarning,
+    imageUploadSheetProps: imageUploadSheet.sheetProps,
   };
 }

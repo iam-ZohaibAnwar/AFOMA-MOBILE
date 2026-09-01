@@ -22,7 +22,10 @@ import {
   applyShippingSelectionsToCart,
   getCartShippingTotal,
 } from '../utils/applyShippingToCart';
-import { isCartShippingPending } from '../utils/resolveCartShipping';
+import {
+  computePersistedShippingTotals,
+  isCartShippingPending,
+} from '../utils/resolveCartShipping';
 import {
   guestProfileToShippingAddress,
   resolveCartShippingContext,
@@ -127,23 +130,35 @@ export function useCartShipping({
   );
 
   const persistCartShipping = useCallback(
-    async (nextCart: CartMap, shippingTotal: number) => {
+    async (nextCart: CartMap, displayShippingTotal: number) => {
+      const currencyRate = userInfo.currencyRate ?? 1;
+      const { totalShippingRate, fetchedShippingRate } = computePersistedShippingTotals(
+        displayShippingTotal,
+        nextCart,
+        currencyRate,
+      );
+
       if (authUserId) {
         await persistCart(authUserId, nextCart, {
-          totalShippingRate: shippingTotal,
-          fetchedShippingRate: shippingTotal,
+          totalShippingRate,
+          fetchedShippingRate,
         });
       } else {
         await saveGuestCart(nextCart);
       }
 
-      setShippingTotals(shippingTotal, shippingTotal);
+      setShippingTotals(totalShippingRate, fetchedShippingRate);
     },
-    [authUserId, setShippingTotals],
+    [authUserId, setShippingTotals, userInfo.currencyRate],
   );
 
   useEffect(() => {
-    if (!shippingContext.canFetchRates || selectedOptions.length === 0 || isLoading) {
+    if (
+      !shippingContext.canFetchRates ||
+      selectedOptions.length === 0 ||
+      isLoading ||
+      isCartShippingPending(ratesCart, selectedOptions, groups)
+    ) {
       return;
     }
 
@@ -281,7 +296,7 @@ export function useCartShipping({
     !isLoading &&
     !error &&
     Object.keys(ratesCart).length > 0 &&
-    !isCartShippingPending(ratesCart, selectedOptions);
+    !isCartShippingPending(ratesCart, selectedOptions, groups);
 
   return {
     shippingAddress,

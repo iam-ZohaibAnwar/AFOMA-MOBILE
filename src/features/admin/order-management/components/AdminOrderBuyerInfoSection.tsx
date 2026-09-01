@@ -1,10 +1,9 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 
 import { AppButton } from '../../../../components/ui/AppButton';
 import { AppText } from '../../../../components/ui/AppText';
-import { colors, radius, spacing } from '../../../../design-system';
+import { colors, spacing } from '../../../../design-system';
 import { OrderDetailCollapsibleSection } from '../../../orders/components/OrderDetailCollapsibleSection';
 import {
   formatCustomerEmail,
@@ -12,10 +11,7 @@ import {
   formatShippingAddressLines,
 } from '../../../orders/utils/orderDisplay';
 import type { AdminOrderDetail } from '../types/adminOrderManagement';
-import {
-  getAdminCustomerInitials,
-  getAdminCustomerPhone,
-} from '../utils/adminOrderDetailDisplay';
+import { getAdminCustomerPhone } from '../utils/adminOrderDetailDisplay';
 
 interface AdminOrderBuyerInfoSectionProps {
   order: AdminOrderDetail;
@@ -44,7 +40,6 @@ export function AdminOrderBuyerInfoSection({
   const customerEmail = formatCustomerEmail(order.userInfo) ?? order.userInfo?.email ?? '—';
   const shippingLines = formatShippingAddressLines(order.userInfo);
   const phone = getAdminCustomerPhone(order);
-  const initials = getAdminCustomerInitials(customerName === '—' ? undefined : customerName);
 
   return (
     <OrderDetailCollapsibleSection
@@ -56,23 +51,13 @@ export function AdminOrderBuyerInfoSection({
         </AppText>
       }
     >
-      <View style={styles.profileRow}>
-        <View style={styles.avatar}>
-          <AppText variant="bodyMedium" style={styles.avatarText}>
-            {initials}
-          </AppText>
-        </View>
-        <View style={styles.profileCopy}>
-          <AppText variant="bodyMedium" style={styles.name}>
-            {customerName}
-          </AppText>
-          <View style={styles.emailRow}>
-            <Ionicons name="mail-outline" size={14} color={colors.textSecondary} />
-            <AppText variant="bodySmall" color="textSecondary" numberOfLines={1}>
-              {customerEmail}
-            </AppText>
-          </View>
-        </View>
+      <View style={styles.profileCopy}>
+        <AppText variant="bodyMedium" style={styles.name}>
+          {customerName}
+        </AppText>
+        <AppText variant="bodySmall" color="textSecondary" numberOfLines={1}>
+          {customerEmail}
+        </AppText>
       </View>
 
       <FieldBlock label="SHIPPING ADDRESS">
@@ -91,12 +76,9 @@ export function AdminOrderBuyerInfoSection({
 
       {phone ? (
         <FieldBlock label="CONTACT PHONE">
-          <View style={styles.phoneRow}>
-            <Ionicons name="call-outline" size={14} color={colors.textSecondary} />
-            <AppText variant="bodySmall" style={styles.bodyText}>
-              {phone}
-            </AppText>
-          </View>
+          <AppText variant="bodySmall" style={styles.bodyText}>
+            {phone}
+          </AppText>
         </FieldBlock>
       ) : null}
 
@@ -108,36 +90,12 @@ export function AdminOrderBuyerInfoSection({
 }
 
 const styles = StyleSheet.create({
-  profileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.pill,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    color: colors.textInverse,
-    fontWeight: '700',
-  },
   profileCopy: {
-    flex: 1,
     gap: spacing.xs,
-    minWidth: 0,
   },
   name: {
     color: colors.textPrimary,
     fontWeight: '700',
-  },
-  emailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
   },
   fieldBlock: {
     gap: spacing.xs,
@@ -150,10 +108,5 @@ const styles = StyleSheet.create({
   bodyText: {
     color: colors.textPrimary,
     lineHeight: 22,
-  },
-  phoneRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
   },
 });

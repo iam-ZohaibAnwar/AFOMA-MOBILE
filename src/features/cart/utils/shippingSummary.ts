@@ -2,6 +2,7 @@ import type {
   CheckoutShippingOption,
   SellerShippingOptionsGroup,
 } from '../../checkout/hooks/useCheckoutShippingRates';
+import { getCheapestShippingOption } from '../../checkout/utils/formatShippingOption';
 import { formatProductPrice } from '../../products/utils/productDisplay';
 
 export function getSelectedShippingOptions(
@@ -11,7 +12,10 @@ export function getSelectedShippingOptions(
   return groups
     .map((group) => {
       const selectedId = selectedOptionBySeller[group.sellerId];
-      return group.options.find((option) => option.id === selectedId) ?? group.options[0];
+      return (
+        group.options.find((option) => option.id === selectedId) ??
+        getCheapestShippingOption(group.options)
+      );
     })
     .filter(Boolean) as CheckoutShippingOption[];
 }

@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { colors } from '../../../design-system';
-import { stackHeaderTitleStyle } from '../../../app/navigation/stackHeaderStyles';
+import { stackHeaderLeftContainerStyle, stackHeaderTitleStyle } from '../../../app/navigation/stackHeaderStyles';
 import { StackHeaderBackButton } from '../../../app/navigation/StackHeaderBackButton';
 import { AdminDashboardScreen } from '../dashboard/screens/AdminDashboardScreen';
 import { AdminOrderDetailScreen } from '../order-management/screens/AdminOrderDetailScreen';
@@ -58,6 +58,7 @@ export function AdminNavigator() {
         headerTitleStyle: stackHeaderTitleStyle,
         headerShadowVisible: false,
         headerBackVisible: false,
+        headerLeftContainerStyle: stackHeaderLeftContainerStyle,
         headerLeft: (props) => (
           <StackHeaderBackButton canGoBack={props.canGoBack} tintColor={props.tintColor} />
         ),

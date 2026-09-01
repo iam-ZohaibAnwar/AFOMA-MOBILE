@@ -1,6 +1,7 @@
 import { getCartByUserId } from '../../../services/api/cartApi';
 import { loadGuestCart, saveGuestCart } from '../../../services/storage/cartStorage';
 import type { UserPricingInfo } from '../../../services/pricing/types';
+import type { CartMap } from '../../../services/types/cart';
 import type { Product } from '../../../services/types/product';
 import type { VariationAttributeSelection } from '../../products/utils/productVariations';
 import {
@@ -11,7 +12,7 @@ import {
 import { notifyCartChanged } from './cartRefresh';
 import { invalidateCartShipping } from './applyShippingToCart';
 import { persistCart } from './cartUtils';
-import { setCartMemoryCache } from './cartMemoryCache';
+import { getCartMemoryCache, setCartMemoryCache } from './cartMemoryCache';
 
 const ZERO_SHIPPING_RATES = {
   totalShippingRate: 0,
@@ -35,9 +36,12 @@ export async function addProductToCart(
   userInfo: UserPricingInfo,
   options: AddToCartOptions = {},
 ): Promise<PreparedCartLine> {
-  let currentCart = {};
+  let currentCart: CartMap = {};
 
-  if (userId) {
+  const cached = getCartMemoryCache(userId);
+  if (cached) {
+    currentCart = cached.cart;
+  } else if (userId) {
     const existingCartResponse = await getCartByUserId(userId);
     currentCart = existingCartResponse.cart ?? {};
   } else {
@@ -60,17 +64,17 @@ export async function addProductToCart(
     throw new AddToCartValidationError('Unable to add this item to your cart.');
   }
 
+  setCartMemoryCache(userId, {
+    cart: nextCart,
+    ...ZERO_SHIPPING_RATES,
+  });
+  notifyCartChanged();
+
   if (userId) {
     await persistCart(userId, nextCart, ZERO_SHIPPING_RATES);
   } else {
     await saveGuestCart(nextCart);
   }
 
-  setCartMemoryCache(userId, {
-    cart: nextCart,
-    ...ZERO_SHIPPING_RATES,
-  });
-
-  notifyCartChanged();
   return prepared;
 }

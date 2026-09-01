@@ -1,11 +1,11 @@
 import { useCallback, useMemo, useState } from 'react';
-import * as ImagePicker from 'expo-image-picker';
 
 import { getErrorMessage } from '../../../../services/api/errors';
+import { useImageUploadSourceSheet } from '../../../../hooks/useImageUploadSourceSheet';
+import { SQUARE_IMAGE_CROP } from '../../../../utils/imageCropPresets';
 import { uploadProductImage } from '../api/sellerProductsApi';
 import type { StandardProductImageEntry } from '../types/standardProductForm';
 import {
-  isAllowedImageMimeType,
   prepareListingImageForUpload,
 } from '../utils/productImageUpload';
 
@@ -16,6 +16,7 @@ function createImageId(): string {
 export function useProductImages(defaultAltText = '') {
   const [images, setImages] = useState<StandardProductImageEntry[]>([]);
   const [imageError, setImageError] = useState<string | null>(null);
+  const imageUploadSheet = useImageUploadSourceSheet();
 
   const uploadedImageCount = useMemo(
     () => images.filter((image) => image.imageUrl).length,
@@ -63,25 +64,20 @@ export function useProductImages(defaultAltText = '') {
   const addImageFromPicker = useCallback(async (altText?: string) => {
     setImageError(null);
 
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      setImageError('Photo library permission is required to add product images.');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 1,
-      allowsMultipleSelection: false,
+    const { asset, error } = await imageUploadSheet.pickImage({
+      title: 'Add product image',
+      subtitle: 'Choose a photo, crop it square, then upload.',
+      libraryLabel: 'Choose from library',
+      cameraLabel: 'Take photo',
+      crop: SQUARE_IMAGE_CROP,
     });
 
-    if (result.canceled || !result.assets?.[0]) {
+    if (error) {
+      setImageError(error);
       return;
     }
 
-    const asset = result.assets[0];
-    if (!isAllowedImageMimeType(asset.mimeType)) {
-      setImageError('Allowed image types: jpg, jpeg, png, gif, webp');
+    if (!asset) {
       return;
     }
 
@@ -126,7 +122,7 @@ export function useProductImages(defaultAltText = '') {
         ),
       );
     }
-  }, [defaultAltText]);
+  }, [defaultAltText, imageUploadSheet]);
 
   const removeImage = useCallback((imageId: string) => {
     setImages((current) => current.filter((image) => image.id !== imageId));
@@ -172,5 +168,6 @@ export function useProductImages(defaultAltText = '') {
     removeImage,
     moveImage,
     updateImageAltText,
+    imageUploadSheetProps: imageUploadSheet.sheetProps,
   };
 }

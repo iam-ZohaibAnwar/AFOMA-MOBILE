@@ -4,7 +4,7 @@ import {
   compareAtWithDiscountFallback,
 } from '../../../services/pricing/pricingUtils';
 import type { UserPricingInfo } from '../../../services/pricing/types';
-import type { Product, ProductStorePolicy, ProductVariation } from '../../../services/types/product';
+import type { Product, ProductSellerRef, ProductStorePolicy, ProductVariation } from '../../../services/types/product';
 import {
   areAllAttributesSelected,
   findMatchingVariation,
@@ -14,6 +14,21 @@ import {
   type SelectedAttributes,
   type VariationAttributeSelection,
 } from './productVariations';
+
+export function isPopulatedProductSellerRef(
+  seller: Product['seller'] | string | null | undefined,
+): seller is ProductSellerRef {
+  if (!seller || typeof seller === 'string') {
+    return false;
+  }
+
+  return Boolean(
+    seller.firstName?.trim() ||
+      seller.lastName?.trim() ||
+      seller.storeTitle?.trim() ||
+      seller.storeSlug?.trim(),
+  );
+}
 
 export function filterApprovedProducts(products: Product[]): Product[] {
   return products.filter(

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { MarketplaceChromeShell } from './src/app/navigation/marketplaceChrome';
@@ -21,19 +22,21 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <StripeAppProvider>
-        <AuthProvider>
-          <PushNotificationBootstrap />
-          <PricingProvider>
-            <CartProvider>
-              <MarketplaceChromeShell>
-                <RootNavigator />
-              </MarketplaceChromeShell>
-              <StatusBar style="dark" />
-            </CartProvider>
-          </PricingProvider>
-        </AuthProvider>
-      </StripeAppProvider>
+      <KeyboardProvider preload={false}>
+        <StripeAppProvider>
+          <AuthProvider>
+            <PushNotificationBootstrap />
+            <PricingProvider>
+              <CartProvider>
+                <MarketplaceChromeShell>
+                  <RootNavigator />
+                </MarketplaceChromeShell>
+                <StatusBar style="dark" />
+              </CartProvider>
+            </PricingProvider>
+          </AuthProvider>
+        </StripeAppProvider>
+      </KeyboardProvider>
     </SafeAreaProvider>
   );
 }

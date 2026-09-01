@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "526270633336",
+    "project_id": "afoma-377b9",
+    "storage_bucket": "afoma-377b9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:526270633336:android:3a1d1ae244ec6d9cf8648d",
+        "android_client_info": {
+          "package_name": "com.zohaibanwarsorganization.afoma"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDoBHPDlqEndljtvDz8gBgvH74zt5Wu_vc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,19 +1,23 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   StyleSheet,
   Switch,
   View,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorState } from '../../../components/ecommerce/ErrorState';
-import { SelectField } from '../../../components/forms';
+import {
+  KeyboardAwareFormScreen,
+  MetaDescriptionInput,
+  MetaKeywordsInput,
+  MetaTitleInput,
+  ProductDescriptionInput,
+  ProductNameInput,
+  SelectField,
+} from '../../../components/forms';
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppCard } from '../../../components/ui/AppCard';
 import { AppInput } from '../../../components/ui/AppInput';
@@ -42,7 +46,6 @@ const RETURN_TO = authReturnTo.sellerProductType();
 export function SellerCustomizableProductScreen({ navigation, route }: Props) {
   const productId = route.params?.productId;
   const isEditMode = Boolean(productId);
-  const insets = useSafeAreaInsets();
   const { isAuthorized, sellerId } = useRequireSeller(RETURN_TO);
   const { profile, isLoading: isProfileLoading } = useSellerProfile(isAuthorized ? sellerId : undefined);
   const canCreate = canSellerCreateProducts(profile?.profileSetup);
@@ -99,20 +102,14 @@ export function SellerCustomizableProductScreen({ navigation, route }: Props) {
       case 'basic':
         return (
           <View style={styles.stepContent}>
-            <AppInput tone="surface"
-              label="Product name *"
+            <ProductNameInput
               value={wizard.values.productName}
               onChangeText={(text) => wizard.updateField('productName', text)}
-              maxLength={120}
               error={wizard.fieldErrors.productName}
             />
-            <AppInput tone="surface"
-              label="Description *"
+            <ProductDescriptionInput
               value={wizard.values.description}
               onChangeText={(text) => wizard.updateField('description', text)}
-              multiline
-              numberOfLines={5}
-              style={styles.textArea}
               error={wizard.fieldErrors.description}
             />
           </View>
@@ -161,6 +158,7 @@ export function SellerCustomizableProductScreen({ navigation, route }: Props) {
             onMove={wizard.moveImage}
             onAltTextChange={wizard.updateImageAltText}
             isAdding={isAddingImage}
+            imageUploadSheetProps={wizard.imageUploadSheetProps}
           />
         );
       case 'shipping':
@@ -232,9 +230,18 @@ export function SellerCustomizableProductScreen({ navigation, route }: Props) {
               modalTitle="Currency"
             />
             <AppInput tone="surface" label="Commodity code" value={wizard.values.commodityCode} onChangeText={(text) => wizard.updateField('commodityCode', text)} />
-            <AppInput tone="surface" label="Meta title" value={wizard.values.metaTitle} onChangeText={(text) => wizard.updateField('metaTitle', text)} />
-            <AppInput tone="surface" label="Meta keywords" value={wizard.values.metaKeywords} onChangeText={(text) => wizard.updateField('metaKeywords', text)} />
-            <AppInput tone="surface" label="Meta description" value={wizard.values.metaDesc} onChangeText={(text) => wizard.updateField('metaDesc', text)} multiline numberOfLines={4} style={styles.textArea} />
+            <MetaTitleInput
+              value={wizard.values.metaTitle}
+              onChangeText={(text) => wizard.updateField('metaTitle', text)}
+            />
+            <MetaKeywordsInput
+              value={wizard.values.metaKeywords}
+              onChangeText={(text) => wizard.updateField('metaKeywords', text)}
+            />
+            <MetaDescriptionInput
+              value={wizard.values.metaDesc}
+              onChangeText={(text) => wizard.updateField('metaDesc', text)}
+            />
             <AppInput tone="surface" label="Discount (%)" value={wizard.values.discountCode} onChangeText={(text) => wizard.updateField('discountCode', text)} keyboardType="number-pad" />
           </View>
         );
@@ -276,8 +283,7 @@ export function SellerCustomizableProductScreen({ navigation, route }: Props) {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}>
+    <KeyboardAwareFormScreen contentContainerStyle={styles.content}>
         <View style={styles.progressRow}>
           {CUSTOMIZABLE_WIZARD_STEPS.map((step, index) => (
             <View key={step.id} style={[styles.progressDot, index <= wizard.stepIndex && styles.progressDotActive]} />
@@ -299,8 +305,7 @@ export function SellerCustomizableProductScreen({ navigation, route }: Props) {
             ) : null}
           </View>
         ) : null}
-      </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAwareFormScreen>
   );
 }
 

@@ -33,13 +33,14 @@ export function AdminProductDetailInfoCard({ product }: { product: Product }) {
         </AppText>
       }
     >
-      <AdminProductDetailMetricRow label="Category" value={categoryPath} />
-      <AdminProductDetailMetricRow label="Materials" value={getAdminProductMaterialsLabel(product)} />
+      <AdminProductDetailMetricRow label="Category" value={categoryPath} layout="stacked" />
+      <AdminProductDetailMetricRow label="Materials" value={getAdminProductMaterialsLabel(product)} layout="stacked" />
       <AdminProductDetailMetricRow
         label="Dimensions"
         value={formatAdminProductDimensionsCompact(product)}
+        layout="stacked"
       />
-      <AdminProductDetailMetricRow label="Weight" value={formatAdminProductWeightDisplay(product)} />
+      <AdminProductDetailMetricRow label="Weight" value={formatAdminProductWeightDisplay(product)} layout="stacked" />
 
       <View style={styles.descriptionBlock}>
         <AppText variant="caption" color="textMuted" style={styles.descriptionLabel}>

@@ -264,8 +264,8 @@ export function ProductDetailScreen({ route, navigation }: Props) {
 
 
 
-  const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [cartError, setCartError] = useState<string | null>(null);
+  const addToCartInFlightRef = useRef(false);
 
   const isSelectionInCart = useMemo(() => {
     if (!variationState.cartKey || !variationState.canAddToCart) {
@@ -448,68 +448,43 @@ export function ProductDetailScreen({ route, navigation }: Props) {
   );
 
   const handleAddToCart = async () => {
+    if (addToCartInFlightRef.current) {
+      return;
+    }
 
     if (!product || !variationState.canAddToCart) {
-
       if (variationState.selectionIncomplete) {
-
         setCartError('Select all product options before adding to cart.');
-
       } else if (variationState.outOfStock) {
-
         setCartError('This product is out of stock.');
-
       }
 
       return;
-
     }
-
-
 
     if (variationState.maxQuantity < 1) {
-
       setCartError('This product is out of stock.');
-
       return;
-
     }
-
-
 
     if (variationState.quantity > variationState.maxQuantity) {
-
       setCartError(`Maximum available quantity is ${variationState.maxQuantity}.`);
-
       return;
-
     }
 
-
-
-    setIsAddingToCart(true);
-
     setCartError(null);
+    triggerFlyToCartFeedback();
 
-
+    addToCartInFlightRef.current = true;
 
     try {
-
       const cartInput = buildAddToCartInputFromPdp({
-
         product,
-
         userInfo,
-
         quantity: variationState.quantity,
-
         selectedAttributes: variationState.selectedAttributes,
-
         cartKey: variationState.cartKey,
-
       });
-
-
 
       await addProductToCart(authUserId, product, userInfo, {
         quantity: cartInput.quantity,
@@ -518,23 +493,15 @@ export function ProductDetailScreen({ route, navigation }: Props) {
         maxQuantity: cartInput.maxQuantity,
         mergeMode: 'increment',
       });
-
-      triggerFlyToCartFeedback();
-
     } catch (err) {
-
       setCartError(
         err instanceof AddToCartValidationError
           ? err.message
           : getErrorMessage(err, 'Failed to add item to cart.'),
       );
-
     } finally {
-
-      setIsAddingToCart(false);
-
+      addToCartInFlightRef.current = false;
     }
-
   };
 
 
@@ -590,8 +557,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
   };
 
   const addButtonDisabled =
-
-    !product || !variationState.canAddToCart || isAddingToCart || variationState.disabledBySeller;
+    !product || !variationState.canAddToCart || variationState.disabledBySeller;
 
 
 
@@ -611,11 +577,7 @@ export function ProductDetailScreen({ route, navigation }: Props) {
 
   const dockButtonLabel = addButtonLabel;
   const dockButtonDisabled = isSelectionInCart ? false : addButtonDisabled;
-  const ctaMode: ProductDetailAddToCartCtaMode = isAddingToCart
-    ? 'loading'
-    : isSelectionInCart
-      ? 'viewCart'
-      : 'add';
+  const ctaMode: ProductDetailAddToCartCtaMode = isSelectionInCart ? 'viewCart' : 'add';
 
   const quantityDisabled =
 

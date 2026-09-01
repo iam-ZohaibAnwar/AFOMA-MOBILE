@@ -77,6 +77,8 @@ export interface CreateCheckoutOrderRequest {
   cancel_url?: string;
   client?: string;
   platform?: string;
+  /** Korapay hosted checkout return URL (HTTPS storefront /redirect-page). */
+  redirect_url?: string;
 }
 
 export interface CreateCheckoutOrderResponse {

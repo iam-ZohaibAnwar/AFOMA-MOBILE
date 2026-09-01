@@ -64,6 +64,7 @@ export function useAdminDownloadableProductWizard(
     removeImage,
     moveImage,
     updateImageAltText,
+    imageUploadSheetProps,
   } = useProductImages();
   const [downloadFile, setDownloadFile] = useState<DownloadableFileEntry | null>(
     cachedProduct?.downloadFile ?? null,
@@ -430,6 +431,7 @@ export function useAdminDownloadableProductWizard(
     removeImage,
     moveImage,
     updateImageAltText,
+    imageUploadSheetProps,
     saveProduct,
     reloadProduct: () => loadProduct('initial'),
     setSaveError,

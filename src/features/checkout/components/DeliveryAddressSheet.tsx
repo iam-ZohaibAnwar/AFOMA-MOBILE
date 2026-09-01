@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppText } from '../../../components/ui/AppText';
+import { useBottomSheetDismiss } from '../../../components/ui/bottomSheetDismiss';
 import { colors, radius, shadows, spacing } from '../../../design-system';
 import { DeliveryAddressRow } from './DeliveryAddressRow';
 import { SavedAddressForm } from './SavedAddressForm';
@@ -59,6 +60,7 @@ export function DeliveryAddressSheet({
   const { height: windowHeight } = useWindowDimensions();
   const resolvedUserId = userId ?? resolveAuthUserId(user);
   const sheetMaxHeight = Math.round(windowHeight * SHEET_HEIGHT_RATIO);
+  const { chromePanHandlers, scrollProps } = useBottomSheetDismiss(onClose);
   const [mode, setMode] = useState<SheetMode>('list');
   const [editingAddress, setEditingAddress] = useState<DeliveryAddressListItem | null>(null);
   const [formValues, setFormValues] = useState<SavedAddressFormValues>(emptySavedAddressFormValues());
@@ -193,9 +195,10 @@ export function DeliveryAddressSheet({
         <Pressable accessibilityRole="button" accessibilityLabel="Close" style={styles.backdrop} onPress={onClose} />
 
         <View style={[styles.sheet, { maxHeight: sheetMaxHeight, paddingBottom: insets.bottom + spacing.md }]}>
-          <View style={styles.handle} />
+          <View {...chromePanHandlers}>
+            <View style={styles.handle} />
 
-          <View style={styles.headerRow}>
+            <View style={styles.headerRow}>
             {mode === 'form' ? (
               <Pressable
                 accessibilityRole="button"
@@ -222,6 +225,7 @@ export function DeliveryAddressSheet({
               </AppText>
             </Pressable>
           </View>
+          </View>
 
           {mode === 'list' ? (
             <>
@@ -243,7 +247,7 @@ export function DeliveryAddressSheet({
                   showsVerticalScrollIndicator={false}
                   keyboardShouldPersistTaps="handled"
                   nestedScrollEnabled
-                  bounces
+                  {...scrollProps}
                 >
                   {addresses.length > 0 ? (
                     addresses.map((address) => (
@@ -333,7 +337,7 @@ export function DeliveryAddressSheet({
                 keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
                 showsVerticalScrollIndicator={false}
                 nestedScrollEnabled
-                bounces
+                {...scrollProps}
               >
                 <SavedAddressForm value={formValues} errors={formErrors} onChange={handleFormChange} disabled={isSaving} />
 

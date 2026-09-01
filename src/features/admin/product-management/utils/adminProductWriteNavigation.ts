@@ -59,6 +59,10 @@ export function navigateToAdminDuplicatedProductEdit(
   return navigateToAdminProductEditById(navigation, product._id, product.productType);
 }
 
+export function navigateToAdminProductListAfterVariations(navigation: AdminNavigation): void {
+  navigation.navigate('AdminProductManagement');
+}
+
 export function navigateToAdminCustomizableVariations(
   navigation: AdminNavigation,
   productId: string,

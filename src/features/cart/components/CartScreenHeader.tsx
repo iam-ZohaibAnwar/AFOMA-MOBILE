@@ -6,16 +6,29 @@ import { colors, spacing } from '../../../design-system';
 
 export interface CartScreenHeaderProps {
   onBack?: () => void;
+  itemCount?: number;
 }
 
-export function CartScreenHeader({ onBack }: CartScreenHeaderProps) {
+export function CartScreenHeader({ onBack, itemCount }: CartScreenHeaderProps) {
+  const subtitle =
+    typeof itemCount === 'number'
+      ? `${itemCount} ${itemCount === 1 ? 'item' : 'items'}`
+      : null;
+
   return (
     <View style={styles.header}>
       <HeaderBackButton onPress={onBack} />
 
-      <AppText variant="h3" style={styles.title}>
-        My Cart
-      </AppText>
+      <View style={styles.titleBlock}>
+        <AppText variant="h3" style={styles.title}>
+          Cart
+        </AppText>
+        {subtitle ? (
+          <AppText variant="bodySmall" color="textSecondary">
+            {subtitle}
+          </AppText>
+        ) : null}
+      </View>
 
       <View style={styles.sideSpacer} />
     </View>
@@ -30,12 +43,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
   },
+  titleBlock: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
   title: {
     color: colors.textPrimary,
     fontWeight: '700',
   },
   sideSpacer: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
   },
 });

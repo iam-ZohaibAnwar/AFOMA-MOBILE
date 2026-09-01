@@ -21,6 +21,7 @@ import { AppButton } from '../../../components/ui/AppButton';
 import { AppCard } from '../../../components/ui/AppCard';
 import { AppInput } from '../../../components/ui/AppInput';
 import { AppText } from '../../../components/ui/AppText';
+import { ImageUploadSourceSheet } from '../../../components/ui/ImageUploadSourceSheet';
 import { colors, spacing } from '../../../design-system';
 import { AccountGenderSelector } from '../../account/components/AccountGenderSelector';
 import type { SellerStackParamList } from '../../../app/navigation/sellerTypes';
@@ -70,7 +71,8 @@ export function SellerSetupSectionScreen({ route, navigation }: Props) {
   );
   const { initialValues, isSaving, saveError, saveSuccessMessage, saveSection, setSaveError } =
     useSellerSetupSectionSave(sellerId, section, profile, applyProfileUpdate);
-  const { isUploading, uploadError, pickAndUpload, clearUploadError } = useSellerSetupImageUpload();
+  const { isUploading, uploadError, pickAndUpload, clearUploadError, imageUploadSheetProps } =
+    useSellerSetupImageUpload();
 
   const [values, setValues] = useState(initialValues);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -437,6 +439,7 @@ export function SellerSetupSectionScreen({ route, navigation }: Props) {
   };
 
   return (
+    <>
     <KeyboardAwareFormScreen
       scrollRef={scrollRef}
       formControls={formControls}
@@ -464,6 +467,9 @@ export function SellerSetupSectionScreen({ route, navigation }: Props) {
         fullWidth
       />
     </KeyboardAwareFormScreen>
+
+    <ImageUploadSourceSheet {...imageUploadSheetProps} />
+    </>
   );
 }
 

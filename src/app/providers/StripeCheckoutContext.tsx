@@ -23,6 +23,11 @@ export interface StripeCheckoutActions {
     error?: StripeError;
     paymentIntent?: PaymentIntent;
   }>;
+  retrievePaymentIntent: (
+    clientSecret: string,
+  ) => ReturnType<
+    ReturnType<typeof import('@stripe/stripe-react-native').useStripe>['retrievePaymentIntent']
+  >;
   isPlatformPaySupported: (
     params?: Parameters<
       ReturnType<

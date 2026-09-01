@@ -1,14 +1,15 @@
 import { useCallback, useMemo } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { CountryStateFields, SelectField } from '../../../../components/forms';
+import { CountryStateFields, DateField, KeyboardAwareFormScreen, SelectField } from '../../../../components/forms';
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
 import { AppButton } from '../../../../components/ui/AppButton';
 import { AppCard } from '../../../../components/ui/AppCard';
 import { AppInput } from '../../../../components/ui/AppInput';
 import { AppText } from '../../../../components/ui/AppText';
+import { ImageUploadSourceSheet } from '../../../../components/ui/ImageUploadSourceSheet';
 import { colors, spacing } from '../../../../design-system';
 import { createCountryStateSelection } from '../../../../utils/regionOptions';
 import { useAuth } from '../../../auth/hooks/useAuth';
@@ -62,6 +63,11 @@ export function AdminUserFormScreen({ navigation, route }: Props) {
       return;
     }
 
+    if (isEditMode) {
+      navigation.goBack();
+      return;
+    }
+
     navigation.replace('AdminUserDetail', {
       userId: savedId,
       initialUser: saved ?? initialUser,
@@ -97,16 +103,8 @@ export function AdminUserFormScreen({ navigation, route }: Props) {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.screen}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={insets.top}
-    >
-      <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
+    <>
+    <KeyboardAwareFormScreen contentContainerStyle={styles.content}>
         {isEditMode && form.isHydrating ? (
           <View style={styles.hydrationRow}>
             <ActivityIndicator size="small" color={colors.primary} />
@@ -182,13 +180,14 @@ export function AdminUserFormScreen({ navigation, route }: Props) {
                   keyboardType="phone-pad"
                   placeholder="+1234567890"
                 />
-                <AppInput
+                <DateField
                   tone="surface"
                   label="Date of birth"
                   value={form.values.dob}
-                  onChangeText={(value) => form.updateField('dob', value)}
+                  onChange={(value) => form.updateField('dob', value)}
                   error={form.fieldErrors.dob}
-                  placeholder="YYYY-MM-DD"
+                  placeholder="Pick a date"
+                  disabled={form.isSaving}
                 />
                 <AccountGenderSelector
                   tone="surface"
@@ -297,8 +296,10 @@ export function AdminUserFormScreen({ navigation, route }: Props) {
             </AppText>
           </View>
         )}
-      </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAwareFormScreen>
+
+    <ImageUploadSourceSheet {...form.imageUploadSheetProps} />
+    </>
   );
 }
 

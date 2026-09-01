@@ -47,6 +47,7 @@ export function useStandardProductWizard(sellerId?: string, productId?: string) 
     removeImage,
     moveImage,
     updateImageAltText,
+    imageUploadSheetProps,
   } = useProductImages();
   const [stepIndex, setStepIndex] = useState(0);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -353,6 +354,7 @@ export function useStandardProductWizard(sellerId?: string, productId?: string) 
     removeImage,
     moveImage,
     updateImageAltText,
+    imageUploadSheetProps,
     saveProduct,
     submitForReview,
     setSaveError,

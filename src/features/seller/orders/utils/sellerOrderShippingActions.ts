@@ -17,8 +17,7 @@ export function getSellerShippingActionFlags(order: SellerOrderDetail) {
     canDownloadLabel: Boolean(
       shipmentContext &&
         (shipmentContext.kind === 'freightcom' ||
-          (shipmentContext.kind === 'consignment' &&
-            getConsignmentDocument(shipmentContext.line, 'label')) ||
+          shipmentContext.kind === 'consignment' ||
           shipmentContext.kind === 'ngshipping'),
     ),
     canPrintPackingSlip: Boolean(

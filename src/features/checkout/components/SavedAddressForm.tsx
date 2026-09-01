@@ -14,6 +14,9 @@ interface SavedAddressFormProps {
   onChange: (field: SavedAddressFormField, nextValue: string) => void;
   disabled?: boolean;
   tone?: 'default' | 'surface';
+  hostedCountryStatePickers?: boolean;
+  onOpenCountryPicker?: () => void;
+  onOpenStatePicker?: () => void;
 }
 
 export function SavedAddressForm({
@@ -22,6 +25,9 @@ export function SavedAddressForm({
   onChange,
   disabled = false,
   tone = 'default',
+  hostedCountryStatePickers = false,
+  onOpenCountryPicker,
+  onOpenStatePicker,
 }: SavedAddressFormProps) {
   return (
     <View style={styles.container}>
@@ -78,6 +84,9 @@ export function SavedAddressForm({
         stateError={errors.state}
         disabled={disabled}
         required
+        hostedPickers={hostedCountryStatePickers}
+        onOpenCountryPicker={onOpenCountryPicker}
+        onOpenStatePicker={onOpenStatePicker}
       />
       <AppInput
         tone={tone}

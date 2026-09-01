@@ -1,6 +1,15 @@
-import { useEffect, useRef } from 'react';
-import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
-import { useHeaderHeight } from '@react-navigation/elements';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  FlatList,
+  StyleSheet,
+  View,
+  type LayoutChangeEvent,
+} from 'react-native';
+import {
+  KeyboardStickyView,
+  useKeyboardState,
+  useResizeMode,
+} from 'react-native-keyboard-controller';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -19,16 +28,20 @@ import { resolveChatUserId } from '../utils/resolveChatUserId';
 type Props = NativeStackScreenProps<ShoppingStackParamList, 'ChatThread'>;
 
 const CHAT_THREAD_RETURN_TO = authReturnTo.messages();
+const COMPOSER_FALLBACK_HEIGHT = 72;
 
 export function ChatThreadScreen({ route, navigation }: Props) {
+  useResizeMode();
+
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
   const listRef = useRef<FlatList>(null);
   const { user, role } = useAuth();
   const chatUserId = resolveChatUserId(user);
   const { isAuthorized } = useRequireAuth(CHAT_THREAD_RETURN_TO);
   const { chatId, receiverId } = route.params;
   const { chats } = useChatInbox(isAuthorized ? chatUserId : undefined);
+  const [composerHeight, setComposerHeight] = useState(COMPOSER_FALLBACK_HEIGHT);
+  const keyboardHeight = useKeyboardState((state) => state.height);
 
   const {
     title,
@@ -45,30 +58,48 @@ export function ChatThreadScreen({ route, navigation }: Props) {
     viewerRole: role ?? user?.userRole,
   });
 
+  const bottomInset = keyboardHeight > 0 ? keyboardHeight : insets.bottom;
+  const listBottomInset = composerHeight + bottomInset;
+
   useEffect(() => {
     navigation.setOptions({ title });
   }, [navigation, title]);
+
+  const scrollToLatestMessage = useCallback((animated: boolean) => {
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToEnd({ animated });
+    });
+  }, []);
 
   useEffect(() => {
     if (!hasLoadedOnce || messages.length === 0) {
       return;
     }
 
-    requestAnimationFrame(() => {
-      listRef.current?.scrollToEnd({ animated: true });
-    });
-  }, [hasLoadedOnce, messages.length]);
+    scrollToLatestMessage(true);
+  }, [hasLoadedOnce, messages.length, scrollToLatestMessage]);
+
+  useEffect(() => {
+    if (keyboardHeight <= 0 || messages.length === 0) {
+      return;
+    }
+
+    scrollToLatestMessage(true);
+  }, [keyboardHeight, messages.length, scrollToLatestMessage]);
+
+  const handleComposerLayout = useCallback((event: LayoutChangeEvent) => {
+    const nextHeight = Math.ceil(event.nativeEvent.layout.height);
+    if (nextHeight > 0) {
+      setComposerHeight(nextHeight);
+    }
+  }, []);
 
   if (!isAuthorized || !chatUserId) {
     return <View style={styles.screen} />;
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.screen}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}
-    >
+    <View style={styles.screen}>
       <FlatList
         ref={listRef}
         data={messages}
@@ -79,8 +110,10 @@ export function ChatThreadScreen({ route, navigation }: Props) {
         contentContainerStyle={[
           styles.messagesContent,
           messages.length === 0 ? styles.messagesEmpty : null,
-          { paddingBottom: spacing.md },
+          { paddingBottom: spacing.md + listBottomInset },
         ]}
+        keyboardDismissMode="interactive"
+        keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
           hasLoadedOnce ? (
             <View style={styles.emptyState}>
@@ -92,23 +125,31 @@ export function ChatThreadScreen({ route, navigation }: Props) {
         }
         onContentSizeChange={() => {
           if (messages.length > 0) {
-            listRef.current?.scrollToEnd({ animated: false });
+            scrollToLatestMessage(false);
           }
         }}
       />
 
-      {error ? (
-        <View style={styles.errorBanner}>
-          <AppText variant="caption" style={styles.errorText}>
-            {error}
-          </AppText>
-        </View>
-      ) : null}
+      <KeyboardStickyView offset={{ closed: 0, opened: 0 }}>
+        <View
+          onLayout={handleComposerLayout}
+          style={[
+            styles.composerWrap,
+            keyboardHeight <= 0 ? { paddingBottom: insets.bottom } : null,
+          ]}
+        >
+          {error ? (
+            <View style={styles.errorBanner}>
+              <AppText variant="caption" style={styles.errorText}>
+                {error}
+              </AppText>
+            </View>
+          ) : null}
 
-      <View style={{ paddingBottom: insets.bottom }}>
-        <ChatComposer onSend={sendMessage} isSending={isSending} />
-      </View>
-    </KeyboardAvoidingView>
+          <ChatComposer onSend={sendMessage} isSending={isSending} />
+        </View>
+      </KeyboardStickyView>
+    </View>
   );
 }
 
@@ -131,6 +172,9 @@ const styles = StyleSheet.create({
   emptyText: {
     color: colors.textMuted,
     textAlign: 'center',
+  },
+  composerWrap: {
+    backgroundColor: colors.background,
   },
   errorBanner: {
     paddingHorizontal: spacing.lg,

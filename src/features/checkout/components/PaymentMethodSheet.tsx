@@ -23,6 +23,7 @@ export interface PaymentMethodSheetProps extends CartOrderSummaryProps {
   selectedMethod: PaymentMethodId;
   onSelectMethod: (id: PaymentMethodId) => void;
   confirmLabel?: string;
+  confirmLoadingLabel?: string;
   confirmDisabled?: boolean;
   confirmLoading?: boolean;
   onConfirm: () => void;
@@ -88,6 +89,7 @@ export function PaymentMethodSheet({
   selectedMethod,
   onSelectMethod,
   confirmLabel = 'Confirm Payment',
+  confirmLoadingLabel = 'One moment…',
   confirmDisabled,
   confirmLoading,
   onConfirm,
@@ -166,7 +168,7 @@ export function PaymentMethodSheet({
       ) : null}
 
       <AppButton
-        label={confirmLoading ? 'Processing...' : confirmLabel}
+        label={confirmLoading ? confirmLoadingLabel : confirmLabel}
         fullWidth
         size="lg"
         shape="pill"

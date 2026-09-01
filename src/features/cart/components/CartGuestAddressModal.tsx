@@ -1,18 +1,22 @@
+import { useEffect, useMemo, useState } from 'react';
+import { Modal, StyleSheet, View } from 'react-native';
 import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+  KeyboardAwareScrollView,
+  KeyboardStickyView,
+} from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { SelectOptionsSheet } from '../../../components/forms/SelectOptionsSheet';
 import { AppButton } from '../../../components/ui/AppButton';
 import { AppText } from '../../../components/ui/AppText';
-import { colors, radius, shadows, spacing } from '../../../design-system';
+import { HeaderBackButton } from '../../../components/ui/HeaderBackButton';
+import { colors, spacing } from '../../../design-system';
+import {
+  createCountryStateSelection,
+  getCountrySelectOptions,
+  getStateSelectOptions,
+  resolveCountryStateSelection,
+} from '../../../utils/regionOptions';
 import { ShippingAddressForm } from '../../checkout/components/ShippingAddressForm';
 import type { ShippingAddress, ShippingAddressField } from '../../checkout/types/shippingAddress';
 
@@ -27,8 +31,10 @@ export interface CartGuestAddressModalProps {
   onClose: () => void;
 }
 
-const SHEET_HEIGHT_RATIO = 0.88;
-const SHEET_CHROME_HEIGHT = 156;
+const FOOTER_BUTTON_HEIGHT = 56;
+const KEYBOARD_SCROLL_BOTTOM_OFFSET = FOOTER_BUTTON_HEIGHT + spacing.xl;
+
+type RegionPicker = 'country' | 'state';
 
 export function CartGuestAddressModal({
   visible,
@@ -41,149 +47,178 @@ export function CartGuestAddressModal({
   onClose,
 }: CartGuestAddressModalProps) {
   const insets = useSafeAreaInsets();
-  const { height: windowHeight } = useWindowDimensions();
-  const sheetMaxHeight = Math.round(windowHeight * SHEET_HEIGHT_RATIO);
-  const scrollMaxHeight = Math.max(
-    220,
-    sheetMaxHeight - SHEET_CHROME_HEIGHT - insets.bottom - spacing.md,
+  const [activeRegionPicker, setActiveRegionPicker] = useState<RegionPicker | null>(null);
+
+  const countryStateValue = useMemo(
+    () =>
+      resolveCountryStateSelection({
+        country: value.country,
+        state: value.state,
+        countryCode: value.countryCode,
+        stateCode: value.stateCode,
+      }),
+    [value.country, value.countryCode, value.state, value.stateCode],
   );
+
+  const countryOptions = useMemo(() => getCountrySelectOptions(), []);
+  const stateOptions = useMemo(
+    () => getStateSelectOptions(countryStateValue.countryCode),
+    [countryStateValue.countryCode],
+  );
+
+  useEffect(() => {
+    if (!visible) {
+      setActiveRegionPicker(null);
+    }
+  }, [visible]);
+
+  const applyCountryStateSelection = (selection: ReturnType<typeof createCountryStateSelection>) => {
+    onChange('country', selection.country);
+    onChange('state', selection.state);
+    onChange('countryCode', selection.countryCode);
+    onChange('stateCode', selection.stateCode);
+  };
+
+  const handleCountrySelect = (countryName: string) => {
+    applyCountryStateSelection(createCountryStateSelection(countryName));
+  };
+
+  const handleStateSelect = (stateName: string) => {
+    applyCountryStateSelection(
+      createCountryStateSelection(countryStateValue.country, stateName, {
+        countryCode: countryStateValue.countryCode,
+      }),
+    );
+  };
 
   if (!visible) {
     return null;
   }
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-      statusBarTranslucent
-      presentationStyle="overFullScreen"
-    >
-      <View style={styles.overlay}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Close" style={styles.backdrop} onPress={onClose} />
-
-        <View style={[styles.sheet, { maxHeight: sheetMaxHeight, paddingBottom: insets.bottom + spacing.md }]}>
-          <View style={styles.handle} />
-
+    <>
+      <Modal
+        visible={visible}
+        animationType="slide"
+        onRequestClose={onClose}
+        statusBarTranslucent
+        presentationStyle="fullScreen"
+      >
+        <View style={[styles.screen, { paddingTop: insets.top }]}>
           <View style={styles.headerRow}>
-            <AppText variant="h3" style={styles.title}>
+            <View style={styles.headerLeading}>
+              <HeaderBackButton onPress={onClose} title="Cart" />
+            </View>
+            <AppText variant="h3" style={styles.title} pointerEvents="none">
               Continue as guest
             </AppText>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-              onPress={onClose}
-              style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
-            >
-              <AppText variant="bodyMedium" style={styles.closeLabel}>
-                ✕
-              </AppText>
-            </Pressable>
           </View>
 
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={styles.formBody}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
+          <KeyboardAwareScrollView
+            style={styles.scrollArea}
+            contentContainerStyle={styles.content}
+            bottomOffset={KEYBOARD_SCROLL_BOTTOM_OFFSET}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            showsVerticalScrollIndicator={false}
+            nestedScrollEnabled
           >
-            <ScrollView
-              style={[styles.scrollArea, { maxHeight: scrollMaxHeight }]}
-              contentContainerStyle={styles.content}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-              showsVerticalScrollIndicator={false}
-              nestedScrollEnabled
-              bounces
-            >
-              <AppText variant="body" color="textSecondary">
-                Enter your delivery details to continue checkout.
-              </AppText>
+            <AppText variant="body" color="textSecondary">
+              Enter your delivery details to continue checkout.
+            </AppText>
 
-              <ShippingAddressForm value={value} errors={errors ?? {}} onChange={onChange} />
-
-              {errorMessage ? (
-                <AppText variant="bodySmall" color="error">
-                  {errorMessage}
-                </AppText>
-              ) : null}
-            </ScrollView>
-
-            <AppButton
-              label={isSubmitting ? 'Submitting...' : 'Continue'}
-              onPress={onSubmit}
-              disabled={isSubmitting}
-              fullWidth
-              size="lg"
-              shape="pill"
+            <ShippingAddressForm
+              value={value}
+              errors={errors ?? {}}
+              onChange={onChange}
+              hostedCountryStatePickers
+              onOpenCountryPicker={() => setActiveRegionPicker('country')}
+              onOpenStatePicker={() => setActiveRegionPicker('state')}
             />
-          </KeyboardAvoidingView>
+
+            {errorMessage ? (
+              <AppText variant="bodySmall" color="error">
+                {errorMessage}
+              </AppText>
+            ) : null}
+          </KeyboardAwareScrollView>
+
+          <KeyboardStickyView offset={{ closed: 0, opened: spacing.sm }}>
+            <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
+              <AppButton
+                label={isSubmitting ? 'Submitting...' : 'Continue'}
+                onPress={onSubmit}
+                disabled={isSubmitting}
+                fullWidth
+                size="lg"
+                shape="pill"
+              />
+            </View>
+          </KeyboardStickyView>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+
+      <SelectOptionsSheet
+        visible={activeRegionPicker === 'country'}
+        title="Country"
+        options={countryOptions}
+        value={countryStateValue.country}
+        onSelect={handleCountrySelect}
+        onClose={() => setActiveRegionPicker(null)}
+      />
+
+      <SelectOptionsSheet
+        visible={activeRegionPicker === 'state'}
+        title="State/Province"
+        options={stateOptions}
+        value={countryStateValue.state}
+        onSelect={handleStateSelect}
+        onClose={() => setActiveRegionPicker(null)}
+        emptyLabel={
+          countryStateValue.countryCode
+            ? 'No states available for this country'
+            : 'Select a country first'
+        }
+      />
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
+  screen: {
     flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(15, 23, 42, 0.35)',
-  },
-  backdrop: {
-    flex: 1,
-  },
-  sheet: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    gap: spacing.md,
-    ...shadows.floating,
-  },
-  handle: {
-    alignSelf: 'center',
-    width: 44,
-    height: 4,
-    borderRadius: radius.pill,
-    backgroundColor: colors.borderStrong,
-    marginBottom: spacing.xs,
   },
   headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  title: {
-    flex: 1,
-    fontWeight: '700',
-  },
-  closeButton: {
-    width: 32,
-    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceMuted,
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.sm,
+    minHeight: 44,
   },
-  closeLabel: {
+  headerLeading: {
+    position: 'absolute',
+    left: spacing.sm,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+  },
+  title: {
+    paddingHorizontal: spacing.xl,
     fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  formBody: {
-    gap: spacing.md,
+    textAlign: 'center',
   },
   scrollArea: {
-    flexGrow: 0,
+    flex: 1,
   },
   content: {
     gap: spacing.lg,
+    paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
   },
-  pressed: {
-    opacity: 0.88,
+  footer: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    backgroundColor: colors.surface,
   },
 });

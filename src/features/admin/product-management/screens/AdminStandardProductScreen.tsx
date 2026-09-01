@@ -1,18 +1,23 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   StyleSheet,
   Switch,
   View,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorState } from '../../../../components/ecommerce/ErrorState';
-import { SelectField } from '../../../../components/forms';
+import {
+  ExpandableProductNameText,
+  KeyboardAwareFormScreen,
+  MetaDescriptionInput,
+  MetaKeywordsInput,
+  MetaTitleInput,
+  ProductDescriptionInput,
+  ProductNameInput,
+  SelectField,
+} from '../../../../components/forms';
 import { AppButton } from '../../../../components/ui/AppButton';
 import { AppCard } from '../../../../components/ui/AppCard';
 import { AppInput } from '../../../../components/ui/AppInput';
@@ -41,7 +46,6 @@ export function AdminStandardProductScreen({ navigation, route }: Props) {
   const routeSellerId = route.params?.sellerId;
   const initialProduct = route.params?.initialProduct;
   const isEditMode = Boolean(productId);
-  const insets = useSafeAreaInsets();
   const { isAuthorized } = useRequireAdmin(RETURN_TO);
   const [sellerId, setSellerId] = useState(routeSellerId ?? '');
   const wizard = useAdminStandardProductWizard(sellerId, productId, initialProduct);
@@ -138,22 +142,14 @@ export function AdminStandardProductScreen({ navigation, route }: Props) {
               onRetry={() => void sellerPicker.reload()}
               disabled={isEditMode && Boolean(wizard.resolvedSellerId)}
             />
-            <AppInput tone="surface"
-              label="Product name *"
+            <ProductNameInput
               value={wizard.values.productName}
               onChangeText={(text) => wizard.updateField('productName', text)}
-              placeholder="Enter product name"
-              maxLength={120}
               error={wizard.fieldErrors.productName}
             />
-            <AppInput tone="surface"
-              label="Description *"
+            <ProductDescriptionInput
               value={wizard.values.description}
               onChangeText={(text) => wizard.updateField('description', text)}
-              placeholder="Describe the product"
-              multiline
-              numberOfLines={5}
-              style={styles.textArea}
               error={wizard.fieldErrors.description}
             />
           </View>
@@ -234,6 +230,7 @@ export function AdminStandardProductScreen({ navigation, route }: Props) {
             onMove={wizard.moveImage}
             onAltTextChange={wizard.updateImageAltText}
             isAdding={isAddingImage}
+            imageUploadSheetProps={wizard.imageUploadSheetProps}
           />
         );
 
@@ -374,26 +371,17 @@ export function AdminStandardProductScreen({ navigation, route }: Props) {
               onChangeText={(text) => wizard.updateField('commodityCode', text)}
               placeholder="Optional HS code"
             />
-            <AppInput tone="surface"
-              label="Meta title"
+            <MetaTitleInput
               value={wizard.values.metaTitle}
               onChangeText={(text) => wizard.updateField('metaTitle', text)}
-              placeholder="Optional SEO title"
             />
-            <AppInput tone="surface"
-              label="Meta keywords"
+            <MetaKeywordsInput
               value={wizard.values.metaKeywords}
               onChangeText={(text) => wizard.updateField('metaKeywords', text)}
-              placeholder="Optional keywords"
             />
-            <AppInput tone="surface"
-              label="Meta description"
+            <MetaDescriptionInput
               value={wizard.values.metaDesc}
               onChangeText={(text) => wizard.updateField('metaDesc', text)}
-              placeholder="Optional SEO description"
-              multiline
-              numberOfLines={4}
-              style={styles.textArea}
             />
             <AppInput tone="surface"
               label="Discount (%)"
@@ -411,9 +399,7 @@ export function AdminStandardProductScreen({ navigation, route }: Props) {
             <AppText variant="bodyMedium" style={styles.reviewTitle}>
               Review product
             </AppText>
-            <AppText variant="bodySmall" color="textSecondary">
-              Name: {wizard.values.productName || '—'}
-            </AppText>
+            <ExpandableProductNameText label="Name" value={wizard.values.productName} />
             <AppText variant="bodySmall" color="textSecondary">
               Category: {wizard.values.categoryId ? 'Selected' : '—'}
             </AppText>
@@ -467,15 +453,7 @@ export function AdminStandardProductScreen({ navigation, route }: Props) {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.screen}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
+    <KeyboardAwareFormScreen contentContainerStyle={styles.content}>
         <View style={styles.progressRow}>
           {STANDARD_WIZARD_STEPS.map((step, index) => (
             <View
@@ -506,8 +484,7 @@ export function AdminStandardProductScreen({ navigation, route }: Props) {
             ) : null}
           </View>
         ) : null}
-      </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAwareFormScreen>
   );
 }
 

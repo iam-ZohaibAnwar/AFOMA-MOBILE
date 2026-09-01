@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { colors } from '../../design-system';
+import { stackHeaderLeftContainerStyle } from './stackHeaderStyles';
 import { StackHeaderBackButton } from './StackHeaderBackButton';
 import type { SellerStackParamList } from './sellerTypes';
 import { SellerAccountScreen } from '../../features/seller/screens/SellerAccountScreen';
@@ -42,6 +43,7 @@ export function SellerNavigator() {
         headerTintColor: colors.textPrimary,
         headerShadowVisible: false,
         headerBackVisible: false,
+        headerLeftContainerStyle: stackHeaderLeftContainerStyle,
         headerLeft: (props) => (
           <StackHeaderBackButton canGoBack={props.canGoBack} tintColor={props.tintColor} />
         ),
