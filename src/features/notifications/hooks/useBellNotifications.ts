@@ -11,7 +11,10 @@ import {
 } from '../../../services/cache/screenCache';
 import { getErrorMessage } from '../../../services/api/errors';
 import type { BellNotification } from '../types';
-import { subscribeBellNotificationsRefresh } from '../utils/notificationRefresh';
+import {
+  notifyBellNotificationsRefresh,
+  subscribeBellNotificationsRefresh,
+} from '../utils/notificationRefresh';
 
 interface UseBellNotificationsOptions {
   userId?: string;
@@ -60,6 +63,7 @@ export function useBellNotifications({
       const nextNotifications = await getNotificationsByUserId(userId);
       setNotifications(nextNotifications);
       setBellNotificationsCache(userId, nextNotifications);
+      notifyBellNotificationsRefresh('cache');
     } catch (caught) {
       if (!hasExisting) {
         setNotifications([]);
@@ -91,10 +95,18 @@ export function useBellNotifications({
       return;
     }
 
-    return subscribeBellNotificationsRefresh(() => {
+    return subscribeBellNotificationsRefresh((mode) => {
+      if (mode === 'cache' && userId) {
+        const cachedNotifications = getBellNotificationsCache(userId);
+        if (cachedNotifications) {
+          setNotifications(cachedNotifications);
+          return;
+        }
+      }
+
       void refresh();
     });
-  }, [enabled, refresh]);
+  }, [enabled, refresh, userId]);
 
   const markAsRead = useCallback(
     async (notificationId: string) => {
@@ -108,6 +120,8 @@ export function useBellNotifications({
         if (userId) {
           setBellNotificationsCache(userId, next);
         }
+
+        notifyBellNotificationsRefresh('cache');
 
         return next;
       });
@@ -130,6 +144,8 @@ export function useBellNotifications({
         if (userId) {
           setBellNotificationsCache(userId, next);
         }
+
+        notifyBellNotificationsRefresh('cache');
 
         return next;
       });

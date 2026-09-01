@@ -1,4 +1,6 @@
-type RefreshListener = () => void;
+type RefreshListener = (mode: BellNotificationsRefreshMode) => void;
+
+export type BellNotificationsRefreshMode = 'cache' | 'remote';
 
 const listeners = new Set<RefreshListener>();
 
@@ -9,8 +11,10 @@ export function subscribeBellNotificationsRefresh(listener: RefreshListener): ()
   };
 }
 
-export function notifyBellNotificationsRefresh(): void {
+export function notifyBellNotificationsRefresh(
+  mode: BellNotificationsRefreshMode = 'remote',
+): void {
   listeners.forEach((listener) => {
-    listener();
+    listener(mode);
   });
 }
